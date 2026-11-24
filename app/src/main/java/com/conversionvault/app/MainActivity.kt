@@ -238,15 +238,7 @@ class MainActivity : AppCompatActivity() {
         webView.post { webView.evaluateJavascript(script, null) }
     }
 
-    private fun requestRequiredPermissions()
-        try {
-            ContextCompat.startForegroundService(
-                this,
-                Intent(this, ConversionForegroundService::class.java).apply {
-                    action = ConversionForegroundService.ACTION_START_SESSION
-                }
-            )
-        } catch (_: Exception) {} {
+    private fun requestRequiredPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 notificationPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
