@@ -70,12 +70,20 @@ class AndroidBridge(
         val infoSession = FFprobeKit.getMediaInformation(path)
         val info = infoSession.mediaInformation
         return if (info != null) {
-            val streams = info.streams ?: emptyList()
-            val vStream = streams.firstOrNull { it.type.equals("video", true) }
-            val aStream = streams.firstOrNull { it.type.equals("audio", true) }
-            val subCount = streams.count { it.type.equals("subtitle", true) }
+            val rawProps = info.allProperties ?: JSONObject()
+            val streamsArr = rawProps.optJSONArray("streams") ?: JSONArray()
+            var vObj: JSONObject? = null
+            var aObj: JSONObject? = null
+            var subCount = 0
+            for (i in 0 until streamsArr.length()) {
+                val s = streamsArr.optJSONObject(i) ?: continue
+                val cType = s.optString("codec_type", "")
+                if (cType.equals("video", true) && vObj == null) vObj = s
+                else if (cType.equals("audio", true) && aObj == null) aObj = s
+                else if (cType.equals("subtitle", true)) subCount++
+            }
 
-            val fpsStr = vStream?.averageFrameRate ?: vStream?.realFrameRate ?: ""
+            val fpsStr = vObj?.optString("avg_frame_rate", "")?.ifBlank { vObj.optString("r_frame_rate", "") } ?: ""
             val fpsVal = if (fpsStr.contains("/")) {
                 val p = fpsStr.split("/")
                 val num = p.getOrNull(0)?.toDoubleOrNull() ?: 0.0
@@ -85,7 +93,8 @@ class AndroidBridge(
                 fpsStr.toDoubleOrNull() ?: 0.0
             }
 
-            val tagsJson = info.tags
+            val fmtObj = rawProps.optJSONObject("format") ?: JSONObject()
+            val tagsJson = fmtObj.optJSONObject("tags")
             val tagKeys = mutableListOf<String>()
             var hasGps = false
             if (tagsJson != null) {
@@ -102,26 +111,26 @@ class AndroidBridge(
                 put("ok", true)
                 put("path", path)
                 put("filename", file.name)
-                put("format", info.format ?: "unknown")
-                put("durationSec", info.duration?.toDoubleOrNull() ?: 0.0)
+                put("format", info.format ?: fmtObj.optString("format_name", "unknown"))
+                put("durationSec", info.duration?.toDoubleOrNull() ?: fmtObj.optString("duration", "0").toDoubleOrNull() ?: 0.0)
                 put("sizeBytes", info.size?.toLongOrNull() ?: file.length())
-                put("bitrate", info.bitrate?.toLongOrNull() ?: 0L)
-                put("streamCount", streams.size)
+                put("bitrate", info.bitrate?.toLongOrNull() ?: fmtObj.optString("bit_rate", "0").toLongOrNull() ?: 0L)
+                put("streamCount", streamsArr.length())
                 put("subtitleCount", subCount)
-                put("videoCodec", vStream?.codec ?: "None")
-                put("videoProfile", vStream?.getStringProperty("profile") ?: "—")
-                put("pixFmt", vStream?.format ?: "—")
-                put("width", vStream?.width ?: 0)
-                put("height", vStream?.height ?: 0)
+                put("videoCodec", vObj?.optString("codec_name", "None")?.ifBlank { "None" } ?: "None")
+                put("videoProfile", vObj?.optString("profile", "—")?.ifBlank { "—" } ?: "—")
+                put("pixFmt", vObj?.optString("pix_fmt", "—")?.ifBlank { "—" } ?: "—")
+                put("width", vObj?.optInt("width", 0) ?: 0)
+                put("height", vObj?.optInt("height", 0) ?: 0)
                 put("fps", fpsVal)
-                put("colorSpace", vStream?.getStringProperty("color_space") ?: "—")
-                put("audioCodec", aStream?.codec ?: "None")
-                put("sampleRate", aStream?.sampleRate ?: "—")
-                put("channels", aStream?.getNumberProperty("channels")?.toInt() ?: 0)
-                put("audioBitrate", aStream?.bitrate?.toLongOrNull() ?: 0L)
+                put("colorSpace", vObj?.optString("color_space", "—")?.ifBlank { "—" } ?: "—")
+                put("audioCodec", aObj?.optString("codec_name", "None")?.ifBlank { "None" } ?: "None")
+                put("sampleRate", aObj?.optString("sample_rate", "—")?.ifBlank { "—" } ?: "—")
+                put("channels", aObj?.optInt("channels", 0) ?: 0)
+                put("audioBitrate", aObj?.optString("bit_rate", "0")?.toLongOrNull() ?: 0L)
                 put("hasGps", hasGps)
                 put("tagsSummary", if (tagKeys.isEmpty()) "No container metadata tags" else tagKeys.joinToString(" · "))
-                put("raw", info.allProperties ?: JSONObject())
+                put("raw", rawProps)
             }.toString()
         } else {
             JSONObject().apply {
@@ -495,7 +504,7 @@ class AndroidBridge(
         } catch (_: Exception) {
             try {
                 val pmIntent = context.packageManager.getLaunchIntentForPackage("com.google.android.documentsui")
-                    ?: Intent(android.provider.DocumentsContract.ACTION_BROWSE)
+                    ?: Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
                 pmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(pmIntent)
             } catch (_: Exception) {}
