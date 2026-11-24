@@ -63,6 +63,14 @@
     .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
     .toast.show{opacity:1;}
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -84,8 +92,8 @@
         <div class="sec-lbl"><span>1. Source Video</span><span id="lbl-range-note" style="color:var(--muted); font-size:9.5px;"></span></div>
         <div class="file-pick">
           <div style="min-width:0;">
-            <div class="fname" id="lbl-fname">porsche_tunnel_4k.mov</div>
-            <div class="fmeta" id="lbl-fmeta">142.8 MB · 3840×2160 · 45.6 Mbps · 25s</div>
+            <div class="fname" id="lbl-fname">No file selected</div>
+            <div class="fmeta" id="lbl-fmeta">No file selected yet — tap Pick File</div>
           </div>
           <button type="button" id="btn-pick" class="btn-sm">Change File</button>
           <input type="file" id="inp-file" class="hidden" accept="video/*">
@@ -137,7 +145,7 @@
           <button type="button" class="dest-pill" data-dest="source">Source Folder</button>
           <button type="button" class="dest-pill" data-dest="custom">Custom ↗</button>
         </div>
-        <div class="dest-path-bar" id="lbl-dest-path">/storage/emulated/0/ConversionVault/Target_Compressor/36mb_porsche_tunnel_4k.mov</div>
+        <div class="dest-path-bar" id="lbl-dest-path">Select a file to preview output path</div>
       </section>
     </main>
 
@@ -149,7 +157,7 @@
   <div class="toast" id="toast">Ready</div>
   <script>
     const state = {
-      fname: 'porsche_tunnel_4k.mov', sizeMB: 142.8, durSec: 25, srcRes: '3840×2160', srcVbrK: 45600, srcAud: 'PCM 2304k', srcCodec: 'HEVC 10-bit',
+      fname: 'No file selected', sizeMB: 142.8, durSec: 25, srcRes: '3840×2160', srcVbrK: 45600, srcAud: 'PCM 2304k', srcCodec: 'HEVC 10-bit',
       targetMB: 36, codec: 'libx265', scale: '1080', audK: 128
     };
     function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
@@ -241,8 +249,8 @@
     render();
     let destMode = 'vault';
     function updateDestPath() {
-      const base = destMode === 'vault' ? '/storage/emulated/0/ConversionVault/Target_Compressor/' : (destMode === 'source' ? '/Movies/AlightMotion/Converted/' : '/storage/emulated/0/Documents/Exports/');
-      document.getElementById('lbl-dest-path').textContent = base + '36mb_porsche_tunnel_4k.mov';
+      const base = destMode === 'vault' ? '/storage/emulated/0/ConversionVault/Target_Compressor/' : (destMode === 'source' ? '<Source Folder>/' : '<Custom Folder>/');
+      document.getElementById('lbl-dest-path').textContent = base + 'compressed_output.mp4';
     }
     document.getElementById('dest-pills').addEventListener('click', (e) => {
       const p = e.target.closest('.dest-pill');
@@ -252,6 +260,20 @@
       updateDestPath();
       if (destMode === 'custom') showToast('Pick custom output folder →');
     });
+
+    window.syncToolFromNative = function(fileObj, info) {
+      if (!fileObj || typeof state === 'undefined') return;
+      state.fname = (info && info.filename) || fileObj.name || state.fname;
+      if (info && info.sizeBytes && 'sizeMB' in state) state.sizeMB = Math.max(0.1, info.sizeBytes / (1024 * 1024));
+      if (info && info.durationSec && info.durationSec > 0) {
+        if ('durSec' in state) state.durSec = info.durationSec;
+        if ('dur' in state) state.dur = info.durationSec;
+      }
+      if (info && info.width && info.height && 'srcRes' in state) state.srcRes = info.width + '×' + info.height;
+      if (info && info.bitrate && 'srcVbrK' in state) state.srcVbrK = Math.round(info.bitrate / 1000);
+      if (typeof render === 'function') render();
+      if (typeof updateDestPath === 'function') updateDestPath();
+    };
   </script>
   <script src="vault-bridge.js"></script>
 </body>

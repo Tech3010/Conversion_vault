@@ -76,6 +76,14 @@
     .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
     .toast.show{opacity:1;}
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -97,16 +105,16 @@
         <div class="sec-lbl"><span>1. Target Media File</span></div>
         <div class="file-pick">
           <div style="min-width:0;">
-            <div class="fname" id="lbl-fname">gtr_night_ramp.mp4</div>
-            <div class="fmeta" id="lbl-fmeta">64.2 MB · GPS + Camera EXIF Detected</div>
+            <div class="fname" id="lbl-fname">No file selected</div>
+            <div class="fmeta" id="lbl-fmeta">No file selected yet — tap Pick File</div>
           </div>
           <button type="button" id="btn-pick" class="btn-sm">Change File</button>
           <input type="file" id="inp-file" class="hidden" accept="video/*,audio/*,image/*">
         </div>
         <div style="display:flex; flex-direction:column; gap:5px;">
-          <div class="tag-row"><span class="tag-k">GPS Location</span><span class="tag-v">+13.0827, +80.2707</span></div>
-          <div class="tag-row"><span class="tag-k">Device Model</span><span class="tag-v">Xiaomi POCO X7 Pro</span></div>
-          <div class="tag-row"><span class="tag-k">Creation Time</span><span class="tag-v">2026-11-22T18:14:09Z</span></div>
+          <div class="tag-row"><span class="tag-k">GPS Location</span><span class="tag-v" id="tag-gps">—</span></div>
+          <div class="tag-row"><span class="tag-k">Device Model</span><span class="tag-v" id="tag-model">—</span></div>
+          <div class="tag-row"><span class="tag-k">Creation Time</span><span class="tag-v" id="tag-time">—</span></div>
         </div>
       </section>
 
@@ -152,15 +160,15 @@
         </div>
         <div id="edit-hint" style="font-size:12px; color:var(--muted);">Toggle ON if you want to write new custom tags after wiping.</div>
         <div id="panel-edit" class="grid-2 hidden">
-          <div class="field"><label for="ed-title">Title</label><input type="text" id="ed-title" value="Night R35 Ramp"></div>
-          <div class="field"><label for="ed-artist">Artist / Author</label><input type="text" id="ed-artist" value="Conversion Vault"></div>
-          <div class="field"><label for="ed-album">Album / Project</label><input type="text" id="ed-album" value="Daily Rotation"></div>
-          <div class="field"><label for="ed-genre">Genre / Category</label><input type="text" id="ed-genre" value="Automotive"></div>
-          <div class="field"><label for="ed-gps">GPS Location (ISO 6709)</label><input type="text" id="ed-gps" placeholder="Leave blank or +13.0827+080.2707/"></div>
-          <div class="field"><label for="ed-device">Device Model</label><input type="text" id="ed-device" placeholder="e.g. POCO X7 Pro"></div>
-          <div class="field"><label for="ed-time">Creation Time (UTC)</label><input type="text" id="ed-time" placeholder="2026-11-22T18:14:09Z"></div>
-          <div class="field"><label for="ed-init">Initiator / App Tag</label><input type="text" id="ed-init" value="Conversion Vault"></div>
-          <div class="field full"><label for="ed-comment">Comment / Description</label><input type="text" id="ed-comment" value="Offline edited export"></div>
+          <div class="field"><label for="ed-title">Title</label><input type="text" id="ed-title" value="" placeholder="Optional title"></div>
+          <div class="field"><label for="ed-artist">Artist / Author</label><input type="text" id="ed-artist" value="" placeholder="Optional artist"></div>
+          <div class="field"><label for="ed-album">Album / Project</label><input type="text" id="ed-album" value="" placeholder="Optional album"></div>
+          <div class="field"><label for="ed-genre">Genre / Category</label><input type="text" id="ed-genre" value="" placeholder="Optional genre"></div>
+          <div class="field"><label for="ed-gps">GPS Location (ISO 6709)</label><input type="text" id="ed-gps" value="" placeholder="Leave blank or +13.0827+080.2707/"></div>
+          <div class="field"><label for="ed-device">Device Model</label><input type="text" id="ed-device" value="" placeholder="Optional device model"></div>
+          <div class="field"><label for="ed-time">Creation Time (UTC)</label><input type="text" id="ed-time" value="" placeholder="YYYY-MM-DDTHH:MM:SSZ"></div>
+          <div class="field"><label for="ed-init">Initiator / App Tag</label><input type="text" id="ed-init" value="" placeholder="Optional app/encoder tag"></div>
+          <div class="field full"><label for="ed-comment">Comment / Description</label><input type="text" id="ed-comment" value="" placeholder="Optional comment"></div>
         </div>
       </section>
 
@@ -179,7 +187,7 @@
           <button type="button" class="dest-pill" data-dest="source">Source Folder</button>
           <button type="button" class="dest-pill" data-dest="custom">Custom ↗</button>
         </div>
-        <div class="dest-path-bar" id="lbl-dest-path">/storage/emulated/0/ConversionVault/Metadata_Modifier/clean_gtr_night_ramp.mp4</div>
+        <div class="dest-path-bar" id="lbl-dest-path">Select a file to preview output path</div>
       </section>
     </main>
 
@@ -192,11 +200,28 @@
   <div class="toast" id="toast">Ready</div>
 
   <script>
-    const state = { fname: 'gtr_night_ramp.mp4', wipeMode: 'forensic', editOn: false };
-    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+    const state = {
+      fname: '',
+      inputPath: '',
+      sourceDir: '',
+      ext: 'mp4',
+      baseName: '',
+      wipeMode: 'forensic',
+      editOn: false,
+      destMode: 'vault',
+      customDir: ''
+    };
+    const VAULT_MOD_DIR = '/storage/emulated/0/ConversionVault/Metadata_Modifier';
 
-    function buildCmd() {
-      const f = state.fname;
+    function showToast(m) {
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.textContent = m;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function buildFlags() {
       let wipeFlags = '';
       if (state.wipeMode === 'forensic') {
         wipeFlags = '-map 0:v? -map 0:a? -map_metadata -1 -map_chapters -1 -fflags +bitexact -flags:v +bitexact -flags:a +bitexact -metadata encoder=';
@@ -214,23 +239,93 @@
           ['creation_time', 'ed-time'], ['encoder', 'ed-init'], ['comment', 'ed-comment']
         ];
         editFlags = pairs.map(([k, id]) => {
-          const val = document.getElementById(id).value.trim();
+          const val = (document.getElementById(id)?.value || '').trim().replace(/"/g, '');
           return val ? `-metadata ${k}="${val}"` : '';
         }).filter(Boolean).join(' ');
       }
+      return [wipeFlags, editFlags].filter(Boolean).join(' ');
+    }
 
-      if (!wipeFlags && !editFlags) return 'No wipe or edit selected yet.';
-      return `ffmpeg -y -i "${f}" -c copy ${[wipeFlags, editFlags].filter(Boolean).join(' ')} "mod_${f}"`;
+    function getOutputDir() {
+      if (state.destMode === 'source' && state.sourceDir) return state.sourceDir;
+      if (state.destMode === 'custom' && state.customDir) return state.customDir;
+      return VAULT_MOD_DIR;
+    }
+
+    function buildCmd() {
+      const flags = buildFlags();
+      if (!flags) return 'No wipe or edit selected yet.';
+      const f = state.fname || '<select_file>';
+      const outName = state.fname ? state.fname : '<output_file>';
+      return `ffmpeg -y -i "${f}" -c copy ${flags} "${outName}"`;
+    }
+
+    function updateDestPath() {
+      const el = document.getElementById('lbl-dest-path');
+      if (!el) return;
+      if (!state.fname) {
+        el.textContent = getOutputDir() + '/ (Select a file to preview)';
+        return;
+      }
+      const dir = getOutputDir().replace(/\/$/, '');
+      el.textContent = dir + '/' + state.fname + ' (auto _1 if exists)';
     }
 
     function render() {
       document.querySelectorAll('[data-wipe]').forEach(b => b.classList.toggle('active', b.getAttribute('data-wipe') === state.wipeMode));
       document.getElementById('panel-edit').classList.toggle('hidden', !state.editOn);
       document.getElementById('edit-hint').classList.toggle('hidden', state.editOn);
-      const hasAction = state.wipeMode !== 'none' || state.editOn;
-      document.getElementById('btn-run').disabled = !hasAction;
+      const flags = buildFlags();
+      const hasAction = Boolean(flags);
+      document.getElementById('btn-run').disabled = !hasAction || !state.fname;
       document.getElementById('cmd-box').textContent = (hasAction ? '$ ' : '') + buildCmd();
+      updateDestPath();
     }
+
+    window.applyMetadataFileFromNative = function(fileObj, probeInfo) {
+      if (!fileObj) return;
+      state.fname = (probeInfo && probeInfo.filename) || fileObj.name || '';
+      state.inputPath = (probeInfo && probeInfo.path) || fileObj.path || '';
+      const lastSlash = state.inputPath.lastIndexOf('/');
+      state.sourceDir = lastSlash > 0 ? state.inputPath.substring(0, lastSlash) : '';
+      const dot = state.fname.lastIndexOf('.');
+      state.baseName = dot > 0 ? state.fname.substring(0, dot) : state.fname;
+      state.ext = dot > 0 ? state.fname.substring(dot + 1).toLowerCase() : 'mp4';
+
+      const tags = (probeInfo && probeInfo.raw && probeInfo.raw.format && probeInfo.raw.format.tags) || {};
+      const gpsVal = tags.location || tags['location-eng'] || tags['com.apple.quicktime.location.ISO6709'] || (probeInfo && probeInfo.hasGps ? 'GPS Present' : 'None detected');
+      const modelVal = tags.model || tags['com.android.model'] || tags['com.apple.quicktime.model'] || tags.make || 'None detected';
+      const timeVal = tags.creation_time || tags.date || 'None detected';
+
+      const gEl = document.getElementById('tag-gps'); if (gEl) gEl.textContent = gpsVal;
+      const mEl = document.getElementById('tag-model'); if (mEl) mEl.textContent = modelVal;
+      const tEl = document.getElementById('tag-time'); if (tEl) tEl.textContent = timeVal;
+
+      render();
+    };
+
+    window.setCustomDestFromNative = function(folderPath) {
+      if (!folderPath) return;
+      state.customDir = folderPath;
+      state.destMode = 'custom';
+      document.querySelectorAll('.dest-pill').forEach(x => x.classList.toggle('active', x.getAttribute('data-dest') === 'custom'));
+      updateDestPath();
+      showToast('Custom save folder set');
+    };
+
+    window.getMetadataJobSpec = function() {
+      const flags = buildFlags();
+      if (!state.inputPath || !flags) return null;
+      return {
+        module: 'Metadata_Modifier',
+        mediaType: ['mp3','flac','opus','m4a','wav','ogg'].includes(state.ext) ? 'Audio' : (['jpg','jpeg','png','webp','avif'].includes(state.ext) ? 'Image' : 'Video'),
+        inputPath: state.inputPath,
+        outputDir: state.destMode === 'vault' ? '' : getOutputDir(),
+        outputBaseName: state.baseName,
+        outputExt: state.ext,
+        commandArgs: `-y -i {INPUT} -c copy ${flags} {OUTPUT}`
+      };
+    };
 
     document.getElementById('panel-wipe').addEventListener('click', (e) => {
       const b = e.target.closest('[data-wipe]');
@@ -241,34 +336,27 @@
       render();
     });
     document.getElementById('panel-edit').addEventListener('input', render);
-    document.getElementById('btn-pick').addEventListener('click', () => document.getElementById('inp-file').click());
-    document.getElementById('inp-file').addEventListener('change', function() {
-      if (this.files && this.files[0]) {
-        state.fname = this.files[0].name;
-        document.getElementById('lbl-fname').textContent = state.fname;
-        document.getElementById('lbl-fmeta').textContent = (this.files[0].size / (1024 * 1024)).toFixed(1) + ' MB · Loaded';
-        render();
-      }
-    });
-    document.getElementById('btn-copy').addEventListener('click', () => showToast('Copied FFmpeg metadata command'));
-    document.getElementById('btn-sh').addEventListener('click', () => showToast('Saved to /ConversionVault/SH_Scripts/metadata_tool.sh'));
-    document.getElementById('btn-fm').addEventListener('click', () => showToast('Opening /ConversionVault/ in File Manager →'));
-    document.getElementById('btn-run').addEventListener('click', () => showToast('Metadata updated & saved ✓'));
-    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
-    render();
-    let destMode = 'vault';
-    function updateDestPath() {
-      const base = destMode === 'vault' ? '/storage/emulated/0/ConversionVault/Metadata_Modifier/' : (destMode === 'source' ? '/Movies/AlightMotion/Converted/' : '/storage/emulated/0/Documents/Exports/');
-      document.getElementById('lbl-dest-path').textContent = base + 'clean_gtr_night_ramp.mp4';
-    }
+
     document.getElementById('dest-pills').addEventListener('click', (e) => {
       const p = e.target.closest('.dest-pill');
       if (!p) return;
-      destMode = p.getAttribute('data-dest');
-      document.querySelectorAll('.dest-pill').forEach(x => x.classList.toggle('active', x.getAttribute('data-dest') === destMode));
+      state.destMode = p.getAttribute('data-dest');
+      document.querySelectorAll('.dest-pill').forEach(x => x.classList.toggle('active', x.getAttribute('data-dest') === state.destMode));
       updateDestPath();
-      if (destMode === 'custom') showToast('Pick custom output folder →');
+      if (state.destMode === 'custom' && window.AndroidBridge && window.AndroidBridge.pickFolder) {
+        window.__pickingCustomDest = true;
+        window.AndroidBridge.pickFolder();
+      }
     });
+
+    document.getElementById('btn-copy').addEventListener('click', () => {
+      if (window.VaultBridge && window.VaultBridge.copyText) {
+        window.VaultBridge.copyText(buildCmd(), 'Copied FFmpeg metadata command');
+      } else {
+        showToast('Copied FFmpeg metadata command');
+      }
+    });
+    render();
   </script>
   <script src="vault-bridge.js"></script>
 </body>

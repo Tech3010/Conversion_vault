@@ -208,6 +208,14 @@
     }
     .toast.show { opacity: 1; }
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -285,7 +293,7 @@
         <div class="field">
           <label for="inp-fname">Output Filename</label>
           <div class="fname-row">
-            <input type="text" id="inp-fname" value="gtr_night_ramp_reels" placeholder="Enter output file name...">
+            <input type="text" id="inp-fname" value="" placeholder="Enter output file name...">
             <span class="ext-badge">.mp4</span>
           </div>
         </div>
@@ -314,7 +322,7 @@
 
         <div class="field hidden" id="sub-name-wrap">
           <label for="inp-sub-name">Custom Subfolder Name</label>
-          <input type="text" id="inp-sub-name" value="Night_GTR_Edit" placeholder="Enter subfolder name...">
+          <input type="text" id="inp-sub-name" value="Conversion_01" placeholder="Enter subfolder name...">
         </div>
 
         <div class="toggle-row">
@@ -363,9 +371,9 @@
     const state = {
       mode: 'vault',
       customPath: '/storage/emulated/0/Documents/Exports/',
-      fileName: 'gtr_night_ramp_reels',
+      fileName: '',
       subMode: 'none',
-      customSubName: 'Night_GTR_Edit',
+      customSubName: 'Conversion_01',
       separate: true,
       conflict: 'rename'
     };

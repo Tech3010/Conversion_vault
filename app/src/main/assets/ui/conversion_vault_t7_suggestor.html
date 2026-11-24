@@ -85,6 +85,14 @@
     .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
     .toast.show{opacity:1;}
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -110,7 +118,7 @@
         </div>
         <div class="chip-wrap" id="grp-device">
           <button type="button" class="s-chip is-none" data-val="none">None / Skip</button>
-          <button type="button" class="s-chip active" data-val="poco">This Phone (POCO X7 Pro)</button>
+          <button type="button" class="s-chip active" data-val="poco">This Device (Detecting...)</button>
           <button type="button" class="s-chip" data-val="android">Android Phone (General)</button>
           <button type="button" class="s-chip" data-val="apple">iPhone / iPad</button>
           <button type="button" class="s-chip" data-val="pc">Mac / Windows PC</button>
@@ -168,177 +176,303 @@
   </div>
   <div class="toast" id="toast">Ready</div>
   <script>
-    const state = { device: 'poco', purpose: 'reels', metric: 'balanced' };
-    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+    const state = { device: 'this_device', purpose: 'reels', metric: 'balanced' };
+    let deviceTel = null;
+
+    function loadDeviceTelemetry() {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getDeviceTelemetry === 'function') {
+          deviceTel = JSON.parse(window.AndroidBridge.getDeviceTelemetry());
+          const chip = document.getElementById('chip-this-device');
+          if (chip && deviceTel && deviceTel.model) {
+            chip.textContent = 'This Device (' + deviceTel.model + ')';
+          }
+        }
+      } catch (_) {}
+    }
+
+    function showToast(m) {
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.textContent = m;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    // 24 real-world FFmpeg profiles scored dynamically across all 640 (10 devices x 8 purposes x 8 metrics) combinations
+    const PROFILES = [
+      // VIDEO PROFILES
+      { id:'h264_reels_60', kind:'video', name:'H.264 60fps Reels HQ', cont:'.mp4', codec:'h264_8',
+        spec:'.mp4 · libx264 · yuv420p · CRF 18 · Max 12M · AAC 192k · +faststart',
+        quality:86, size:68, speed:80, compat:98, edit:65,
+        purposes:{ reels:100, share:78, stream:82, archive:65, edit:60, none:90 },
+        why:'Sweet spot for Instagram Reels, YouTube Shorts, and smooth 60fps playback without platform re-compression artifacts.' },
+      { id:'h264_master_16', kind:'video', name:'H.264 8-Bit Master (CRF 16)', cont:'.mp4', codec:'h264_8',
+        spec:'.mp4 · libx264 · yuv420p · CRF 16 · slow · AAC 320k · +faststart',
+        quality:96, size:52, speed:55, compat:96, edit:72,
+        purposes:{ reels:88, archive:90, stream:85, edit:75, share:50, none:84 },
+        why:'Visually lossless 8-bit H.264 that plays on virtually every phone, TV, browser, and computer.' },
+      { id:'h264_compact_share', kind:'video', name:'H.264 Fast Share (CRF 23)', cont:'.mp4', codec:'h264_8',
+        spec:'.mp4 · libx264 · yuv420p · CRF 23 · Max 4M · AAC 128k · +faststart',
+        quality:74, size:88, speed:88, compat:99, edit:50,
+        purposes:{ share:100, reels:78, stream:70, archive:55, edit:40, none:78 },
+        why:'Small, fast-uploading MP4 engineered for WhatsApp, Telegram, Discord, and instant mobile sharing.' },
+      { id:'h264_720p_safe', kind:'video', name:'720p30 Universal Safe MP4', cont:'.mp4', codec:'h264_8',
+        spec:'.mp4 · libx264 · Main@L3.1 · 720p30 · CRF 22 · AAC 128k · +faststart',
+        quality:64, size:90, speed:94, compat:100, edit:45,
+        purposes:{ share:86, stream:76, reels:60, archive:48, edit:35, none:72 },
+        why:'Guaranteed playback on older Android phones, car head units, projectors, and USB TV ports.' },
+      { id:'h264_ultrafast', kind:'video', name:'H.264 Fast Battery-Saver', cont:'.mp4', codec:'h264_8',
+        spec:'.mp4 · libx264 · yuv420p · preset veryfast · CRF 20 · AAC 192k · +faststart',
+        quality:78, size:66, speed:100, compat:98, edit:62,
+        purposes:{ share:88, reels:82, stream:74, archive:58, edit:65, none:80 },
+        why:'Encodes up to 3x faster with minimal heat and battery drain while keeping universal MP4 compatibility.' },
+      { id:'h264_alli_edit', kind:'video', name:'H.264 All-I Zero-Lag Edit', cont:'.mp4', codec:'h264_8',
+        spec:'.mp4 · libx264 · Intra -g 1 · 0 B-Frames · CRF 15 · AAC 320k',
+        quality:95, size:28, speed:84, compat:85, edit:100,
+        purposes:{ edit:100, archive:74, reels:55, stream:40, share:20, none:62 },
+        why:'Every frame is an independent keyframe for instant, stutter-free timeline scrubbing in CapCut and Alight Motion.' },
+      { id:'h264_422_pro', kind:'video', name:'H.264 4:2:2 Pro Intermediate', cont:'.mov', codec:'h264_422',
+        spec:'.mov · libx264 · yuv422p · Intra -g 1 · CRF 14 · PCM 24-bit',
+        quality:100, size:18, speed:72, compat:48, edit:98,
+        purposes:{ edit:96, archive:84, reels:35, stream:20, share:10, none:50 },
+        why:'Double chroma resolution and uncompressed PCM audio for heavy color grading and desktop NLE workflows.' },
+      { id:'h264_shortgop_edit', kind:'video', name:'H.264 Short-GOP Edit (1080p60)', cont:'.mp4', codec:'h264_8',
+        spec:'.mp4 · libx264 · -g 15 · 0 B-Frames · CRF 17 · AAC 256k',
+        quality:90, size:58, speed:82, compat:92, edit:92,
+        purposes:{ edit:94, reels:80, archive:72, stream:65, share:52, none:75 },
+        why:'Half the file size of All-I while preserving snappy timeline seeking on mobile editors.' },
+      { id:'hevc_8bit_mp4', kind:'video', name:'HEVC 8-Bit Efficient MP4', cont:'.mp4', codec:'hevc_8',
+        spec:'.mp4 · libx265 · yuv420p · tag hvc1 · CRF 20 · AAC 192k · +faststart',
+        quality:88, size:86, speed:62, compat:84, edit:52,
+        purposes:{ archive:86, stream:90, reels:80, share:88, edit:45, none:84 },
+        why:'Saves ~35% storage over H.264 with broad modern TV, iPhone, and Android hardware decode support.' },
+      { id:'hevc_10bit_mkv', kind:'video', name:'HEVC 10-Bit Archive (MKV)', cont:'.mkv', codec:'hevc_10',
+        spec:'.mkv · libx265 · yuv420p10le · CRF 19 · slow · FLAC Lossless',
+        quality:96, size:84, speed:46, compat:68, edit:42,
+        purposes:{ archive:100, stream:94, reels:50, share:45, edit:40, none:78 },
+        why:'Cuts archive size ~45% while eliminating color banding with 10-bit gradients and lossless FLAC audio.' },
+      { id:'hevc_10bit_apple', kind:'video', name:'HEVC 10-Bit HDR MP4 (hvc1)', cont:'.mp4', codec:'hevc_10',
+        spec:'.mp4 · libx265 · yuv420p10le · tag hvc1 · CRF 18 · AAC 256k · +faststart',
+        quality:95, size:82, speed:48, compat:78, edit:50,
+        purposes:{ archive:96, stream:92, reels:82, share:70, edit:52, none:82 },
+        why:'Native 10-bit HEVC inside MP4 with hvc1 tag for seamless playback on iPhone, Mac, Samsung, and modern TVs.' },
+      { id:'hevc_10bit_master', kind:'video', name:'HEVC 10-Bit Master (CRF 16)', cont:'.mkv', codec:'hevc_10',
+        spec:'.mkv · libx265 · yuv420p10le · CRF 16 · slower · FLAC Lossless',
+        quality:99, size:72, speed:30, compat:66, edit:38,
+        purposes:{ archive:98, stream:86, reels:40, share:30, edit:35, none:72 },
+        why:'Near-master 10-bit archival fidelity for 4K/HDR footage at a fraction of raw file size.' },
+      { id:'av1_compact', kind:'video', name:'AV1 Ultra-Compact (SVT-AV1)', cont:'.mp4', codec:'av1',
+        spec:'.mp4 · libsvtav1 · yuv420p · CRF 26 · preset 6 · Opus 128k',
+        quality:86, size:100, speed:40, compat:62, edit:25,
+        purposes:{ archive:88, share:94, stream:86, reels:64, edit:15, none:74 },
+        why:'Smallest possible video file size at high clarity for modern AV1-capable phones, PCs, and web browsers.' },
+      { id:'vp9_web', kind:'video', name:'VP9 WebM Streaming', cont:'.webm', codec:'vp9',
+        spec:'.webm · libvpx-vp9 · yuv420p · CRF 24 · Opus 160k',
+        quality:84, size:90, speed:38, compat:68, edit:25,
+        purposes:{ stream:88, share:82, archive:70, reels:55, edit:15, none:68 },
+        why:'Royalty-free open web video format ideal for browsers and HTML5 embeds.' },
+
+      // AUDIO PROFILES
+      { id:'opus_192', kind:'audio', name:'Opus 192k Transparent', cont:'.opus', codec:'opus',
+        spec:'.opus · libopus · 192 kbps · 48kHz Stereo',
+        quality:94, size:92, speed:95, compat:78, edit:65,
+        purposes:{ audio:100, share:90, archive:80, stream:88, none:90 },
+        why:'Highest audio fidelity per megabyte on Android, PC, and modern web browsers.' },
+      { id:'opus_96_norm', kind:'audio', name:'Opus 96k Loudnorm (Compact)', cont:'.opus', codec:'opus',
+        spec:'.opus · libopus · 96 kbps · 48kHz · EBU R128 (-14 LUFS)',
+        quality:82, size:100, speed:96, compat:76, edit:55,
+        purposes:{ audio:88, share:100, stream:82, archive:62, none:80 },
+        why:'Ultra-small balanced-volume audio ideal for podcasts, voice notes, and chat sharing.' },
+      { id:'aac_256_m4a', kind:'audio', name:'AAC-LC 256k (.m4a)', cont:'.m4a', codec:'aac',
+        spec:'.m4a · AAC-LC · 256 kbps · 48kHz Stereo',
+        quality:92, size:84, speed:94, compat:96, edit:78,
+        purposes:{ audio:96, share:88, stream:92, archive:80, edit:82, none:92 },
+        why:'Native hardware playback on Apple, Android, Smart TVs, and modern car stereos.' },
+      { id:'mp3_320_cbr', kind:'audio', name:'MP3 320k CBR Universal', cont:'.mp3', codec:'mp3',
+        spec:'.mp3 · libmp3lame · 320 kbps CBR · 44.1kHz Stereo',
+        quality:86, size:74, speed:92, compat:100, edit:70,
+        purposes:{ audio:92, share:82, stream:84, archive:70, none:86 },
+        why:'100% universal playback across every car head unit, USB stereo, and older player.' },
+      { id:'mp3_192_norm', kind:'audio', name:'MP3 192k Loudnorm Drive Mix', cont:'.mp3', codec:'mp3',
+        spec:'.mp3 · libmp3lame · 192 kbps · EBU R128 (-14 LUFS)',
+        quality:78, size:88, speed:92, compat:100, edit:60,
+        purposes:{ audio:86, share:92, stream:80, archive:58, none:78 },
+        why:'Evens out quiet and loud tracks automatically while staying 100% compatible with car USB ports.' },
+      { id:'flac_24', kind:'audio', name:'FLAC 24-Bit Lossless', cont:'.flac', codec:'flac',
+        spec:'.flac · 24-bit · 48kHz · Bit-Exact Lossless',
+        quality:100, size:48, speed:90, compat:78, edit:96,
+        purposes:{ audio:96, archive:100, edit:95, stream:80, share:35, none:84 },
+        why:'Bit-exact studio-grade archival audio with ~45% lossless compression.' },
+      { id:'wav_pcm', kind:'audio', name:'WAV PCM 16-Bit Uncompressed', cont:'.wav', codec:'wav',
+        spec:'.wav · PCM s16le · 44.1kHz Stereo · Uncompressed',
+        quality:100, size:18, speed:100, compat:98, edit:100,
+        purposes:{ edit:100, audio:82, archive:86, share:15, none:70 },
+        why:'Zero-decode-overhead uncompressed audio for editors and legacy stereos that reject FLAC.' },
+
+      // IMAGE PROFILES
+      { id:'webp_85', kind:'photo', name:'WebP Crisp 85%', cont:'.webp', codec:'webp',
+        spec:'.webp · Q85 · sRGB 4:4:4 · Auto-Orient',
+        quality:90, size:90, speed:92, compat:86, edit:70,
+        purposes:{ photo:100, share:94, reels:80, archive:78, none:90 },
+        why:'~30% smaller than JPG with crisp edges on Android, PC, and all modern web browsers.' },
+      { id:'png_24', kind:'photo', name:'Lossless PNG 24-Bit', cont:'.png', codec:'png',
+        spec:'.png · RGB24 Lossless · Keep Original Resolution',
+        quality:100, size:38, speed:86, compat:100, edit:100,
+        purposes:{ photo:92, archive:100, edit:100, share:45, none:84 },
+        why:'Zero-loss pixel-exact image for thumbnails, graphics, and archival masters.' },
+      { id:'avif_75', kind:'photo', name:'AVIF Ultra-Compact Q75', cont:'.avif', codec:'avif',
+        spec:'.avif · Q75 · 1920px · sRGB 4:2:0',
+        quality:88, size:100, speed:55, compat:70, edit:40,
+        purposes:{ photo:90, share:96, archive:82, none:80 },
+        why:'Smallest next-gen photo format for web galleries and tight storage.' },
+      { id:'jpg_92', kind:'photo', name:'JPG High 92% Universal', cont:'.jpg', codec:'jpg',
+        spec:'.jpg · Q92 · sRGB 4:4:4 · Auto-Orient',
+        quality:92, size:76, speed:98, compat:100, edit:80,
+        purposes:{ photo:96, share:88, archive:80, none:92 },
+        why:'Opens on 100% of phones, TVs, projectors, car displays, and print labs.' },
+      { id:'jpg_1920_85', kind:'photo', name:'JPG Compact 1920px Q85', cont:'.jpg', codec:'jpg',
+        spec:'.jpg · 1920px Scale · Q85 · 4:2:0',
+        quality:80, size:92, speed:99, compat:100, edit:65,
+        purposes:{ photo:86, share:96, archive:60, none:80 },
+        why:'Fastest loading and tiny file size with guaranteed universal display support.' }
+    ];
+
+    function isCompatible(p, device) {
+      if (device === 'car' || device === 'old_phone' || device === 'projector') {
+        if (['hevc_10', 'av1', 'vp9', 'h264_422', 'opus', 'avif'].includes(p.codec)) return false;
+        if (p.cont === '.mkv' || p.cont === '.webm') return false;
+      }
+      if (device === 'apple') {
+        if (p.cont === '.mkv' || p.cont === '.webm' || p.codec === 'opus' || p.codec === 'vp9') return false;
+      }
+      if (device === 'smart_tv') {
+        if (p.codec === 'h264_422' || p.codec === 'vp9' || p.codec === 'opus') return false;
+      }
+      if (device === 'web') {
+        if (p.cont === '.mkv' || p.cont === '.mov' || p.codec === 'h264_422' || p.codec === 'hevc_10') return false;
+      }
+      if (device === 'this_device' && deviceTel && deviceTel.codecs) {
+        if (p.codec === 'hevc_10' && deviceTel.codecs.hevc10bitHwDecode === false) return false;
+        if (p.codec === 'av1' && deviceTel.codecs.av1HwDecode === false) return false;
+      }
+      return true;
+    }
+
+    function deviceBonus(p, device) {
+      let b = 0;
+      if (device === 'apple' && (p.id === 'hevc_10bit_apple' || p.id === 'aac_256_m4a' || p.cont === '.mp4' || p.cont === '.mov')) b += 14;
+      if (device === 'smart_tv' && (p.cont === '.mp4' || p.codec === 'hevc_8' || p.codec === 'hevc_10' || p.codec === 'h264_8')) b += 12;
+      if (device === 'car' && (p.codec === 'mp3' || p.codec === 'aac' || p.id === 'h264_720p_safe')) b += 16;
+      if (device === 'old_phone' && (p.id === 'h264_720p_safe' || p.id === 'h264_compact_share' || p.codec === 'mp3' || p.codec === 'jpg')) b += 16;
+      if (device === 'projector' && (p.codec === 'h264_8' || p.codec === 'jpg')) b += 14;
+      if (device === 'web' && (p.cont === '.mp4' || p.cont === '.webm' || p.codec === 'webp' || p.codec === 'avif' || p.codec === 'opus')) b += 14;
+      if (device === 'pc' && (p.cont === '.mkv' || p.codec === 'hevc_10' || p.codec === 'av1' || p.codec === 'flac' || p.codec === 'h264_422')) b += 10;
+      if (device === 'this_device' && deviceTel && deviceTel.codecs) {
+        if (p.codec === 'av1' && deviceTel.codecs.av1HwDecode) b += 10;
+        if (p.codec === 'hevc_10' && deviceTel.codecs.hevc10bitHwDecode) b += 10;
+      }
+      return b;
+    }
 
     function generateRecommendations() {
       const { device, purpose, metric } = state;
       const priv = metric === 'privacy' ? ' · Forensic Scrub (+bitexact)' : ' · Wipe Metadata';
-      const legacy = device === 'car' || device === 'old_phone' || device === 'projector' || metric === 'compat';
-      const apple = device === 'apple';
-      const modern = device === 'poco' || device === 'pc' || device === 'android' || device === 'none';
+      const wantKind = purpose === 'photo' ? 'photo' : (purpose === 'audio' ? 'audio' : 'video');
 
-      // 1. PHOTO / IMAGE PURPOSE
-      if (purpose === 'photo') {
-        if (legacy || apple) {
-          return [
-            { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'JPG High 92%', spec: `.jpg · Q92 · sRGB 4:4:4 · Auto-Orient${priv}`, why: 'Universal photo support across Apple, older phones, projectors, and car head units.' },
-            { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'Lossless PNG 24-bit', spec: `.png · Lossless RGB24 · Deflate${priv}`, why: 'Zero compression artifacts for thumbnails, graphics, and overlays.' },
-            { rank: '3 · SMALLER SIZE', cls: 'rank-3', rp: 'rp-3', name: 'WebP Crisp 85%', spec: `.webp · Q85 · sRGB 4:4:4 · Auto-Orient${priv}`, why: '~30% smaller than JPG with identical visual sharpness.' },
-            { rank: '4 · COMPACT WEB', cls: 'rank-4', rp: 'rp-4', name: 'JPG 1920px Q85', spec: `.jpg · 1920px Scale · Q85 · 4:2:0${priv}`, why: 'Fastest loading and tiny size for any screen.' }
-          ];
-        }
-        return [
-          { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'WebP Crisp 85%', spec: `.webp · Q85 · sRGB 4:4:4 · Auto-Orient${priv}`, why: 'Best size-to-quality balance on Android, browsers, and modern galleries.' },
-          { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'Lossless PNG 24-bit', spec: `.png · Lossless RGB24 · Keep Original Scale${priv}`, why: 'Pixel-perfect archival copy with zero lossy artifacts.' },
-          { rank: '3 · SMALLEST SIZE', cls: 'rank-3', rp: 'rp-3', name: 'AVIF Compact Q75', spec: `.avif · Q75 · 1920px · sRGB 4:2:0${priv}`, why: 'Smallest next-gen image size for storage and web.' },
-          { rank: '4 · UNIVERSAL SAFE', cls: 'rank-4', rp: 'rp-4', name: 'JPG High 92%', spec: `.jpg · Q92 · sRGB 4:4:4 · Auto-Orient${priv}`, why: 'Guaranteed to open on 100% of legacy devices and print shops.' }
-        ];
+      let candidates = PROFILES.filter(p => p.kind === wantKind && isCompatible(p, device));
+      if (candidates.length < 4) {
+        candidates = PROFILES.filter(p => p.kind === wantKind);
       }
 
-      // 2. AUDIO / MUSIC PURPOSE
-      if (purpose === 'audio') {
-        if (device === 'car' || device === 'old_phone' || metric === 'compat') {
-          return [
-            { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'MP3 320k CBR', spec: `.mp3 · libmp3lame · 320 kbps · 44.1kHz Stereo${priv}`, why: 'Plays reliably on car stereos, USB head units, and older hardware players.' },
-            { rank: '2 · APPLE / PHONE SAFE', cls: 'rank-2', rp: 'rp-2', name: 'AAC 256k (.m4a)', spec: `.m4a · AAC-LC · 256 kbps · 48kHz Stereo${priv}`, why: 'Cleaner high frequencies than MP3 with broad phone & car support.' },
-            { rank: '3 · BALANCED VOLUME', cls: 'rank-3', rp: 'rp-3', name: 'Loudnorm MP3 192k', spec: `.mp3 · 192 kbps · EBU R128 (-14 LUFS)${priv}`, why: 'Keeps every track at an even volume while driving.' },
-            { rank: '4 · LOSSLESS ARCHIVE', cls: 'rank-4', rp: 'rp-4', name: 'WAV PCM 16-bit', spec: `.wav · PCM s16le · 44.1kHz Stereo · Uncompressed${priv}`, why: 'Zero-loss fallback for head units that reject FLAC.' }
-          ];
-        }
-        return [
-          { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: apple ? 'AAC 256k (.m4a)' : 'Opus 192k Transparent', spec: apple ? `.m4a · AAC-LC · 256 kbps · 48kHz${priv}` : `.opus · libopus · 192 kbps · 48kHz Stereo${priv}`, why: apple ? 'Native Apple hardware playback with transparent audio detail.' : 'Highest audio fidelity per MB on Android, PC, and web browsers.' },
-          { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'Lossless FLAC 24-bit', spec: `.flac · 24-bit (s24) · 48kHz · Zero Loss${priv}`, why: 'Bit-exact studio archive with ~45% lossless compression.' },
-          { rank: '3 · SMALLEST / SPEECH', cls: 'rank-3', rp: 'rp-3', name: 'Opus 96k Loudnorm', spec: `.opus · libopus · 96 kbps · EBU R128 (-14 LUFS)${priv}`, why: 'Tiny size for voice, podcasts, and fast chat sharing.' },
-          { rank: '4 · UNIVERSAL SAFE', cls: 'rank-4', rp: 'rp-4', name: 'MP3 320k CBR', spec: `.mp3 · libmp3lame · 320 kbps · 44.1kHz Stereo${priv}`, why: 'Plays on 100% of phones, cars, and legacy players.' }
-        ];
-      }
+      const scored = candidates.map(p => {
+        const pScore = (p.purposes[purpose] !== undefined ? p.purposes[purpose] : p.purposes.none || 70);
+        let mScore = 0;
+        if (metric === 'quality') mScore = p.quality * 1.15;
+        else if (metric === 'size') mScore = p.size * 1.15;
+        else if (metric === 'speed') mScore = p.speed * 1.15;
+        else if (metric === 'compat') mScore = p.compat * 1.15;
+        else if (metric === 'raw') mScore = p.edit * 1.2 + p.quality * 0.3;
+        else if (metric === 'privacy') mScore = p.compat * 0.5 + p.quality * 0.5;
+        else mScore = (p.quality * 0.35 + p.size * 0.30 + p.speed * 0.15 + p.compat * 0.20);
 
-      // 3. VIDEO EDITING OR RAW METRIC
-      if (purpose === 'edit' || metric === 'raw') {
-        return [
-          { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'H.264 All-I Edit', spec: `.mp4 · libx264 · Intra -g 1 · 0 B-Frames · CRF 15 · AAC 320k${priv}`, why: 'Every frame is independent for zero-lag scrubbing in Alight Motion & CapCut.' },
-          { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'H.264 4:2:2 Pro Master', spec: `.mov · libx264 · yuv422p · Intra -g 1 · CRF 14 · PCM 24-bit${priv}`, why: 'Extra chroma resolution for heavy color grading and VFX.' },
-          { rank: '3 · SMALLER EDIT', cls: 'rank-3', rp: 'rp-3', name: 'Short-GOP 1080p60', spec: `.mp4 · libx264 · -g 15 · 0 B-Frames · CRF 17 · AAC 256k${priv}`, why: 'Half the file size of All-I while keeping smooth timeline scrubbing.' },
-          { rank: '4 · UNIVERSAL SAFE', cls: 'rank-4', rp: 'rp-4', name: 'MP4 8-Bit Standard', spec: `.mp4 · libx264 · yuv420p · CRF 18 · AAC 192k · +faststart${priv}`, why: 'Safe fallback if an editor rejects 4:2:2 or high-bitrate streams.' }
-        ];
-      }
+        const total = pScore * 1.2 + mScore + deviceBonus(p, device);
+        return { p, total };
+      }).sort((a, b) => b.total - a.total);
 
-      // 4. ARCHIVE / STREAM / SMALLEST SIZE
-      if (purpose === 'archive' || purpose === 'stream' || metric === 'size') {
-        if (legacy) {
-          return [
-            { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'H.264 8-Bit Archive', spec: `.mp4 · libx264 · yuv420p · CRF 18 · slower · AAC 256k · +faststart${priv}`, why: '100% safe for older phones, projectors, and car units that fail on HEVC 10-bit or AV1.' },
-            { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'H.264 CRF 16 Master', spec: `.mp4 · libx264 · yuv420p · CRF 16 · slow · AAC 320k${priv}`, why: 'Visually lossless 8-bit master with maximum compatibility.' },
-            { rank: '3 · SMALLER SIZE', cls: 'rank-3', rp: 'rp-3', name: 'HEVC 8-Bit MP4', spec: `.mp4 · libx265 · yuv420p · CRF 20 · AAC 192k · +faststart${priv}`, why: 'Saves ~35% space while avoiding 10-bit decoder errors.' },
-            { rank: '4 · COMPACT SHARE', cls: 'rank-4', rp: 'rp-4', name: '720p30 H.264 Safe', spec: `.mp4 · libx264 · 720p · 30fps · CRF 22 · Max 4M · AAC 128k${priv}`, why: 'Smallest guaranteed-playable format for USB sticks and legacy screens.' }
-          ];
-        }
-        const cont = apple ? '.mp4' : '.mkv';
-        return [
-          { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'HEVC 10-Bit Archive', spec: `${cont} · libx265 · yuv420p10le · CRF 19 · slow · ${apple ? 'AAC 256k' : 'FLAC Lossless'}${priv}`, why: apple ? 'Apple-native HEVC 10-bit MP4 cuts size ~45% with HDR preservation.' : 'Cuts storage by ~45% while keeping 10-bit gradients and lossless audio.' },
-          { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'HEVC 10-Bit Master CRF 16', spec: `${cont} · libx265 · yuv420p10le · CRF 16 · slower · ${apple ? 'AAC 320k' : 'FLAC'}${priv}`, why: 'Near-master archival quality for 4K/1080p footage.' },
-          { rank: '3 · SMALLEST SIZE', cls: 'rank-3', rp: 'rp-3', name: (modern && !apple) ? 'AV1 Compact (libsvtav1)' : 'HEVC CRF 23 Compact', spec: (modern && !apple) ? `.mp4 · libsvtav1 · CRF 26 · yuv420p · Opus 128k${priv}` : `.mp4 · libx265 · yuv420p · CRF 23 · AAC 128k${priv}`, why: (modern && !apple) ? 'Smallest possible file size with hardware AV1 decode on modern chips.' : 'Compact HEVC stream without AV1 compatibility issues.' },
-          { rank: '4 · UNIVERSAL SAFE', cls: 'rank-4', rp: 'rp-4', name: 'H.264 8-Bit Fallback', spec: `.mp4 · libx264 · yuv420p · CRF 18 · AAC 256k · +faststart${priv}`, why: 'Plays on any screen or browser if 10-bit HEVC isn’t supported.' }
-        ];
-      }
-
-      // 5. REELS / SHARE / GENERAL BALANCED
-      const cap = (purpose === 'share') ? '4M' : '12M';
-      const crfMain = (metric === 'quality') ? 16 : (purpose === 'share' ? 23 : 18);
-      return [
-        {
-          rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1',
-          name: legacy ? 'Universal Safe MP4' : (purpose === 'share' ? 'Fast Share Compact MP4' : '60fps Reels HQ'),
-          spec: `.mp4 · libx264 · Constrained CRF ${crfMain} · Max ${cap} · yuv420p · AAC 192k · +faststart${priv}`,
-          why: legacy
-            ? '8-bit H.264 + AAC Stereo plays smoothly on 99% of older phones, projectors, and car screens.'
-            : 'Prevents social/chat apps from crushing dark scenes while keeping +faststart & clean metadata.'
-        },
-        {
-          rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2',
-          name: 'Pure CRF 16 Sharp Master',
-          spec: `.mp4 · libx264 · Pure CRF 16 · slower · yuv420p · AAC 256k · Loudnorm${priv}`,
-          why: 'No bitrate ceiling — preserves maximum fine detail with balanced -14 LUFS audio.'
-        },
-        {
-          rank: '3 · FASTER / SMALLER', cls: 'rank-3', rp: 'rp-3',
-          name: metric === 'speed' ? 'Fast H.264 (Battery Saver)' : 'HEVC 8-Bit Compact',
-          spec: metric === 'speed' ? `.mp4 · libx264 · fast · CRF 20 · yuv420p · AAC 160k${priv}` : `.mp4 · libx265 · medium · CRF 21 · yuv420p · AAC 160k${priv}`,
-          why: metric === 'speed' ? 'Encodes up to 3x faster with minimal heat and battery drain.' : 'Saves ~35% more storage while staying 8-bit safe across modern phones.'
-        },
-        {
-          rank: '4 · SAFE FALLBACK', cls: 'rank-4', rp: 'rp-4',
-          name: '720p30 Ultra-Compatible',
-          spec: `.mp4 · libx264 · 720p · 30fps · CRF 22 · Max 3M · AAC 128k Stereo${priv}`,
-          why: 'Guaranteed smooth playback and tiny upload size on any legacy screen or slow network.'
-        }
+      const top4 = scored.slice(0, 4);
+      const rankMeta = [
+        { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1' },
+        { rank: '2 · STRONG ALT', cls: 'rank-2', rp: 'rp-2' },
+        { rank: '3 · SMART TRADE-OFF', cls: 'rank-3', rp: 'rp-3' },
+        { rank: '4 · SAFE FALLBACK', cls: 'rank-4', rp: 'rp-4' }
       ];
+
+      const devLabel = (device === 'this_device' && deviceTel && deviceTel.model)
+        ? deviceTel.model
+        : (document.querySelector('#grp-device .s-chip.active')?.textContent || 'Selected Device');
+
+      return top4.map((item, idx) => ({
+        ...rankMeta[idx],
+        name: item.p.name,
+        spec: item.p.spec + priv,
+        why: item.p.why + ' (Matched for ' + devLabel + ')'
+      }));
     }
 
     function render() {
-      ['device', 'purpose', 'metric'].forEach(g => {
-        document.querySelectorAll(`#grp-${g} .s-chip`).forEach(c => {
-          c.classList.toggle('active', c.getAttribute('data-val') === state[g]);
-        });
-      });
-
-      const activeLabels = [];
-      ['device', 'purpose', 'metric'].forEach(g => {
-        if (state[g] !== 'none') {
-          const btn = document.querySelector(`#grp-${g} .s-chip.active`);
-          if (btn) activeLabels.push(btn.textContent);
-        }
-      });
-      document.getElementById('combo-lbl').textContent = activeLabels.length ? activeLabels.join(' · ') : 'All-Rounder Defaults';
+      const devTxt = document.querySelector('#grp-device .s-chip.active')?.textContent || 'Any';
+      const purTxt = document.querySelector('#grp-purpose .s-chip.active')?.textContent || 'Any';
+      const metTxt = document.querySelector('#grp-metric .s-chip.active')?.textContent || 'Any';
+      document.getElementById('combo-lbl').textContent = `${devTxt.split(' (')[0]} · ${purTxt.split(' (')[0]} · ${metTxt.split(' (')[0]}`;
 
       const recs = generateRecommendations();
-      document.getElementById('rec-list').innerHTML = recs.map((r, idx) => `
+      document.getElementById('rec-list').innerHTML = recs.map(r => `
         <article class="rec-card ${r.cls}">
           <div class="rec-top">
+            <span class="rec-name">${r.name}</span>
             <span class="rank-pill ${r.rp}">${r.rank}</span>
           </div>
-          <div class="rec-name">${r.name}</div>
+          <div class="rec-spec">${r.spec}</div>
           <div class="rec-why">${r.why}</div>
-          <div class="spec-pill">${r.spec}</div>
-          <div class="rec-actions">
-            <button type="button" class="btn-use" data-use="${idx}">Use Preset ↗</button>
-            <button type="button" class="btn-sec" data-save="${idx}">Save Preset</button>
-            <button type="button" class="btn-sec" data-sample="${idx}">Test Sample ↗</button>
+          <div class="rec-acts">
+            <button type="button" class="btn-use" data-act="use" data-name="${r.name}">Use Preset ↗</button>
+            <button type="button" class="btn-sec" data-act="save" data-name="${r.name}">Save Preset</button>
+            <button type="button" class="btn-sec" data-act="test" data-name="${r.name}">Test Sample ↗</button>
           </div>
         </article>
       `).join('');
     }
 
-    ['device', 'purpose', 'metric'].forEach(g => {
-      document.getElementById(`grp-${g}`).addEventListener('click', (e) => {
-        const c = e.target.closest('.s-chip');
-        if (c) { state[g] = c.getAttribute('data-val'); render(); }
+    function bindGroup(id, key) {
+      document.getElementById(id).addEventListener('click', e => {
+        const b = e.target.closest('.s-chip'); if (!b) return;
+        document.querySelectorAll('#' + id + ' .s-chip').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        state[key] = b.getAttribute('data-val');
+        render();
       });
-    });
+    }
 
-    document.getElementById('rec-list').addEventListener('click', (e) => {
-      const recs = generateRecommendations();
-      const u = e.target.closest('[data-use]');
-      if (u) {
-        const r = recs[parseInt(u.getAttribute('data-use'), 10)];
-        if (r) showToast('Loaded "' + r.name + '" → Pick files');
-        return;
+    bindGroup('grp-device', 'device');
+    bindGroup('grp-purpose', 'purpose');
+    bindGroup('grp-metric', 'metric');
+
+    document.getElementById('rec-list').addEventListener('click', e => {
+      const b = e.target.closest('button[data-act]'); if (!b) return;
+      const act = b.getAttribute('data-act'), name = b.getAttribute('data-name');
+      if (act === 'use') showToast('Loaded ' + name + ' into Master Studio →');
+      if (act === 'save') {
+        if (window.AndroidBridge && window.AndroidBridge.savePreset) {
+          window.AndroidBridge.savePreset(JSON.stringify({ name: name, category: state.purpose === 'audio' ? 'Audio' : (state.purpose === 'photo' ? 'Image' : 'Video') }));
+        }
+        showToast('Saved ' + name + ' to Presets Hub ✓');
       }
-      const sv = e.target.closest('[data-save]');
-      if (sv) {
-        const r = recs[parseInt(sv.getAttribute('data-save'), 10)];
-        if (r) showToast('Saved "' + r.name + '" to Presets Hub ✓');
-        return;
-      }
-      const smp = e.target.closest('[data-sample]');
-      if (smp) {
-        const r = recs[parseInt(smp.getAttribute('data-sample'), 10)];
-        if (r) showToast('Opening Sample Tester with "' + r.name + '" →');
-      }
+      if (act === 'test') showToast('Opening Sample Tester with ' + name + ' →');
     });
 
     document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+    loadDeviceTelemetry();
     render();
   </script>
   <script src="vault-bridge.js"></script>

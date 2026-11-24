@@ -93,8 +93,12 @@ object VaultStorageManager {
             val docId = DocumentsContract.getDocumentId(uri)
             if ("com.android.externalstorage.documents" == uri.authority) {
                 val split = docId.split(":")
-                if (split.size >= 2 && "primary".equals(split[0], ignoreCase = true)) {
-                    val direct = File(Environment.getExternalStorageDirectory(), split[1])
+                if (split.size >= 2) {
+                    val direct = if ("primary".equals(split[0], ignoreCase = true)) {
+                        File(Environment.getExternalStorageDirectory(), split[1])
+                    } else {
+                        File("/storage/${split[0]}/${split[1]}")
+                    }
                     if (direct.exists()) return direct.absolutePath
                 }
             }

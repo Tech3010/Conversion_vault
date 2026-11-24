@@ -63,6 +63,14 @@
     .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
     .toast.show{opacity:1;}
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -84,8 +92,8 @@
         <div class="sec-lbl">1. Target File to Verify</div>
         <div class="file-pick">
           <div style="min-width:0;">
-            <div class="fname" id="lbl-fname">gtr_night_ramp.mp4</div>
-            <div class="fmeta" id="lbl-fmeta">64.2 MB · Ready to scan</div>
+            <div class="fname" id="lbl-fname">No file selected</div>
+            <div class="fmeta" id="lbl-fmeta">No file selected yet — tap Pick File</div>
           </div>
           <button type="button" id="btn-pick" class="btn-sm">Pick File</button>
           <input type="file" id="inp-file" class="hidden" accept="video/*,audio/*,image/*">
@@ -140,7 +148,7 @@
   </div>
   <div class="toast" id="toast">Ready</div>
   <script>
-    const state = { fname: 'gtr_night_ramp.mp4', scan: 'deep' };
+    const state = { fname: 'No file selected', scan: 'deep' };
     function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
 
     function renderCmd() {
@@ -200,6 +208,20 @@
     document.getElementById('btn-sh').addEventListener('click', () => showToast('Saved to /ConversionVault/SH_Scripts/verify_file.sh'));
     document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
     renderCmd();
+
+    window.syncToolFromNative = function(fileObj, info) {
+      if (!fileObj || typeof state === 'undefined') return;
+      state.fname = (info && info.filename) || fileObj.name || state.fname;
+      if (info && info.sizeBytes && 'sizeMB' in state) state.sizeMB = Math.max(0.1, info.sizeBytes / (1024 * 1024));
+      if (info && info.durationSec && info.durationSec > 0) {
+        if ('durSec' in state) state.durSec = info.durationSec;
+        if ('dur' in state) state.dur = info.durationSec;
+      }
+      if (info && info.width && info.height && 'srcRes' in state) state.srcRes = info.width + '×' + info.height;
+      if (info && info.bitrate && 'srcVbrK' in state) state.srcVbrK = Math.round(info.bitrate / 1000);
+      if (typeof render === 'function') render();
+      if (typeof updateDestPath === 'function') updateDestPath();
+    };
   </script>
   <script src="vault-bridge.js"></script>
 </body>

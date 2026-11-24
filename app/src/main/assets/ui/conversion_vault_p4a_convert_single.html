@@ -223,6 +223,14 @@
     }
     .toast.show { opacity: 1; }
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -250,7 +258,7 @@
       <section class="pit-hero" id="pit-hero" aria-label="Single File Telemetry">
         <div class="file-pill-row">
           <div style="min-width:0;">
-            <div class="fp-name">gtr_night_ramp.mp4</div>
+            <div class="fp-name">No file selected</div>
             <div class="fp-preset">60fps Reels HQ · .mp4 · libx264 · 60fps · CRF 18 · AAC 192k</div>
           </div>
           <span class="fp-type">VIDEO</span>
@@ -289,7 +297,7 @@
             <span class="tele-v" id="tele-q">q=18.0</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">8x Cortex-A725</span>
+            <span class="tele-k">Device CPU</span>
             <span class="tele-v" id="tele-cpu">88% · 41°C Cool</span>
           </div>
           <div class="tele-cell">
@@ -302,7 +310,7 @@
       <!-- 2. OUTPUT DESTINATION & RESULT -->
       <section class="dest-card" aria-label="Output File Path">
         <span class="dest-k">Target Output Path</span>
-        <span class="dest-path">/storage/emulated/0/ConversionVault/Vault_Core/Videos/gtr_night_ramp.mp4</span>
+        <span class="dest-path">/storage/emulated/0/ConversionVault/Vault_Core/Videos/No file selected</span>
         <div class="dest-delta hidden" id="done-summary"></div>
       </section>
 
@@ -354,7 +362,7 @@
       elapsedSec: 0,
       consoleOpen: true,
       logs: [
-        { cls: 'log-line-cmd', txt: '$ ffmpeg -y -threads 8 -i gtr_night_ramp.mp4 -c:v libx264 -preset slower -crf 18 -maxrate 12M -bufsize 24M -r 60 -c:a aac -b:a 192k -sn -map_metadata -1 -movflags +faststart out.mp4' },
+        { cls: 'log-line-cmd', txt: '$ ffmpeg -y -threads 8 -i No file selected -c:v libx264 -preset slower -crf 18 -maxrate 12M -bufsize 24M -r 60 -c:a aac -b:a 192k -sn -map_metadata -1 -movflags +faststart out.mp4' },
         { cls: 'log-line-cur', txt: 'Stream mapping: #0:0 -> #0:0 (h264), #0:1 -> #0:1 (aac)' }
       ]
     };
@@ -412,7 +420,7 @@
       document.getElementById('tele-frames').textContent = `${curFrames.toLocaleString()} / ${TOTAL_FRAMES.toLocaleString()} fr`;
       document.getElementById('tele-br').textContent = state.done ? '11.2 Mbps avg' : `${brVal} Mbps`;
       document.getElementById('tele-q').textContent = state.done ? 'q=18.0 final' : `q=${(18.0 + (state.pct % 2) * 0.2).toFixed(1)}`;
-      document.getElementById('tele-cpu').textContent = state.done ? '8x A725 · Standby' : (state.paused ? '8x A725 · Halted' : '8x A725 · 88% · 41°C');
+      document.getElementById('tele-cpu').textContent = state.done ? 'Detecting... · Standby' : (state.paused ? 'Detecting... · Halted' : 'Detecting... · 88% · 41°C');
       document.getElementById('tele-size').textContent = `${writtenMB.toFixed(1)} / ${EST_OUT_MB.toFixed(1)} MB`;
 
       const doneBox = document.getElementById('done-summary');
@@ -437,8 +445,8 @@
       const sz = Math.round((state.pct / 100) * EST_OUT_MB * 1024);
       if (Math.round(state.pct) % 18 === 0 && state.pct < 99) {
         function buildSingleShell(includePath, asScript) {
-      const inp = includePath ? '"/storage/emulated/0/Movies/AlightMotion/gtr_night_ramp.mp4"' : '"gtr_night_ramp.mp4"';
-      const out = includePath ? '"/storage/emulated/0/ConversionVault/Videos/gtr_night_ramp.mp4"' : '"gtr_night_ramp_out.mp4"';
+      const inp = includePath ? '"/storage/emulated/0/Movies/AlightMotion/No file selected"' : '"No file selected"';
+      const out = includePath ? '"/storage/emulated/0/ConversionVault/Videos/No file selected"' : '"output.mp4"';
       const cmd = `ffmpeg -y -threads 8 -i ${inp} -c:v libx264 -preset slower -crf 18 -maxrate 12M -bufsize 24M -r 60 -c:a aac -b:a 192k -sn -map_metadata -1 -movflags +faststart ${out}`;
       if (!asScript) return cmd;
       const prep = includePath ? 'mkdir -p "/storage/emulated/0/ConversionVault/Videos/"\n' : '';
@@ -455,7 +463,7 @@
       const inc = document.getElementById('chk-inc-path').checked;
       const sh = buildSingleShell(inc, true);
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(sh).catch(() => {});
-      showToast('Saved to /ConversionVault/SH_Scripts/gtr_night_ramp.sh' + (inc ? ' (with paths)' : ' (portable)'));
+      showToast('Saved to /ConversionVault/SH_Scripts/media_file.sh' + (inc ? ' (with paths)' : ' (portable)'));
     });
 
     pushLog('log-line-cur', `frame=${String(fr).padStart(5, ' ')} fps= 44 q=18.0 size=${String(sz).padStart(6, ' ')}kB time=00:00:${String(Math.round((state.pct / 100) * 30)).padStart(2, '0')}.00 speed=0.73x`);
@@ -465,7 +473,7 @@
         state.done = true;
         state.running = false;
         pushLog('log-line-ok', '✓ [muxer] Starting second pass: moving moov atom to front (+faststart)');
-        pushLog('log-line-ok', `✓ [OK] Saved gtr_night_ramp.mp4 (${EST_OUT_MB.toFixed(1)} MB)`);
+        pushLog('log-line-ok', `✓ [OK] Saved No file selected (${EST_OUT_MB.toFixed(1)} MB)`);
       }
       render();
     }, 250);

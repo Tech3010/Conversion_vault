@@ -261,6 +261,14 @@
     }
     .toast.show { opacity: 1; }
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -307,7 +315,7 @@
             <span class="tele-v c-emerald" id="tele-speed">—</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">8x Cortex-A725</span>
+            <span class="tele-k">Device CPU</span>
             <span class="tele-v" id="tele-cpu">88% · 41°C Cool</span>
           </div>
           <div class="tele-cell">
@@ -316,7 +324,7 @@
           </div>
           <div class="tele-cell">
             <span class="tele-k">Write Throughput</span>
-            <span class="tele-v" id="tele-io">UFS 4.0 · Active</span>
+            <span class="tele-v" id="tele-io">Storage · Active</span>
           </div>
         </div>
       </section>
@@ -380,16 +388,7 @@
   <div class="toast" id="toast">Ready</div>
 
   <script>
-    const JOBS = [
-      { id: 1, cat: 'VID', name: 'gtr_night_ramp.mp4', preset: '60fps Reels HQ', dir: 'Converted/Videos/', inMB: 64.2, outMB: 26.8, totalFrames: 1800, durMs: 2600, speedStr: '44 fps · 0.73x', status: 'wait', pct: 0 },
-      { id: 2, cat: 'VID', name: 'porsche_tunnel_4k.mov', preset: 'HEVC 10-Bit Archive', dir: 'Converted/Videos/', inMB: 142.8, outMB: 54.1, totalFrames: 1500, durMs: 3200, speedStr: '31 fps · 0.52x', status: 'wait', pct: 0 },
-      { id: 3, cat: 'VID', name: 'garage_clip_raw.mkv', preset: 'H.264 All-I Edit', dir: 'Converted/Videos/', inMB: 28.5, outMB: 31.2, totalFrames: 720, durMs: 1400, speedStr: '118 fps · 3.93x', status: 'wait', pct: 0 },
-      { id: 4, cat: 'VID', name: 'drift_slowmo_test.mp4', preset: 'Ultra-Small Share', dir: 'Converted/Videos/', inMB: 52.0, outMB: 11.4, totalFrames: 1080, durMs: 1600, speedStr: '96 fps · 1.60x', status: 'wait', pct: 0 },
-      { id: 5, cat: 'AUD', name: 'phonk_master_mix.wav', preset: 'Opus 192k · 48kHz', dir: 'Converted/Audios/', inMB: 34.1, outMB: 4.3, totalFrames: 185, durMs: 900, speedStr: '132x RT', status: 'wait', pct: 0 },
-      { id: 6, cat: 'AUD', name: 'exhaust_rev_clip.mp3', preset: 'Loudnorm AAC 192k', dir: 'Converted/Audios/', inMB: 4.8, outMB: 2.9, totalFrames: 120, durMs: 700, speedStr: '140x RT', status: 'wait', pct: 0 },
-      { id: 7, cat: 'IMG', name: 'cover_thumb_4k.png', preset: 'WebP Crisp 85%', dir: 'Converted/Images/', inMB: 8.6, outMB: 1.4, totalFrames: 1, durMs: 550, speedStr: 'Single Pass', status: 'wait', pct: 0 },
-      { id: 8, cat: 'IMG', name: 'street_photo_01.jpg', preset: 'AVIF Compact Q75', dir: 'Converted/Images/', inMB: 5.2, outMB: 0.7, totalFrames: 1, durMs: 650, speedStr: 'Single Pass', status: 'wait', pct: 0 }
-    ];
+    const JOBS = [];
 
     const state = {
       running: true,
@@ -400,7 +399,7 @@
       elapsedSec: 0,
       consoleOpen: true,
       logs: [
-        { cls: 'log-line-cmd', txt: '$ ffmpeg -y -threads 8 -i gtr_night_ramp.mp4 -c:v libx264 -crf 18 -maxrate 12M -c:a aac -b:a 192k -map_metadata -1 -movflags +faststart ...' }
+        { cls: 'log-line-cmd', txt: '$ ffmpeg -y -threads 8 -i No file selected -c:v libx264 -crf 18 -maxrate 12M -c:a aac -b:a 192k -map_metadata -1 -movflags +faststart ...' }
       ]
     };
 
@@ -458,7 +457,7 @@
 
       const cur = JOBS[state.curIdx];
       document.getElementById('tele-speed').textContent = state.done ? 'Idle · Complete' : (state.paused ? 'Paused' : (cur ? cur.speedStr : '—'));
-      document.getElementById('tele-cpu').textContent = state.done ? '8x A725 · Standby' : (state.paused ? '8x A725 · Halted' : '8x A725 · 88% · 41°C');
+      document.getElementById('tele-cpu').textContent = state.done ? 'Detecting... · Standby' : (state.paused ? 'Detecting... · Halted' : 'Detecting... · 88% · 41°C');
       document.getElementById('tele-size').textContent = inDone.toFixed(1) + ' → ' + outDone.toFixed(1) + ' MB';
 
       // Now Encoding Card

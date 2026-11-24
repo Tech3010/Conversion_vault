@@ -209,6 +209,14 @@
     }
     .toast.show { opacity: 1; }
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -306,7 +314,7 @@
 
         <div class="field hidden" id="run-name-wrap">
           <label for="inp-run-name">Custom Subfolder Name</label>
-          <input type="text" id="inp-run-name" value="Night_GTR_Edit" placeholder="Enter folder name...">
+          <input type="text" id="inp-run-name" value="Conversion_01" placeholder="Enter folder name...">
         </div>
 
         <div class="toggle-row" style="padding-top:8px; border-top:1px solid var(--border);">
@@ -353,7 +361,7 @@
       mode: 'vault',
       customPath: '/storage/emulated/0/Documents/Exports/',
       subMode: 'numbered',
-      customSubName: 'Night_GTR_Edit',
+      customSubName: 'Conversion_01',
       separate: true,
       conflict: 'rename'
     };
@@ -404,31 +412,31 @@
         tree.innerHTML = `
           <div class="tree-root">📁 ${base}</div>
           <div class="tree-line">└── 📁 <strong style="color:var(--text);">${sub}/</strong></div>
-          <div class="tree-line" style="padding-left:24px;">├── 📁 Videos/ <span class="ext-pill">.mp4 .mkv</span></div>
-          <div class="tree-line" style="padding-left:24px;">├── 📁 Audios/ <span class="ext-pill">.opus .flac</span></div>
-          <div class="tree-line" style="padding-left:24px;">└── 📁 Images/ <span class="ext-pill">.webp .avif</span></div>
+          <div class="tree-line" style="padding-left:24px;">├── No files queued yet</div>
+          <div class="tree-line" style="padding-left:24px;">├── No files queued yet</div>
+          <div class="tree-line" style="padding-left:24px;">├── No files queued yet</div>
         `;
       } else if (sub && !state.separate) {
         tree.innerHTML = `
           <div class="tree-root">📁 ${base}</div>
           <div class="tree-line">└── 📁 <strong style="color:var(--text);">${sub}/</strong></div>
-          <div class="tree-line" style="padding-left:24px;">├── gtr_night_ramp_out.mp4 <span class="ext-pill">Video</span></div>
-          <div class="tree-line" style="padding-left:24px;">├── phonk_master_mix.opus <span class="ext-pill">Audio</span></div>
-          <div class="tree-line" style="padding-left:24px;">└── cover_thumb_4k.webp <span class="ext-pill">Image</span></div>
+          <div class="tree-line" style="padding-left:24px;">├── No files queued yet</div>
+          <div class="tree-line" style="padding-left:24px;">├── No files queued yet</div>
+          <div class="tree-line" style="padding-left:24px;">├── No files queued yet</div>
         `;
       } else if (!sub && state.separate) {
         tree.innerHTML = `
           <div class="tree-root">📁 ${base}</div>
-          <div class="tree-line">├── 📁 Videos/ <span class="ext-pill">.mp4 .mkv (reuses if exists)</span></div>
-          <div class="tree-line">├── 📁 Audios/ <span class="ext-pill">.opus .flac (reuses if exists)</span></div>
-          <div class="tree-line">└── 📁 Images/ <span class="ext-pill">.webp .avif (reuses if exists)</span></div>
+          <div class="tree-line">├── No files queued yet</div>
+          <div class="tree-line">├── No files queued yet</div>
+          <div class="tree-line">├── No files queued yet</div>
         `;
       } else {
         tree.innerHTML = `
           <div class="tree-root">📁 ${base}</div>
-          <div class="tree-line">├── gtr_night_ramp_out.mp4 <span class="ext-pill">Video</span></div>
-          <div class="tree-line">├── phonk_master_mix.opus <span class="ext-pill">Audio</span></div>
-          <div class="tree-line">└── cover_thumb_4k.webp <span class="ext-pill">Image</span></div>
+          <div class="tree-line">├── No files queued yet</div>
+          <div class="tree-line">├── No files queued yet</div>
+          <div class="tree-line">├── No files queued yet</div>
         `;
       }
     }

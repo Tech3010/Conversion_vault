@@ -241,6 +241,14 @@
     }
     .toast.show { opacity: 1; }
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -336,13 +344,7 @@
     const I_EXT = new Set(['jpg','jpeg','png','webp','gif','bmp','tiff','avif','heic']);
 
     let nextId = 6;
-    let collected = [
-      { id: 1, cat: 'video', name: 'gtr_night_ramp.mp4', folder: '/Movies/AlightMotion', sizeMB: 64.2 },
-      { id: 2, cat: 'video', name: 'porsche_tunnel_4k.mov', folder: '/Movies/AlightMotion', sizeMB: 142.8 },
-      { id: 3, cat: 'video', name: 'camera_broll_04.mp4', folder: '/DCIM/Camera', sizeMB: 24.5 },
-      { id: 4, cat: 'audio', name: 'phonk_master_mix.wav', folder: '/Download/Music', sizeMB: 11.4 },
-      { id: 5, cat: 'image', name: 'cover_thumb_4k.png', folder: '/Pictures/Exports', sizeMB: 5.2 }
-    ];
+    let collected = [];
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -458,6 +460,23 @@
       showToast('Opening Folder Workspace with ' + collected.length + ' files →');
     });
 
+        window.setCollectedFromNative = function(nativeFiles) {
+      collected = [];
+      (nativeFiles || []).forEach((f, idx) => {
+        const cat = classify(f.name || '');
+        if (!cat) return;
+        collected.push({
+          id: idx + 1,
+          cat: cat,
+          name: f.name || 'file',
+          path: f.path || '',
+          folder: f.folder || '/Storage',
+          sizeMB: f.sizeBytes ? (f.sizeBytes / (1024 * 1024)) : 0
+        });
+      });
+      nextId = collected.length + 1;
+      render();
+    };
     render();
   </script>
   <script src="vault-bridge.js"></script>

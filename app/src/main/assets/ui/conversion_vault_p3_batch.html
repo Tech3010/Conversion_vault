@@ -535,6 +535,14 @@
     }
     .toast.show { opacity: 1; }
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -662,7 +670,7 @@
             <div class="hero-time-lbl">Total Approx. Processing Time</div>
             <div class="hero-time-val" id="perf-total-time">~2m 14s</div>
           </div>
-          <span class="hw-chip">POCO X7 Pro · 8x A725</span>
+          <span class="hw-chip">Detecting Device...</span>
         </div>
         <div class="hero-stats-3">
           <div class="hstat">
@@ -691,7 +699,7 @@
       <section class="perf-card">
         <div class="perf-card-title">
           <span>Device Load &amp; Thread Tuning</span>
-          <span>LPDDR5X · UFS 4.0</span>
+          <span>System RAM · Storage</span>
         </div>
         <div class="field">
           <label for="sel-perf-threads">CPU Thread Allocation (-threads)</label>
@@ -714,7 +722,7 @@
         <div class="raw-meta-pill hidden" id="perf-core-cmd"></div>
         <div class="info-grid">
           <div class="info-cell"><span class="info-k">Peak RAM Usage</span><span class="info-v" id="perf-ram">~920 MB</span></div>
-          <div class="info-cell"><span class="info-k">UFS 4.0 Write I/O</span><span class="info-v" id="perf-io">&lt;0.15 sec</span></div>
+          <div class="info-cell"><span class="info-k">Storage Write I/O</span><span class="info-v" id="perf-io">&lt;0.15 sec</span></div>
         </div>
         <div class="thermal-note" id="perf-thermal-note"></div>
       </section>
@@ -875,84 +883,7 @@
       page: 'folder',
       threads: 8,
       cores: 'auto',
-      files: [
-        {
-          id: 1, cat: 'video', name: 'gtr_night_ramp.mp4', sizeMB: 64.2, durSec: 30, res: '1080×1920', fps: 60, bitrate: '17.1 Mbps', codec: 'H.264 (yuv420p)', meta: 'Camera + GPS',
-          probe: {
-            frameStruct: 'Inter-Frame (Long-GOP)', gop: 'Keyint 60 · 2 B-frames · Closed', chroma: '4:2:0 · left · 8-bit',
-            color: 'BT.709 · BT.709 · TV Limited', profile: 'High @ L4.2 · CABAC · 4 ref', frames: '1,800 frames (60/1 CFR)',
-            aspect: 'SAR 1:1 · DAR 9:16 · Rot 0°', container: 'ISOBMFF (mp42) · Faststart ✓', audio: 'AAC-LC · 2ch Stereo · 192k',
-            subs: '0 Sub Streams · 0 Chapters', raw: 'major_brand: mp42 · encoder: Lavf60.16.100 · model: POCO X7 Pro · location: +13.0827+080.2707/'
-          },
-          selected: false, skipped: false, open: false, moreOpen: false, tab: 'info', hasPreset: false, isCustom: false, cfg: cloneDef('video')
-        },
-        {
-          id: 2, cat: 'video', name: 'porsche_tunnel_4k.mov', sizeMB: 142.8, durSec: 25, res: '3840×2160', fps: 60, bitrate: '45.6 Mbps', codec: 'HEVC 10-bit', meta: 'QuickTime + EXIF',
-          probe: {
-            frameStruct: 'Inter-Frame (Long-GOP)', gop: 'Keyint 60 · 2 B-frames · Open', chroma: '4:2:0 · topleft · 10-bit',
-            color: 'BT.2020nc · HLG · TV Limited', profile: 'Main 10 @ L5.1 · 4 ref', frames: '1,500 frames (60/1 CFR)',
-            aspect: 'SAR 1:1 · DAR 16:9 · Rot 90°', container: 'QuickTime (qt) · Faststart ✓', audio: 'PCM s24le · 2ch · 2304k',
-            subs: '1 Timecode Track (tmcd)', raw: 'major_brand: qt · com.apple.quicktime.make: Xiaomi · creation_time: 2026-11-21T20:11:04Z'
-          },
-          selected: false, skipped: false, open: false, moreOpen: false, tab: 'info', hasPreset: false, isCustom: false, cfg: cloneDef('video')
-        },
-        {
-          id: 3, cat: 'video', name: 'garage_clip_raw.mkv', sizeMB: 28.5, durSec: 24, res: '1920×1080', fps: 30, bitrate: '9.5 Mbps', codec: 'H.264 (yuv420p)', meta: 'Lavf Tags',
-          probe: {
-            frameStruct: 'Intra-Frame (All-I -g 1)', gop: 'Keyint 1 · 0 B-frames', chroma: '4:2:0 · left · 8-bit',
-            color: 'BT.709 · BT.709 · TV Limited', profile: 'High @ L4.0 · CABAC · 1 ref', frames: '720 frames (30/1 CFR)',
-            aspect: 'SAR 1:1 · DAR 16:9 · Rot 0°', container: 'Matroska (webm/mkv) · Cues ✓', audio: 'FLAC · 2ch Stereo · 940k',
-            subs: '1 Soft Sub (s:0 · ASS/SSA)', raw: 'muxing_app: Lavf60.16.100 · writing_app: FFmpeg 6.1 GPL · duration: 00:24.000'
-          },
-          selected: false, skipped: false, open: false, moreOpen: false, tab: 'info', hasPreset: false, isCustom: false, cfg: cloneDef('video')
-        },
-        {
-          id: 4, cat: 'video', name: 'drift_slowmo_test.mp4', sizeMB: 52.0, durSec: 18, res: '1080×1920', fps: 60, bitrate: '23.1 Mbps', codec: 'H.264 (yuv420p)', meta: 'Device EXIF',
-          probe: {
-            frameStruct: 'Inter-Frame (Short-GOP)', gop: 'Keyint 30 · 0 B-frames', chroma: '4:2:0 · left · 8-bit',
-            color: 'BT.709 · BT.709 · PC Full', profile: 'High @ L4.2 · 2 ref', frames: '1,080 frames (VFR 59.94)',
-            aspect: 'SAR 1:1 · DAR 9:16 · Rot 0°', container: 'ISOBMFF (mp42) · Faststart ✗', audio: 'AAC-LC · 2ch Stereo · 256k',
-            subs: '0 Sub Streams · 0 Chapters', raw: 'com.android.capture.fps: 120.0 · encoder: MediaCodec · location: +13.0827+080.2707/'
-          },
-          selected: false, skipped: false, open: false, moreOpen: false, tab: 'info', hasPreset: false, isCustom: false, cfg: cloneDef('video')
-        },
-        {
-          id: 5, cat: 'audio', name: 'phonk_master_mix.wav', sizeMB: 34.1, durSec: 185, res: '48 kHz Stereo', fps: 0, bitrate: '1536 kbps', codec: 'PCM 16-bit', meta: 'Broadcast WAV',
-          probe: {
-            sampleFmt: 's16 (16-bit Signed)', chLayout: '2 ch (FL + FR Stereo)', encoder: 'Uncompressed RIFF/WAV',
-            samples: '8,880,000 samples · 03:05.0', loudness: '-9.4 LUFS · -0.3 dBTP Peak', padding: '0 samples delay',
-            raw: 'bext_originator: FL Studio 24 · IART: NightDrive · ICMT: Mastered 48kHz'
-          },
-          selected: false, skipped: false, open: false, moreOpen: false, tab: 'info', hasPreset: false, isCustom: false, cfg: cloneDef('audio')
-        },
-        {
-          id: 6, cat: 'audio', name: 'exhaust_rev_clip.mp3', sizeMB: 4.8, durSec: 120, res: '44.1 kHz Stereo', fps: 0, bitrate: '320 kbps', codec: 'MP3', meta: 'ID3v2.4 Tags',
-          probe: {
-            sampleFmt: 'fltp (32-bit Float)', chLayout: '2 ch (Joint Stereo)', encoder: 'LAME 3.100 (CBR)',
-            samples: '5,292,000 samples · 02:00.0', loudness: '-15.2 LUFS · -1.1 dBTP Peak', padding: '576 samples encoder delay',
-            raw: 'ID3v2.4 · TSSE: Lavf60.16.100 · TIT2: R35 Tunnel Rev · TCON: Automotive'
-          },
-          selected: false, skipped: false, open: false, moreOpen: false, tab: 'info', hasPreset: false, isCustom: false, cfg: cloneDef('audio')
-        },
-        {
-          id: 7, cat: 'image', name: 'cover_thumb_4k.png', sizeMB: 8.6, durSec: 0, res: '3840×2160', fps: 0, bitrate: 'Lossless RGB', codec: 'PNG 24-bit', meta: 'Software Tag',
-          probe: {
-            chroma: '4:4:4 · No Subsampling', depth: '8-bit/ch RGB (24-bit)', colorProfile: 'sRGB IEC61966-2.1',
-            compression: 'Deflate (Zlib Level 6)', orientation: 'Top-Left (Normal)', exif: 'No Camera EXIF · Software Tag',
-            raw: 'Software: Alight Motion / GIMP · Interlace: Non-interlaced · Alpha: None'
-          },
-          selected: false, skipped: false, open: false, moreOpen: false, tab: 'info', hasPreset: false, isCustom: false, cfg: cloneDef('image')
-        },
-        {
-          id: 8, cat: 'image', name: 'street_photo_01.jpg', sizeMB: 5.2, durSec: 0, res: '4000×3000', fps: 0, bitrate: 'JPEG Q96', codec: 'MJPEG', meta: 'EXIF + GPS',
-          probe: {
-            chroma: '4:2:0 · Baseline DCT', depth: '8-bit/ch YCbCr (24-bit)', colorProfile: 'Display P3 / sRGB',
-            compression: 'Huffman Baseline (Q96)', orientation: 'Rotate 90° CW (EXIF 6)', exif: 'f/1.5 · 1/120s · ISO 400 · 24mm',
-            raw: 'Make: Xiaomi · Model: POCO X7 Pro · GPSLatitude: 13.0827 N · GPSLongitude: 80.2707 E'
-          },
-          selected: false, skipped: false, open: false, moreOpen: false, tab: 'info', hasPreset: false, isCustom: false, cfg: cloneDef('image')
-        }
-      ],
+      files: [],
       modal: { open: false, cat: 'video', targetIds: [], libTab: 'builtin', touched: false, draft: null }
     };
 
@@ -1037,7 +968,7 @@
       const cMultCore = state.cores === '0-3' ? 0.62 : (state.cores === '7' ? 0.35 : (state.cores === '4-7' ? 0.78 : 1.0));
       const tMult = (state.threads === 8 ? 1.0 : (state.threads === 6 ? 0.82 : 0.58)) * cMultCore;
       if (item.cat === 'video') {
-        if (cfg.codec === 'copy') return { sec: Math.max(0.2, item.sizeMB / 1600), outMB: item.sizeMB, speedLbl: 'UFS 4.0 Copy' };
+        if (cfg.codec === 'copy') return { sec: Math.max(0.2, item.sizeMB / 1600), outMB: item.sizeMB, speedLbl: 'Fast Stream Copy' };
         const is4k = item.res.includes('3840') && cfg.scale === 'original';
         const preFps = { ultrafast: 280, fast: 122, medium: 92, slow: 62, slower: 44, veryslow: 25 }[cfg.preset] || 62;
         const cMult = cfg.codec === 'libx265' ? 0.52 : (cfg.codec === 'libsvtav1' ? 0.34 : (cfg.codec === 'libvpx-vp9' ? 0.45 : 1.0));
@@ -1129,7 +1060,7 @@
         return `
           <div class="info-grid">
             <div class="info-cell"><span class="info-k">Est. Processing Time</span><span class="info-v c-crimson">${fmtSec(est.sec)}</span></div>
-            <div class="info-cell"><span class="info-k">POCO X7 Pro Speed</span><span class="info-v">${est.speedLbl}</span></div>
+            <div class="info-cell"><span class="info-k">Device Speed</span><span class="info-v">${est.speedLbl}</span></div>
             <div class="info-cell"><span class="info-k">Output Estimate</span><span class="info-v">${item.sizeMB.toFixed(1)} → ${est.outMB.toFixed(1)} MB (${sign})</span></div>
             <div class="info-cell"><span class="info-k">Assigned Preset</span><span class="info-v">${item.cfg.presetName}</span></div>
           </div>
@@ -1245,13 +1176,13 @@
       document.getElementById('perf-ram').textContent = catStats.video.count > 0 ? '~920 MB' : '~240 MB';
       document.getElementById('perf-io').textContent = '~' + Math.max(0.02, totalOutMB / 2400).toFixed(2) + ' sec';
       document.getElementById('perf-thermal-note').textContent = totalSec > 180
-        ? 'Extended batch (>3 mins) — switching to 6 Threads keeps POCO X7 Pro thermals cooler with minimal speed loss.'
+        ? 'Extended batch (>3 mins) — switching to 6 Threads keeps device thermals cooler with minimal speed loss.'
         : 'Short batch under 3 minutes — 5000mm² Vapor Chamber sustains peak boost clocks with minimal thermal throttling.';
       const bCmd = document.getElementById('perf-core-cmd');
       const bWarn = document.getElementById('perf-core-warn');
       if (state.cores === 'auto') {
         bCmd.classList.add('hidden');
-        bWarn.textContent = 'Note: OS scheduler manages all 8 Cortex-A725 cores automatically.';
+        bWarn.textContent = 'Note: OS scheduler manages all device CPU cores automatically.';
       } else {
         bCmd.classList.remove('hidden');
         bCmd.innerHTML = '<strong>Core Pinning Command:</strong> taskset -c ' + state.cores + ' ffmpeg -threads ' + state.threads + ' ...';
@@ -1866,6 +1797,35 @@
       }
     });
 
+        window.setBatchFilesFromNative = function(nativeFiles) {
+      const V = new Set(['mp4','mkv','webm','mov','avi','ts','flv','ogv','3gp','m4v']);
+      const A = new Set(['mp3','flac','opus','m4a','wav','ogg','ac3','aac','wma']);
+      const I = new Set(['jpg','jpeg','png','webp','gif','bmp','tiff','avif','heic']);
+      state.files = [];
+      (nativeFiles || []).forEach((f, idx) => {
+        const ext = (String(f.name || '').split('.').pop() || '').toLowerCase();
+        const cat = V.has(ext) ? 'video' : (A.has(ext) ? 'audio' : (I.has(ext) ? 'image' : null));
+        if (!cat) return;
+        state.files.push({
+          id: idx + 1,
+          cat: cat,
+          name: f.name || 'file',
+          path: f.path || '',
+          sizeMB: f.sizeBytes ? (f.sizeBytes / (1024 * 1024)) : 1.0,
+          durSec: 10,
+          res: 'Source',
+          fps: 30,
+          bitrate: 'Auto',
+          codec: ext.toUpperCase(),
+          selected: true,
+          skipped: false,
+          drawerOpen: false,
+          preset: null,
+          cfg: null
+        });
+      });
+      renderAll();
+    };
     renderAll();
     const INFO_DICT = {
       'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',

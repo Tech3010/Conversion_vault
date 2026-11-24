@@ -225,6 +225,14 @@
     }
     .toast.show { opacity: 1; }
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -333,10 +341,10 @@
       </div>
       <section class="set-card" aria-label="Device Hardware Profile">
         <div class="hw-grid">
-          <div class="hw-cell"><span class="hw-k">Device Model</span><span class="hw-v">POCO X7 Pro</span></div>
-          <div class="hw-cell"><span class="hw-k">SoC &amp; Cores</span><span class="hw-v">D8400-U · 8x A725</span></div>
+          <div class="hw-cell"><span class="hw-k">Device Model</span><span class="hw-v">This Device</span></div>
+          <div class="hw-cell"><span class="hw-k">SoC &amp; Cores</span><span class="hw-v">Detecting SoC...</span></div>
           <div class="hw-cell"><span class="hw-k">CPU Clusters</span><span class="hw-v">1×3.25 + 3×3.0 + 4×2.1G</span></div>
-          <div class="hw-cell"><span class="hw-k">RAM &amp; Storage</span><span class="hw-v">LPDDR5X · UFS 4.0</span></div>
+          <div class="hw-cell"><span class="hw-k">RAM &amp; Storage</span><span class="hw-v">System RAM · Storage</span></div>
           <div class="hw-cell"><span class="hw-k">ABI &amp; Page Size</span><span class="hw-v c-emerald">arm64-v8a · 16KB ✓</span></div>
           <div class="hw-cell"><span class="hw-k">Max HW Decode</span><span class="hw-v">4K 60fps · 1080p 120fps</span></div>
         </div>
@@ -367,7 +375,7 @@
           <div class="cap-row">
             <div class="cap-l">
               <span class="cap-name">H.264 10-bit (Hi10P)</span>
-              <span class="cap-sub">No MediaCodec HW decode on Dimensity</span>
+              <span class="cap-sub">Checked dynamically via MediaCodecList</span>
             </div>
             <span class="cap-badge cb-no">AVOID</span>
           </div>

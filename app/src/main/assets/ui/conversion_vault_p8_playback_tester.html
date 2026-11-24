@@ -183,6 +183,14 @@
     }
     .toast.show { opacity: 1; }
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -287,9 +295,7 @@
       i: { fmt: 'webp', qual: 85, res: '1920x1080' },
       lastSample: null,
       pendingDelIdx: null,
-      saved: [
-        { name: 'test_hevc_10bit_60fps.mkv', meta: 'MKV · HEVC yuv420p10le · 3s · 1.4 MB', codec: 'libx265', pixfmt: 'yuv420p10le' }
-      ]
+      saved: []
     };
 
     function showToast(msg) {
@@ -299,21 +305,68 @@
       setTimeout(() => t.classList.remove('show'), 1800);
     }
 
-    function buildCommand() {
+    function buildArgsTemplate() {
       if (state.type === 'video') {
         const v = state.v;
-        const aud = v.audio === 'none' ? '-an' : `-c:a ${v.audio} -b:a 192k`;
+        // Enforce container-valid codec/audio combinations so FFmpeg never errors on WebM/MP4
+        let vcodec = v.codec;
+        let acodec = v.audio;
+        if (v.container === 'webm') {
+          if (vcodec !== 'libvpx-vp9' && vcodec !== 'libsvtav1') vcodec = 'libvpx-vp9';
+          if (acodec !== 'none' && acodec !== 'libopus') acodec = 'libopus';
+        }
+        const aud = acodec === 'none' ? '-an' : (acodec === 'flac' ? '-c:a flac' : `-c:a ${acodec} -b:a 192k`);
         const gop = v.gop === 'auto' ? '' : ` -g ${v.gop}`;
-        return `ffmpeg -y -f lavfi -i testsrc2=size=${v.res}:rate=${v.fps} -f lavfi -i sine=frequency=440:sample_rate=48000 -t ${v.dur} -c:v ${v.codec} -crf ${v.crf}${gop} -pix_fmt ${v.pixfmt} ${aud} test_sample.${v.container}`;
+        const extra = vcodec === 'libx265' && (v.container === 'mp4' || v.container === 'mov') ? ' -tag:v hvc1'
+                    : (vcodec === 'libsvtav1' ? ' -preset 8'
+                    : (vcodec === 'libvpx-vp9' ? ' -b:v 0 -deadline realtime' : ' -preset fast'));
+        const faststart = (v.container === 'mp4' || v.container === 'mov') ? ' -movflags +faststart' : '';
+        return `-y -f lavfi -i testsrc2=size=${v.res}:rate=${v.fps} -f lavfi -i sine=frequency=440:sample_rate=48000 -t ${v.dur} -c:v ${vcodec}${extra} -crf ${v.crf}${gop} -pix_fmt ${v.pixfmt} ${aud}${faststart} {OUTPUT}`;
       }
       if (state.type === 'audio') {
         const a = state.a;
         const ac = a.ch === '5.1' ? 6 : (a.ch === 'mono' ? 1 : 2);
-        const sf = a.depth === 'auto' ? '' : ` -sample_fmt ${a.depth}`;
-        return `ffmpeg -y -f lavfi -i sine=frequency=440:sample_rate=${a.ar} -t ${a.dur} -ac ${ac}${sf} -b:a ${a.br} test_tone.${a.fmt}`;
+        const encMap = { opus: 'libopus', flac: 'flac', mp3: 'libmp3lame', m4a: 'aac', wav: 'pcm_s16le', ac3: 'ac3' };
+        const enc = encMap[a.fmt] || 'aac';
+        const brFlag = (a.fmt === 'flac' || a.fmt === 'wav') ? '' : ` -b:a ${a.br}`;
+        const sf = (a.depth === 'auto' || a.fmt === 'mp3' || a.fmt === 'opus' || a.fmt === 'm4a') ? '' : ` -sample_fmt ${a.depth}`;
+        return `-y -f lavfi -i sine=frequency=440:sample_rate=${a.ar} -t ${a.dur} -ac ${ac} -c:a ${enc}${sf}${brFlag} {OUTPUT}`;
       }
       const i = state.i;
-      return `ffmpeg -y -f lavfi -i smptehdbars=size=${i.res} -frames:v 1 -q:v ${i.qual} test_pattern.${i.fmt}`;
+      if (i.fmt === 'png') {
+        return `-y -f lavfi -i smptehdbars=size=${i.res} -frames:v 1 -compression_level 6 {OUTPUT}`;
+      }
+      if (i.fmt === 'jpg') {
+        const qv = Math.max(2, Math.min(31, Math.round(31 - (i.qual / 100) * 29)));
+        return `-y -f lavfi -i smptehdbars=size=${i.res} -frames:v 1 -q:v ${qv} {OUTPUT}`;
+      }
+      if (i.fmt === 'webp') {
+        return `-y -f lavfi -i smptehdbars=size=${i.res} -frames:v 1 -c:v libwebp -quality ${i.qual} {OUTPUT}`;
+      }
+      // avif
+      const crfAvif = Math.max(12, Math.min(50, Math.round(52 - (i.qual / 100) * 38)));
+      return `-y -f lavfi -i smptehdbars=size=${i.res} -frames:v 1 -c:v libsvtav1 -crf ${crfAvif} -preset 8 -still-picture 1 {OUTPUT}`;
+    }
+
+    function buildCommand() {
+      const ext = state.type === 'video' ? state.v.container : (state.type === 'audio' ? state.a.fmt : state.i.fmt);
+      return 'ffmpeg ' + buildArgsTemplate().replace('{OUTPUT}', `test_sample.${ext}`);
+    }
+
+    function loadSavedSamplesFromDisk() {
+      if (window.AndroidBridge && typeof window.AndroidBridge.listSamples === 'function') {
+        try {
+          const list = JSON.parse(window.AndroidBridge.listSamples());
+          state.saved = list.map(f => ({
+            name: f.name,
+            path: f.path,
+            meta: f.ext.toUpperCase() + ' · ' + (f.sizeBytes >= 1048576 ? (f.sizeBytes / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(f.sizeBytes / 1024)) + ' KB'),
+            codec: f.ext,
+            pixfmt: f.name.includes('10bit') || f.name.includes('p10') ? 'yuv420p10le' : 'yuv420p'
+          }));
+        } catch (_) {}
+      }
+      renderSaved();
     }
 
     function runDeviceCheck(codec, pixfmt, name) {
@@ -515,6 +568,7 @@
         state.type = btn.getAttribute('data-type');
         document.getElementById('test-result').classList.add('hidden');
         renderControls();
+    loadSavedSamplesFromDisk();
       });
     });
 
@@ -536,35 +590,40 @@
       showToast('Copied FFmpeg command');
     });
 
-    document.getElementById('btn-generate').addEventListener('click', () => {
-      let item = null;
-      if (state.type === 'video') {
-        item = {
-          name: `sample_${state.v.codec.replace('lib','')}_crf${state.v.crf}_${state.v.fps}fps.${state.v.container}`,
-          meta: `${state.v.container.toUpperCase()} · ${state.v.res} · ${state.v.pixfmt} · ${state.v.dur}s`,
-          codec: state.v.codec,
-          pixfmt: state.v.pixfmt
-        };
-      } else if (state.type === 'audio') {
-        item = {
-          name: `sample_tone_${state.a.br}_${state.a.ch}.${state.a.fmt}`,
-          meta: `${state.a.fmt.toUpperCase()} · ${state.a.ar}Hz · ${state.a.ch} · ${state.a.dur}s`,
-          codec: state.a.fmt,
-          pixfmt: 'audio'
-        };
-      } else {
-        item = {
-          name: `sample_pattern_q${state.i.qual}.${state.i.fmt}`,
-          meta: `${state.i.fmt.toUpperCase()} · ${state.i.res} · Q${state.i.qual}`,
-          codec: state.i.fmt,
-          pixfmt: 'image'
-        };
+    window.onSampleGenerated = function(res) {
+      const btn = document.getElementById('btn-generate');
+      if (btn) { btn.disabled = false; btn.textContent = 'Generate Sample ▶'; }
+      if (!res || !res.ok) {
+        showToast('Generation failed: ' + ((res && res.error) ? res.error.slice(0, 70) : 'Unsupported format'));
+        return;
       }
-      state.saved.unshift(item);
-      state.lastSample = item;
-      renderSaved();
-      document.getElementById('gen-file-lbl').textContent = item.name + ' (' + item.meta + ')';
+      const sizeStr = res.sizeBytes >= 1048576 ? (res.sizeBytes / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(res.sizeBytes / 1024)) + ' KB';
+      state.lastSample = { name: res.name, path: res.path, meta: sizeStr, codec: state.type === 'video' ? state.v.codec : state.type, pixfmt: state.v.pixfmt };
+      loadSavedSamplesFromDisk();
+      document.getElementById('gen-file-lbl').textContent = res.name + ' (' + sizeStr + ')';
       document.getElementById('gen-modal').classList.remove('hidden');
+      showToast('Saved to /ConversionVault/Samples/' + res.name);
+    };
+
+    document.getElementById('btn-generate').addEventListener('click', () => {
+      const ext = state.type === 'video' ? state.v.container : (state.type === 'audio' ? state.a.fmt : state.i.fmt);
+      const baseName = state.type === 'video'
+        ? `sample_${state.v.codec.replace('lib','')}_${state.v.res}_${state.v.fps}fps`
+        : (state.type === 'audio' ? `sample_tone_${state.a.br}_${state.a.ch}` : `sample_pattern_q${state.i.qual}`);
+
+      if (window.AndroidBridge && typeof window.AndroidBridge.generateTestSample === 'function') {
+        const btn = document.getElementById('btn-generate');
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+        window.AndroidBridge.generateTestSample(JSON.stringify({
+          type: state.type,
+          baseName: baseName,
+          ext: ext,
+          argsTemplate: buildArgsTemplate()
+        }));
+      } else {
+        showToast('Sample generator runs inside Android APK');
+      }
     });
 
     document.getElementById('btn-gen-close').addEventListener('click', () => {
@@ -572,7 +631,7 @@
     });
     document.getElementById('btn-gen-test').addEventListener('click', () => {
       document.getElementById('gen-modal').classList.add('hidden');
-      if (state.lastSample) runDeviceCheck(state.lastSample.codec, state.lastSample.pixfmt, state.lastSample.name);
+      if (state.lastSample) { runDeviceCheck(state.lastSample.codec, state.lastSample.pixfmt, state.lastSample.name); if (window.AndroidBridge && state.lastSample.path) window.AndroidBridge.openFile(state.lastSample.path); }
     });
     document.getElementById('btn-open-fm').addEventListener('click', () => {
       showToast('Opening /storage/emulated/0/ConversionVault/Samples/ in File Manager →');
@@ -583,20 +642,20 @@
     });
     document.getElementById('btn-gen-share').addEventListener('click', () => {
       document.getElementById('gen-modal').classList.add('hidden');
-      if (state.lastSample) showToast('Sharing "' + state.lastSample.name + '" →');
+      if (state.lastSample && window.AndroidBridge && state.lastSample.path) window.AndroidBridge.shareFile(state.lastSample.path);
     });
 
     document.getElementById('samples-list').addEventListener('click', (e) => {
       const tst = e.target.closest('[data-test]');
       if (tst) {
         const s = state.saved[parseInt(tst.getAttribute('data-test'), 10)];
-        if (s) runDeviceCheck(s.codec, s.pixfmt, s.name);
+        if (s) { runDeviceCheck(s.codec, s.pixfmt, s.name); if (window.AndroidBridge && s.path) window.AndroidBridge.openFile(s.path); }
         return;
       }
       const sh = e.target.closest('[data-share]');
       if (sh) {
         const s = state.saved[parseInt(sh.getAttribute('data-share'), 10)];
-        if (s) showToast('Sharing "' + s.name + '" →');
+        if (s && window.AndroidBridge && s.path) window.AndroidBridge.shareFile(s.path);
         return;
       }
       const dl = e.target.closest('[data-del]');
@@ -619,7 +678,8 @@
       if (state.pendingDelIdx !== null) {
         const rm = state.saved.splice(state.pendingDelIdx, 1);
         state.pendingDelIdx = null;
-        renderSaved();
+        if (rm[0] && rm[0].path && window.AndroidBridge && window.AndroidBridge.deleteSample) window.AndroidBridge.deleteSample(rm[0].path);
+        loadSavedSamplesFromDisk();
         showToast('Deleted ' + (rm[0] ? rm[0].name : 'sample'));
       }
       document.getElementById('del-modal').classList.add('hidden');

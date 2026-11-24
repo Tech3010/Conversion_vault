@@ -12,24 +12,40 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.documentfile.provider.DocumentFile
+import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewClientCompat
 import com.conversionvault.app.bridge.AndroidBridge
 import com.conversionvault.app.engine.ConversionForegroundService
 import com.conversionvault.app.storage.VaultStorageManager
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var assetLoader: WebViewAssetLoader
     private var currentPickerMode: String = "single"
+    private var webFileChooserCallback: ValueCallback<Array<Uri>>? = null
+
+    private val webChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        webFileChooserCallback?.onReceiveValue(uris)
+        webFileChooserCallback = null
+    }
 
     private val singleFileLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let {
@@ -48,13 +64,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val folderLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri: Uri? ->
-        treeUri?.let {
-            try { contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
-            val payload = JSONObject().apply {
-                put("mode", "folder")
-                put("treeUri", it.toString())
-            }.toString()
-            evalJs("window.onVaultFilesPicked && window.onVaultFilesPicked($payload);")
+        treeUri?.let { uri ->
+            try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
+            Thread {
+                val tree = DocumentFile.fromTreeUri(this, uri)
+                val arr = JSONArray()
+                tree?.listFiles()?.forEach { doc ->
+                    if (doc.isFile) {
+                        val name = doc.name ?: "file"
+                        arr.put(JSONObject().apply {
+                            put("uri", doc.uri.toString())
+                            put("name", name)
+                            put("sizeBytes", doc.length())
+                            put("folder", tree.name ?: "Folder")
+                            put("path", VaultStorageManager.resolveInputPath(this@MainActivity, doc.uri.toString()))
+                        })
+                    }
+                }
+                val payload = JSONObject().apply {
+                    put("mode", "folder")
+                    put("treeUri", uri.toString())
+                    put("folderName", tree?.name ?: "Selected Folder")
+                    put("files", arr)
+                }.toString()
+                evalJs("window.onVaultFilesPicked && window.onVaultFilesPicked($payload);")
+            }.start()
         }
     }
 
@@ -62,6 +96,10 @@ class MainActivity : AppCompatActivity() {
 
     private val progressReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ConversionForegroundService.ACTION_FINISH_APP) {
+                finishAndRemoveTask()
+                return
+            }
             val json = intent?.getStringExtra(ConversionForegroundService.EXTRA_EVENT_JSON) ?: return
             evalJs("window.onVaultEvent && window.onVaultEvent($json);")
         }
@@ -76,19 +114,63 @@ class MainActivity : AppCompatActivity() {
         VaultStorageManager.scheduleSampleCleanup(this)
 
         requestRequiredPermissions()
+        try {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, ConversionForegroundService::class.java).apply {
+                    action = ConversionForegroundService.ACTION_START_SESSION
+                }
+            )
+        } catch (_: Exception) {}
+
+        assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
 
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
-            settings.allowFileAccessFromFileURLs = true
-            settings.allowUniversalAccessFromFileURLs = true
             settings.cacheMode = WebSettings.LOAD_DEFAULT
-            webViewClient = WebViewClient()
-            webChromeClient = WebChromeClient()
+            webViewClient = object : WebViewClientCompat() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): WebResourceResponse? {
+                    return assetLoader.shouldInterceptRequest(request.url)
+                }
+            }
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowFileChooser(
+                    webView: WebView?,
+                    filePathCallback: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?
+                ): Boolean {
+                    webFileChooserCallback?.onReceiveValue(null)
+                    webFileChooserCallback = filePathCallback
+                    return try {
+                        val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "*/*"
+                        }
+                        webChooserLauncher.launch(intent)
+                        true
+                    } catch (_: Exception) {
+                        webFileChooserCallback = null
+                        false
+                    }
+                }
+            }
             addJavascriptInterface(AndroidBridge(this@MainActivity), "AndroidBridge")
         }
+
         setContentView(webView)
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+
         loadUiPage("conversion_vault_p1_home.html")
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -100,7 +182,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        val filter = IntentFilter(ConversionForegroundService.BROADCAST_PROGRESS)
+        val filter = IntentFilter().apply {
+            addAction(ConversionForegroundService.BROADCAST_PROGRESS)
+            addAction(ConversionForegroundService.ACTION_FINISH_APP)
+        }
         ContextCompat.registerReceiver(this, progressReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
@@ -111,7 +196,7 @@ class MainActivity : AppCompatActivity() {
 
     fun loadUiPage(filename: String) {
         val clean = filename.substringAfterLast('/')
-        webView.loadUrl("file:///android_asset/ui/$clean")
+        webView.loadUrl("https://appassets.androidplatform.net/assets/ui/$clean")
     }
 
     fun launchPicker(mode: String, mimeFilter: String) {
@@ -125,26 +210,43 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun dispatchPickedFiles(uris: List<Uri>) {
-        val arr = JSONArray()
-        uris.forEach { uri ->
-            arr.put(JSONObject().apply {
-                put("uri", uri.toString())
-                put("name", VaultStorageManager.getFileNameFromUri(this@MainActivity, uri))
-                put("path", VaultStorageManager.resolveInputPath(this@MainActivity, uri.toString()))
-            })
-        }
-        val payload = JSONObject().apply {
-            put("mode", currentPickerMode)
-            put("files", arr)
-        }.toString()
-        evalJs("window.onVaultFilesPicked && window.onVaultFilesPicked($payload);")
+        val modeSnapshot = currentPickerMode
+        Thread {
+            val arr = JSONArray()
+            uris.forEach { uri ->
+                val resolved = VaultStorageManager.resolveInputPath(this@MainActivity, uri.toString())
+                val f = File(resolved)
+                arr.put(JSONObject().apply {
+                    put("uri", uri.toString())
+                    put("name", VaultStorageManager.getFileNameFromUri(this@MainActivity, uri))
+                    put("path", resolved)
+                    put("folder", f.parentFile?.name ?: "Storage")
+                    put("sizeBytes", if (f.exists()) f.length() else 0L)
+                })
+            }
+            val payload = JSONObject().apply {
+                put("mode", modeSnapshot)
+                put("files", arr)
+            }.toString()
+            evalJs("window.onVaultFilesPicked && window.onVaultFilesPicked($payload);")
+        }.start()
     }
+
+    fun evalJsFromBridge(script: String) { evalJs(script) }
 
     private fun evalJs(script: String) {
         webView.post { webView.evaluateJavascript(script, null) }
     }
 
-    private fun requestRequiredPermissions() {
+    private fun requestRequiredPermissions()
+        try {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, ConversionForegroundService::class.java).apply {
+                    action = ConversionForegroundService.ACTION_START_SESSION
+                }
+            )
+        } catch (_: Exception) {} {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 notificationPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)

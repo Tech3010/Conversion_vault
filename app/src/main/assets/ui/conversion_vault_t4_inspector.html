@@ -47,6 +47,14 @@
     .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
     .toast.show{opacity:1;}
   </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-frame">
@@ -68,8 +76,8 @@
         <div class="sec-lbl"><span>1. Target Media File</span></div>
         <div class="file-pick">
           <div style="min-width:0;">
-            <div class="fname" id="lbl-fname">gtr_night_ramp.mp4</div>
-            <div class="fmeta" id="lbl-fmeta">64.2 MB · 2 Streams (v:0, a:0) · 0 Chapters</div>
+            <div class="fname" id="lbl-fname">No file selected</div>
+            <div class="fmeta" id="lbl-fmeta">No file selected yet — tap Pick File</div>
           </div>
           <button type="button" id="btn-pick" class="btn-sm">Pick File</button>
           <input type="file" id="inp-file" class="hidden" accept="video/*,audio/*,image/*">
@@ -129,14 +137,14 @@
         <div class="raw-tags">
           <strong>Raw Extracted Metadata Tags:</strong><br>
           encoder: Lavf60.16.100 · creation_time: 2026-11-22T18:14:09.000000Z<br>
-          com.android.manufacturer: Xiaomi · model: POCO X7 Pro · location: +13.0827+080.2707/
+          No file metadata loaded yet
         </div>
       </section>
 
       <section class="card-box">
         <div class="sec-lbl"><span>6. Raw FFprobe JSON Output</span></div>
         <div class="json-box" id="json-box">{
-  "format": { "filename": "gtr_night_ramp.mp4", "nb_streams": 2, "format_name": "mov,mp4,m4a,3gp", "duration": "30.000000", "size": "67318579", "bit_rate": "17951621" },
+  "format": { "filename": "No file selected", "nb_streams": 2, "format_name": "mov,mp4,m4a,3gp", "duration": "30.000000", "size": "67318579", "bit_rate": "17951621" },
   "streams": [
     { "index": 0, "codec_name": "h264", "profile": "High", "level": 42, "width": 1080, "height": 1920, "pix_fmt": "yuv420p", "color_space": "bt709", "color_range": "tv", "has_b_frames": 2, "refs": 4, "r_frame_rate": "60/1", "nb_frames": "1800" },
     { "index": 1, "codec_name": "aac", "profile": "LC", "sample_fmt": "fltp", "sample_rate": "48000", "channels": 2, "channel_layout": "stereo", "bit_rate": "192000" }

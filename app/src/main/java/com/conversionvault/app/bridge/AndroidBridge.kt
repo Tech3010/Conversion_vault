@@ -43,25 +43,92 @@ class AndroidBridge(
     }
 
     @JavascriptInterface
+    fun pickFile() {
+        pickFiles("single", "*/*")
+    }
+
+    @JavascriptInterface
+    fun pickMultipleFiles() {
+        pickFiles("multi", "*/*")
+    }
+
+    @JavascriptInterface
+    fun pickFolder() {
+        pickFiles("folder", "*/*")
+    }
+
+    @JavascriptInterface
+    fun copyToClipboard(text: String) {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("ConversionVault", text))
+    }
+
+    @JavascriptInterface
     fun probeFile(uriOrPath: String): String {
         val path = VaultStorageManager.resolveInputPath(context, uriOrPath)
+        val file = File(path)
         val infoSession = FFprobeKit.getMediaInformation(path)
         val info = infoSession.mediaInformation
         return if (info != null) {
+            val streams = info.streams ?: emptyList()
+            val vStream = streams.firstOrNull { it.type.equals("video", true) }
+            val aStream = streams.firstOrNull { it.type.equals("audio", true) }
+            val subCount = streams.count { it.type.equals("subtitle", true) }
+
+            val fpsStr = vStream?.averageFrameRate ?: vStream?.realFrameRate ?: ""
+            val fpsVal = if (fpsStr.contains("/")) {
+                val p = fpsStr.split("/")
+                val num = p.getOrNull(0)?.toDoubleOrNull() ?: 0.0
+                val den = p.getOrNull(1)?.toDoubleOrNull() ?: 1.0
+                if (den > 0.0) num / den else 0.0
+            } else {
+                fpsStr.toDoubleOrNull() ?: 0.0
+            }
+
+            val tagsJson = info.tags
+            val tagKeys = mutableListOf<String>()
+            var hasGps = false
+            if (tagsJson != null) {
+                val it = tagsJson.keys()
+                while (it.hasNext()) {
+                    val k = it.next()
+                    val v = tagsJson.optString(k, "")
+                    if (k.contains("location", true) || k.contains("gps", true)) hasGps = true
+                    if (tagKeys.size < 6) tagKeys.add("$k: $v")
+                }
+            }
+
             JSONObject().apply {
                 put("ok", true)
                 put("path", path)
-                put("filename", File(path).name)
+                put("filename", file.name)
                 put("format", info.format ?: "unknown")
                 put("durationSec", info.duration?.toDoubleOrNull() ?: 0.0)
-                put("sizeBytes", info.size?.toLongOrNull() ?: File(path).length())
+                put("sizeBytes", info.size?.toLongOrNull() ?: file.length())
                 put("bitrate", info.bitrate?.toLongOrNull() ?: 0L)
+                put("streamCount", streams.size)
+                put("subtitleCount", subCount)
+                put("videoCodec", vStream?.codec ?: "None")
+                put("videoProfile", vStream?.getStringProperty("profile") ?: "—")
+                put("pixFmt", vStream?.format ?: "—")
+                put("width", vStream?.width ?: 0)
+                put("height", vStream?.height ?: 0)
+                put("fps", fpsVal)
+                put("colorSpace", vStream?.getStringProperty("color_space") ?: "—")
+                put("audioCodec", aStream?.codec ?: "None")
+                put("sampleRate", aStream?.sampleRate ?: "—")
+                put("channels", aStream?.getNumberProperty("channels")?.toInt() ?: 0)
+                put("audioBitrate", aStream?.bitrate?.toLongOrNull() ?: 0L)
+                put("hasGps", hasGps)
+                put("tagsSummary", if (tagKeys.isEmpty()) "No container metadata tags" else tagKeys.joinToString(" · "))
                 put("raw", info.allProperties ?: JSONObject())
             }.toString()
         } else {
             JSONObject().apply {
                 put("ok", false)
                 put("path", path)
+                put("filename", file.name)
+                put("sizeBytes", if (file.exists()) file.length() else 0L)
                 put("error", infoSession.failStackTrace ?: "FFprobe failed to read file")
             }.toString()
         }
@@ -288,18 +355,62 @@ class AndroidBridge(
     @JavascriptInterface
     fun generateTestSample(presetJsonStr: String): String {
         val o = JSONObject(presetJsonStr)
-        val codec = o.optString("codec", "libx264")
-        val ext = o.optString("container", "mp4")
+        val type = o.optString("type", "video")
         val dir = VaultStorageManager.getModuleDir(context, "Samples")
-        val outFile = VaultStorageManager.resolveNonConflictingFile(dir, "sample_${codec}", ext)
-        val cmd = "-y -f lavfi -i testsrc2=size=1280x720:rate=30 -f lavfi -i sine=frequency=1000:sample_rate=48000 -t 3 -c:v $codec -c:a aac \"${outFile.absolutePath}\""
-        val session = FFmpegKit.execute(cmd)
-        val ok = ReturnCode.isSuccess(session.returnCode)
-        return JSONObject().apply {
-            put("ok", ok)
-            put("path", outFile.absolutePath)
-            put("sizeBytes", if (outFile.exists()) outFile.length() else 0L)
-        }.toString()
+        val baseName = o.optString("baseName", "sample_test")
+        val ext = o.optString("ext", "mp4").trimStart('.')
+        val argsTemplate = o.optString("argsTemplate", "")
+        val outFile = VaultStorageManager.resolveNonConflictingFile(dir, baseName, ext)
+
+        val finalCmd = if (argsTemplate.isNotBlank()) {
+            argsTemplate.replace("{OUTPUT}", "\"${outFile.absolutePath}\"")
+        } else {
+            "-y -f lavfi -i testsrc2=size=1280x720:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 3 -c:v libx264 -pix_fmt yuv420p -c:a aac \"${outFile.absolutePath}\""
+        }
+
+        Thread {
+            val session = FFmpegKit.execute(finalCmd)
+            val ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
+            val res = JSONObject().apply {
+                put("ok", ok)
+                put("type", type)
+                put("name", outFile.name)
+                put("path", outFile.absolutePath)
+                put("sizeBytes", if (outFile.exists()) outFile.length() else 0L)
+                put("error", if (ok) "" else (session.allLogsAsString.takeLast(300)))
+            }.toString()
+            activity.runOnUiThread {
+                activity.evalJsFromBridge("window.onSampleGenerated && window.onSampleGenerated($res);")
+            }
+        }.start()
+
+        return JSONObject().put("started", true).put("targetPath", outFile.absolutePath).toString()
+    }
+
+    @JavascriptInterface
+    fun listSamples(): String {
+        val dir = VaultStorageManager.getModuleDir(context, "Samples")
+        val arr = JSONArray()
+        dir.listFiles()
+            ?.filter { it.isFile }
+            ?.sortedByDescending { it.lastModified() }
+            ?.forEach { f ->
+                arr.put(JSONObject().apply {
+                    put("name", f.name)
+                    put("path", f.absolutePath)
+                    put("sizeBytes", f.length())
+                    put("ext", f.extension.lowercase())
+                    put("modifiedAt", f.lastModified())
+                })
+            }
+        return arr.toString()
+    }
+
+    @JavascriptInterface
+    fun deleteSample(path: String): String {
+        val f = File(path)
+        val ok = f.exists() && f.delete()
+        return JSONObject().put("ok", ok).toString()
     }
 
     @JavascriptInterface
@@ -366,6 +477,48 @@ class AndroidBridge(
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(Intent.createChooser(intent, "Share file").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    @JavascriptInterface
+    fun openFolder(folderPath: String) {
+        try {
+            val target = if (folderPath.isBlank()) VaultStorageManager.getRootDir(context) else File(folderPath)
+            if (!target.exists()) target.mkdirs()
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(
+                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", target),
+                    "resource/folder"
+                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(Intent.createChooser(intent, "Open folder").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {
+            try {
+                val pmIntent = context.packageManager.getLaunchIntentForPackage("com.google.android.documentsui")
+                    ?: Intent(android.provider.DocumentsContract.ACTION_BROWSE)
+                pmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(pmIntent)
+            } catch (_: Exception) {}
+        }
+    }
+
+    @JavascriptInterface
+    fun exportReportJson(filename: String, content: String): String {
+        val dir = VaultStorageManager.getModuleDir(context, "Reports")
+        val base = File(filename).nameWithoutExtension.ifBlank { "probe_report" }
+        val target = VaultStorageManager.resolveNonConflictingFile(dir, base, "json")
+        target.writeText(content)
+        return JSONObject().put("ok", true).put("path", target.absolutePath).toString()
+    }
+
+    @JavascriptInterface
+    fun setAppState(key: String, value: String) {
+        prefs.edit().putString("state_$key", value).apply()
+    }
+
+    @JavascriptInterface
+    fun getAppState(key: String): String {
+        return prefs.getString("state_$key", "") ?: ""
     }
 
     @JavascriptInterface
