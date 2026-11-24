@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Trim &amp; GIF Maker</title>
+  <style>
+    :root {
+      --bg:#090d16; --surface:#0f1624; --card:#131c2e; --card-elev:#172236; --input:#0a0f1a;
+      --border:#1e293b; --border-strong:#334155; --text:#f8fafc; --muted:#94a3b8;
+      --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14); --crimson-hover:#be0837;
+      --gold:#fcd116; --gold-soft:rgba(252,209,22,0.13); --gold-text:#fcd116;
+      --emerald:#10b981;
+      --radius:12px; --radius-sm:8px;
+      --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13.5px;line-height:1.45;min-height:100vh;display:flex;justify-content:center;}
+    .app-frame{width:100%;max-width:540px;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);padding-bottom:84px;}
+    @media(min-width:600px){.app-frame{border-left:1px solid var(--border);border-right:1px solid var(--border);}}
+    .app-bar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .bar-left{display:flex;align-items:center;gap:10px;}
+    .back-btn{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+    .back-btn:hover{border-color:var(--crimson);color:var(--crimson);}
+    .page-title{font-size:15px;font-weight:700;line-height:1.2;}
+    .page-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
+    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--crimson-soft);color:var(--crimson);border:1px solid rgba(219,10,64,0.35);}
+    .content{padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1;}
+    .card-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:11px;}
+    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .file-pick{background:var(--card-elev);border:1px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .fname{font-family:var(--mono);font-size:12.5px;font-weight:700;word-break:break-all;}
+    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;}
+    .btn-sm{padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .btn-sm:hover{border-color:var(--crimson);color:var(--crimson);}
+
+    /* Frame Preview Grid (Start Frame vs End Frame) */
+    .frame-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;}
+    .frame-card{background:var(--card-elev);border:1px solid var(--border-strong);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;}
+    .frame-canvas{width:100%;aspect-ratio:16/9;background:var(--card-elev);display:block;object-fit:cover;}
+    .frame-foot{padding:7px 9px;background:var(--card);border-top:1px solid var(--border);display:flex;flex-direction:column;align-items:flex-start;gap:2px;font-family:var(--mono);font-size:10px;line-height:1.25;}
+    .frame-tag{font-weight:800;color:var(--gold-text);}
+    .frame-ts{color:var(--muted);}
+
+    .mode-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+    .mode-btn{padding:10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;}
+    .mode-btn.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
+    .mode-btn strong{font-size:12.5px;}
+    .mode-btn small{font-family:var(--mono);font-size:10px;color:var(--muted);}
+    .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+    .field{display:flex;flex-direction:column;gap:4px;}
+    .field label{font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--muted);}
+    .field input,.field select{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--border-strong);background:var(--input);color:var(--text);font-size:12px;font-family:var(--mono);}
+    input[type="range"]{width:100%;accent-color:var(--crimson);cursor:pointer;padding:0;border:none;background:transparent;}
+    .cmd-wrap{background:#05070b;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;}
+    .cmd-box{font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.45;word-break:break-all;}
+    .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:540px;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:40;}
+    .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;}
+    .btn-primary:hover{background:var(--crimson-hover);}
+    .dest-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+    .dest-pill{padding:7px 6px;border-radius:7px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;text-align:center;}
+    .dest-pill.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
+    .dest-path-bar{background:var(--input);border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-family:var(--mono);font-size:10.5px;color:var(--emerald);word-break:break-all;}
+    .hidden{display:none !important;}
+    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast.show{opacity:1;}
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Home">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <div>
+          <div class="page-title">Trim &amp; GIF Maker</div>
+          <div class="page-sub">LIVE FRAME PREVIEW · FAST CUT · GIF</div>
+        </div>
+      </div>
+      <span class="badge">FAST CUT</span>
+    </header>
+
+    <main class="content">
+      <section class="card-box">
+        <div class="sec-lbl"><span>1. Source Video</span></div>
+        <div class="file-pick">
+          <div style="min-width:0;">
+            <div class="fname" id="lbl-fname">gtr_night_ramp.mp4</div>
+            <div class="fmeta" id="lbl-fmeta">64.2 MB · 00:30.0 · 60 fps</div>
+          </div>
+          <button type="button" id="btn-pick" class="btn-sm">Pick Video</button>
+          <input type="file" id="inp-file" class="hidden" accept="video/*">
+        </div>
+
+        <!-- Live Frame Previews (Start Frame & End Frame) -->
+        <div class="frame-grid">
+          <div class="frame-card">
+            <canvas id="cvs-start" class="frame-canvas" width="320" height="180"></canvas>
+            <div class="frame-foot">
+              <span class="frame-tag">START FRAME</span>
+              <span class="frame-ts" id="lbl-start-ts">00:00:04.0</span>
+            </div>
+          </div>
+          <div class="frame-card">
+            <canvas id="cvs-end" class="frame-canvas" width="320" height="180"></canvas>
+            <div class="frame-foot">
+              <span class="frame-tag" style="color:var(--emerald);">END FRAME</span>
+              <span class="frame-ts" id="lbl-end-ts">00:00:12.0</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>2. Mode &amp; Time Range</span><span id="lbl-clip-dur" style="color:var(--emerald); font-size:10px;">Clip: 8.0s</span></div>
+        <div class="mode-grid" id="mode-grid">
+          <button type="button" class="mode-btn active" data-mode="trim">
+            <strong>Fast Lossless Trim</strong>
+            <small>-c copy (Instant Cut)</small>
+          </button>
+          <button type="button" class="mode-btn" data-mode="gif">
+            <strong>Crisp Palette GIF</strong>
+            <small>palettegen + paletteuse</small>
+          </button>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="rng-ss">Start Scrubber (-ss)</label>
+            <input type="range" id="rng-ss" min="0" max="29" step="0.5" value="4">
+            <input type="text" id="inp-ss" value="00:00:04.0">
+          </div>
+          <div class="field">
+            <label for="rng-to">End Scrubber (-to)</label>
+            <input type="range" id="rng-to" min="1" max="30" step="0.5" value="12">
+            <input type="text" id="inp-to" value="00:00:12.0">
+          </div>
+        </div>
+
+        <div id="gif-opts" class="grid-2 hidden">
+          <div class="field"><label for="sel-gif-fps">GIF FPS</label>
+            <select id="sel-gif-fps"><option value="15">15 fps (Compact)</option><option value="24" selected>24 fps (Smooth)</option><option value="30">30 fps</option></select>
+          </div>
+          <div class="field"><label for="sel-gif-w">GIF Width</label>
+            <select id="sel-gif-w"><option value="480">480 px</option><option value="640" selected>640 px</option><option value="720">720 px</option></select>
+          </div>
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>3. Generated FFmpeg Command</span></div>
+        <div class="cmd-wrap"><div class="cmd-box" id="cmd-box"></div></div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="btn-copy" class="btn-sm" style="flex:1;">Copy Command</button>
+          <button type="button" id="btn-sh" class="btn-sm" style="flex:1;">Export .sh (/SH_Scripts/)</button>
+        </div>
+      </section>
+      <section class="card-box" aria-label="Output Location">
+        <div class="sec-lbl"><span>Save Location</span></div>
+        <div class="dest-pills" id="dest-pills">
+          <button type="button" class="dest-pill active" data-dest="vault">Vault Folder</button>
+          <button type="button" class="dest-pill" data-dest="source">Source Folder</button>
+          <button type="button" class="dest-pill" data-dest="custom">Custom ↗</button>
+        </div>
+        <div class="dest-path-bar" id="lbl-dest-path">/storage/emulated/0/ConversionVault/Trim_GIF/cut_gtr_night_ramp.mp4</div>
+      </section>
+    </main>
+
+    <footer class="bottom-bar">
+      <button type="button" id="btn-fm" class="btn-sm" style="padding:10px 12px;">File Manager ↗</button>
+      <button type="button" id="btn-run" class="btn-primary">Export Trim / GIF ▶</button>
+    </footer>
+  </div>
+
+  <video id="hidden-vid" class="hidden" muted playsinline></video>
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const state = { fname: 'gtr_night_ramp.mp4', mode: 'trim', dur: 30, hasRealVideo: false };
+    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+
+    function secToStr(sec) {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = (sec % 60).toFixed(1).padStart(4, '0');
+      return '00:' + m + ':' + s;
+    }
+
+    function drawPlaceholderFrame(cvsId, label, ts) {
+      const cvs = document.getElementById(cvsId);
+      const ctx = cvs.getContext('2d');
+      const g = ctx.createLinearGradient(0, 0, 320, 180);
+      g.addColorStop(0, '#0f172a');
+      g.addColorStop(1, '#1e293b');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 320, 180);
+      ctx.strokeStyle = 'rgba(252,209,22,0.28)';
+      ctx.strokeRect(8, 8, 304, 164);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label + ' @ ' + ts, 160, 88);
+      ctx.font = '10px monospace';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('Pick a video file to preview real frames', 160, 108);
+    }
+
+    function grabRealFrame(cvsId, sec) {
+      const vid = document.getElementById('hidden-vid');
+      const cvs = document.getElementById(cvsId);
+      if (!state.hasRealVideo || !vid.videoWidth) return;
+      const seekHandler = () => {
+        const ctx = cvs.getContext('2d');
+        const vw = vid.videoWidth, vh = vid.videoHeight;
+        const cw = cvs.width, ch = cvs.height;
+        const scale = Math.max(cw / vw, ch / vh);
+        const sw = cw / scale, sh = ch / scale;
+        const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+        ctx.drawImage(vid, sx, sy, sw, sh, 0, 0, cw, ch);
+        vid.removeEventListener('seeked', seekHandler);
+      };
+      vid.addEventListener('seeked', seekHandler);
+      vid.currentTime = Math.min(vid.duration || sec, Math.max(0, sec));
+    }
+
+    function render() {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode') === state.mode));
+      document.getElementById('gif-opts').classList.toggle('hidden', state.mode !== 'gif');
+      const ssSec = parseFloat(document.getElementById('rng-ss').value) || 0;
+      const toSec = parseFloat(document.getElementById('rng-to').value) || 12;
+      const ss = document.getElementById('inp-ss').value;
+      const to = document.getElementById('inp-to').value;
+      document.getElementById('lbl-start-ts').textContent = ss;
+      document.getElementById('lbl-end-ts').textContent = to;
+      document.getElementById('lbl-clip-dur').textContent = 'Clip: ' + Math.max(0.1, (toSec - ssSec)).toFixed(1) + 's';
+
+      if (!state.hasRealVideo) {
+        drawPlaceholderFrame('cvs-start', 'IN', ss);
+        drawPlaceholderFrame('cvs-end', 'OUT', to);
+      }
+
+      const base = state.fname.replace(/\.[^.]+$/, '');
+      if (state.mode === 'trim') {
+        document.getElementById('cmd-box').textContent = `$ ffmpeg -y -ss ${ss} -to ${to} -i "${state.fname}" -c copy -movflags +faststart "cut_${state.fname}"`;
+      } else {
+        const fps = document.getElementById('sel-gif-fps').value;
+        const w = document.getElementById('sel-gif-w').value;
+        document.getElementById('cmd-box').textContent = `$ ffmpeg -y -ss ${ss} -to ${to} -i "${state.fname}" -vf "fps=${fps},scale=${w}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" "${base}.gif"`;
+      }
+    }
+
+    document.getElementById('mode-grid').addEventListener('click', (e) => {
+      const b = e.target.closest('.mode-btn');
+      if (b) { state.mode = b.getAttribute('data-mode'); render(); }
+    });
+    document.getElementById('rng-ss').addEventListener('input', function() {
+      let ss = parseFloat(this.value);
+      const toEl = document.getElementById('rng-to');
+      const toVal = parseFloat(toEl.value);
+      if (ss >= toVal) {
+        ss = Math.max(0, toVal - 0.5);
+        this.value = ss;
+        showToast('Start cannot pass End time');
+      }
+      document.getElementById('inp-ss').value = secToStr(ss);
+      grabRealFrame('cvs-start', ss);
+      render();
+    });
+    document.getElementById('rng-to').addEventListener('input', function() {
+      let to = parseFloat(this.value);
+      const ssVal = parseFloat(document.getElementById('rng-ss').value);
+      if (to <= ssVal) {
+        to = Math.min(state.dur, ssVal + 0.5);
+        this.value = to;
+        showToast('End cannot go before Start time');
+      }
+      document.getElementById('inp-to').value = secToStr(to);
+      grabRealFrame('cvs-end', to);
+      render();
+    });
+    ['inp-ss','inp-to','sel-gif-fps','sel-gif-w'].forEach(id => document.getElementById(id).addEventListener('input', render));
+
+    document.getElementById('btn-pick').addEventListener('click', () => document.getElementById('inp-file').click());
+    document.getElementById('inp-file').addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        const file = this.files[0];
+        state.fname = file.name;
+        document.getElementById('lbl-fname').textContent = state.fname;
+        const vid = document.getElementById('hidden-vid');
+        vid.src = URL.createObjectURL(file);
+        vid.onloadedmetadata = () => {
+          state.hasRealVideo = true;
+          state.dur = Math.max(2, Math.floor(vid.duration));
+          document.getElementById('rng-ss').max = state.dur - 1;
+          document.getElementById('rng-to').max = state.dur;
+          document.getElementById('rng-to').value = Math.min(state.dur, 12);
+          document.getElementById('inp-to').value = secToStr(Math.min(state.dur, 12));
+          document.getElementById('lbl-fmeta').textContent = (file.size / (1024 * 1024)).toFixed(1) + ' MB · ' + secToStr(vid.duration);
+          grabRealFrame('cvs-start', parseFloat(document.getElementById('rng-ss').value));
+          setTimeout(() => grabRealFrame('cvs-end', parseFloat(document.getElementById('rng-to').value)), 200);
+          render();
+        };
+      }
+    });
+
+    document.getElementById('btn-copy').addEventListener('click', () => showToast('Copied FFmpeg command'));
+    document.getElementById('btn-sh').addEventListener('click', () => showToast('Saved to /ConversionVault/SH_Scripts/trim_gif.sh'));
+    document.getElementById('btn-fm').addEventListener('click', () => showToast('Opening /ConversionVault/ in File Manager →'));
+    document.getElementById('btn-run').addEventListener('click', () => showToast(state.mode === 'trim' ? 'Fast cut saved ✓' : 'PaletteGen GIF saved ✓'));
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+    render();
+    let destMode = 'vault';
+    function updateDestPath() {
+      const base = destMode === 'vault' ? '/storage/emulated/0/ConversionVault/Trim_GIF/' : (destMode === 'source' ? '/Movies/AlightMotion/Converted/' : '/storage/emulated/0/Documents/Exports/');
+      document.getElementById('lbl-dest-path').textContent = base + 'cut_gtr_night_ramp.mp4';
+    }
+    document.getElementById('dest-pills').addEventListener('click', (e) => {
+      const p = e.target.closest('.dest-pill');
+      if (!p) return;
+      destMode = p.getAttribute('data-dest');
+      document.querySelectorAll('.dest-pill').forEach(x => x.classList.toggle('active', x.getAttribute('data-dest') === destMode));
+      updateDestPath();
+      if (destMode === 'custom') showToast('Pick custom output folder →');
+    });
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

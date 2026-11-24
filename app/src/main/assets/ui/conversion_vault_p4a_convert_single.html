@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Single File Engine</title>
+  <style>
+    :root {
+      /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 84px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    /* Top App Bar (Clean — No Theme Toggle) */
+    .app-bar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .bar-left { display: flex; align-items: center; gap: 10px; }
+    .back-btn {
+      width: 34px; height: 34px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .back-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+    .page-title { font-size: 15px; font-weight: 700; line-height: 1.2; }
+    .page-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    .engine-state-pill {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800; padding: 4px 9px;
+      border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;
+      letter-spacing: 0.04em;
+    }
+    .state-running { background: var(--crimson-soft); color: var(--crimson); border: 1px solid rgba(219, 10, 64, 0.45); }
+    .state-paused { background: var(--gold-soft); color: var(--gold-text); border: 1px solid rgba(252, 209, 22, 0.45); }
+    .state-done { background: var(--emerald-soft); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.45); }
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+      animation: pulse 1.1s infinite ease-in-out;
+    }
+    .state-paused .pulse-dot, .state-done .pulse-dot { animation: none; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.8); } }
+
+    .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+    /* Hero Pit-Wall Telemetry Card */
+    .pit-hero {
+      background: linear-gradient(145deg, rgba(219, 10, 64, 0.14) 0%, var(--surface) 60%, rgba(252, 209, 22, 0.06) 100%);
+      border: 1px solid var(--border-strong);
+      border-top: 2px solid var(--crimson);
+      border-radius: var(--radius);
+      padding: 15px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .pit-hero.is-done {
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.14) 0%, var(--surface) 65%);
+      border-top-color: var(--emerald);
+    }
+
+    .file-pill-row {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .fp-name { font-family: var(--mono); font-size: 13.5px; font-weight: 800; word-break: break-all; }
+    .fp-preset { font-family: var(--mono); font-size: 10.5px; color: var(--gold-text); margin-top: 2px; }
+    .fp-type {
+      font-family: var(--mono); font-size: 10px; font-weight: 800; padding: 3px 7px;
+      border-radius: 5px; background: var(--crimson-soft); color: var(--crimson); white-space: nowrap;
+    }
+
+    .pit-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
+    .pit-pct { font-family: var(--mono); font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+    .pit-lbl { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-bottom: 3px; }
+    .pit-time-block { text-align: right; }
+    .pit-eta { font-family: var(--mono); font-size: 14px; font-weight: 800; color: var(--gold-text); }
+    .pit-elapsed { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .master-track {
+      width: 100%; height: 10px; background: #05070b; border: 1px solid var(--border);
+      border-radius: 999px; overflow: hidden;
+    }
+    .master-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--crimson) 0%, #f97316 55%, var(--gold) 100%);
+      border-radius: 999px; transition: width 0.2s ease;
+    }
+    .master-fill.is-done { background: var(--emerald); }
+
+    /* 6-Tile Sporting Telemetry Grid */
+    .telemetry-6 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .tele-cell {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 8px 10px;
+    }
+    .tele-k { font-family: var(--mono); font-size: 9.5px; color: var(--muted); text-transform: uppercase; display: block; }
+    .tele-v { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); margin-top: 2px; display: block; }
+    .c-crimson { color: var(--crimson); }
+    .c-gold { color: var(--gold-text); }
+    .c-emerald { color: var(--emerald); }
+
+    /* Destination & Summary Card */
+    .dest-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .dest-k { font-family: var(--mono); font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+    .dest-path { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text); word-break: break-all; }
+    .dest-delta {
+      margin-top: 4px; padding: 8px 10px; border-radius: 7px;
+      background: var(--emerald-soft); border: 1px solid rgba(16, 185, 129, 0.35);
+      font-family: var(--mono); font-size: 11px; color: var(--emerald); font-weight: 700;
+    }
+
+    /* Live FFmpeg Console Drawer */
+    .sec-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+    }
+    .console-toggle {
+      width: 100%; padding: 10px 14px; background: var(--card); border: none; color: var(--text);
+      font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .console-body {
+      background: #05070b; border-top: 1px solid var(--border); padding: 10px 12px;
+      font-family: var(--mono); font-size: 10.5px; line-height: 1.55; color: #cbd5e1;
+      max-height: 185px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;
+    }
+    .log-line-cmd { color: var(--gold-text); }
+    .log-line-ok { color: var(--emerald); }
+    .log-line-cur { color: #f8fafc; }
+
+    /* Sticky Bottom Action Bar */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 540px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 40;
+    }
+    .btn-secondary {
+      background: var(--card); border: 1px solid var(--border-strong); color: var(--text);
+      padding: 9px 14px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; flex: 1;
+    }
+    .btn-secondary:hover { border-color: var(--gold); color: var(--gold-text); }
+    .btn-danger {
+      background: var(--crimson-soft); border: 1px solid rgba(219, 10, 64, 0.5); color: var(--crimson);
+      padding: 9px 14px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    .btn-primary {
+      background: var(--emerald); border: 1px solid var(--emerald); color: #05130e;
+      padding: 9px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 800; cursor: pointer; flex: 1;
+    }
+
+    .cmd-tools-bar {
+      background: var(--card); border-top: 1px solid var(--border);
+      padding: 8px 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .path-chk-lbl {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 10.5px; color: var(--muted); cursor: pointer;
+    }
+    .path-chk-lbl input { accent-color: var(--gold); cursor: pointer; }
+    .cmd-btn-group { display: flex; gap: 6px; }
+    .btn-cmd-act {
+      padding: 5px 9px; border-radius: 5px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--text); font-family: var(--mono);
+      font-size: 10px; font-weight: 700; cursor: pointer;
+    }
+    .btn-cmd-act:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top Bar -->
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Output Destination">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div>
+          <div class="page-title">Vault Engine · Single File</div>
+          <div class="page-sub">STEP 4 · LIVE FFMPEG TELEMETRY</div>
+        </div>
+      </div>
+      <span class="engine-state-pill state-running" id="engine-pill">
+        <span class="pulse-dot"></span>
+        <span id="engine-pill-txt">RUNNING</span>
+      </span>
+    </header>
+
+    <main class="content">
+      <!-- 1. HERO PIT-WALL TELEMETRY -->
+      <section class="pit-hero" id="pit-hero" aria-label="Single File Telemetry">
+        <div class="file-pill-row">
+          <div style="min-width:0;">
+            <div class="fp-name">gtr_night_ramp.mp4</div>
+            <div class="fp-preset">60fps Reels HQ · .mp4 · libx264 · 60fps · CRF 18 · AAC 192k</div>
+          </div>
+          <span class="fp-type">VIDEO</span>
+        </div>
+
+        <div class="pit-top">
+          <div>
+            <div class="pit-lbl" id="pit-lbl">Encoding Stream (v:0 + a:0)</div>
+            <div class="pit-pct" id="pit-pct">0%</div>
+          </div>
+          <div class="pit-time-block">
+            <div class="pit-eta" id="pit-eta">ETA 00:41</div>
+            <div class="pit-elapsed" id="pit-elapsed">Elapsed 00:00</div>
+          </div>
+        </div>
+
+        <div class="master-track">
+          <div class="master-fill" id="master-fill"></div>
+        </div>
+
+        <div class="telemetry-6">
+          <div class="tele-cell">
+            <span class="tele-k">Encode Speed</span>
+            <span class="tele-v c-emerald" id="tele-speed">44 fps · 0.73x RT</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Frame Counter</span>
+            <span class="tele-v" id="tele-frames">0 / 1,800 fr</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Live Bitrate</span>
+            <span class="tele-v c-gold" id="tele-br">0.0 Mbps</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Quantizer (q)</span>
+            <span class="tele-v" id="tele-q">q=18.0</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">8x Cortex-A725</span>
+            <span class="tele-v" id="tele-cpu">88% · 41°C Cool</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Output Written</span>
+            <span class="tele-v" id="tele-size">0.0 / 26.8 MB</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. OUTPUT DESTINATION & RESULT -->
+      <section class="dest-card" aria-label="Output File Path">
+        <span class="dest-k">Target Output Path</span>
+        <span class="dest-path">/storage/emulated/0/ConversionVault/Vault_Core/Videos/gtr_night_ramp.mp4</span>
+        <div class="dest-delta hidden" id="done-summary"></div>
+      </section>
+
+      <!-- 3. TOGGLEABLE FFMPEG CONSOLE LOG + TERMUX / SSH EXPORT -->
+      <section class="sec-card" aria-label="FFmpeg Console Stream">
+        <button type="button" id="btn-toggle-console" class="console-toggle" aria-expanded="true">
+          <span>&gt;_ FFmpeg Live Console &amp; Termux / SSH</span>
+          <span id="console-ico">▴</span>
+        </button>
+        <div class="cmd-tools-bar">
+          <label class="path-chk-lbl">
+            <input type="checkbox" id="chk-inc-path">
+            <span>Include Directory Paths</span>
+          </label>
+          <div class="cmd-btn-group">
+            <button type="button" id="btn-copy-cmd" class="btn-cmd-act">Copy Command</button>
+            <button type="button" id="btn-export-sh" class="btn-cmd-act">Export .sh</button>
+          </div>
+        </div>
+        <div class="console-body" id="console-body"></div>
+      </section>
+    </main>
+
+    <!-- Bottom Pit-Stop Control Bar -->
+    <footer class="bottom-bar" id="footer-running">
+      <button type="button" id="btn-pause" class="btn-secondary">⏸ Pause Engine</button>
+      <button type="button" id="btn-abort" class="btn-danger">■ Stop</button>
+    </footer>
+
+    <footer class="bottom-bar hidden" id="footer-done">
+      <button type="button" id="btn-share" class="btn-secondary">Share File ↗</button>
+      <button type="button" id="btn-open-folder" class="btn-primary">Open in File Manager ↗</button>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const TOTAL_FRAMES = 1800;
+    const IN_MB = 64.2;
+    const EST_OUT_MB = 26.8;
+
+    const state = {
+      running: true,
+      paused: false,
+      done: false,
+      aborted: false,
+      pct: 0,
+      elapsedSec: 0,
+      consoleOpen: true,
+      logs: [
+        { cls: 'log-line-cmd', txt: '$ ffmpeg -y -threads 8 -i gtr_night_ramp.mp4 -c:v libx264 -preset slower -crf 18 -maxrate 12M -bufsize 24M -r 60 -c:a aac -b:a 192k -sn -map_metadata -1 -movflags +faststart out.mp4' },
+        { cls: 'log-line-cur', txt: 'Stream mapping: #0:0 -> #0:0 (h264), #0:1 -> #0:1 (aac)' }
+      ]
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function fmtClock(sec) {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(Math.floor(sec % 60)).padStart(2, '0');
+      return m + ':' + s;
+    }
+
+    function pushLog(cls, txt) {
+      state.logs.push({ cls, txt });
+      if (state.logs.length > 24) state.logs.shift();
+      const box = document.getElementById('console-body');
+      box.innerHTML = state.logs.map(l => `<div class="${l.cls}">${l.txt}</div>`).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function render() {
+      const pill = document.getElementById('engine-pill');
+      const pillTxt = document.getElementById('engine-pill-txt');
+      pill.className = 'engine-state-pill ' + (state.done ? 'state-done' : (state.paused ? 'state-paused' : 'state-running'));
+      pillTxt.textContent = state.aborted ? 'STOPPED' : (state.done ? 'COMPLETE' : (state.paused ? 'PAUSED' : 'RUNNING'));
+
+      const hero = document.getElementById('pit-hero');
+      hero.classList.toggle('is-done', state.done && !state.aborted);
+
+      const pctInt = Math.round(state.pct);
+      document.getElementById('pit-pct').textContent = pctInt + '%';
+      document.getElementById('pit-lbl').textContent = state.aborted
+        ? 'Conversion Stopped'
+        : (state.done ? 'Conversion Complete ✓' : 'Encoding Stream (v:0 + a:0)');
+
+      const remSec = Math.max(0, Math.round((100 - state.pct) * 0.41));
+      document.getElementById('pit-eta').textContent = state.done ? 'Finished ✓' : ('ETA ' + fmtClock(remSec));
+      document.getElementById('pit-elapsed').textContent = 'Elapsed ' + fmtClock(state.elapsedSec);
+
+      const mFill = document.getElementById('master-fill');
+      mFill.style.width = pctInt + '%';
+      mFill.classList.toggle('is-done', state.done && !state.aborted);
+
+      const curFrames = Math.round((state.pct / 100) * TOTAL_FRAMES);
+      const writtenMB = (state.pct / 100) * EST_OUT_MB;
+      const fpsVal = state.done ? 0 : (42 + Math.round((state.pct % 5)));
+      const brVal = (10.8 + (state.pct % 3) * 0.4).toFixed(1);
+
+      document.getElementById('tele-speed').textContent = state.done ? 'Complete · 0.74x avg' : (state.paused ? 'Paused' : `${fpsVal} fps · ${(fpsVal / 60).toFixed(2)}x RT`);
+      document.getElementById('tele-frames').textContent = `${curFrames.toLocaleString()} / ${TOTAL_FRAMES.toLocaleString()} fr`;
+      document.getElementById('tele-br').textContent = state.done ? '11.2 Mbps avg' : `${brVal} Mbps`;
+      document.getElementById('tele-q').textContent = state.done ? 'q=18.0 final' : `q=${(18.0 + (state.pct % 2) * 0.2).toFixed(1)}`;
+      document.getElementById('tele-cpu').textContent = state.done ? '8x A725 · Standby' : (state.paused ? '8x A725 · Halted' : '8x A725 · 88% · 41°C');
+      document.getElementById('tele-size').textContent = `${writtenMB.toFixed(1)} / ${EST_OUT_MB.toFixed(1)} MB`;
+
+      const doneBox = document.getElementById('done-summary');
+      if (state.done && !state.aborted) {
+        const savedPct = Math.round(((IN_MB - EST_OUT_MB) / IN_MB) * 100);
+        doneBox.classList.remove('hidden');
+        doneBox.textContent = `✓ Exported: ${IN_MB.toFixed(1)} MB → ${EST_OUT_MB.toFixed(1)} MB (-${savedPct}% smaller) · Faststart ✓`;
+      } else {
+        doneBox.classList.add('hidden');
+      }
+
+      document.getElementById('footer-running').classList.toggle('hidden', state.done);
+      document.getElementById('footer-done').classList.toggle('hidden', !state.done);
+    }
+
+    setInterval(() => {
+      if (!state.running || state.paused || state.done) return;
+      state.elapsedSec += 0.25;
+      state.pct = Math.min(100, state.pct + 4.5);
+
+      const fr = Math.round((state.pct / 100) * TOTAL_FRAMES);
+      const sz = Math.round((state.pct / 100) * EST_OUT_MB * 1024);
+      if (Math.round(state.pct) % 18 === 0 && state.pct < 99) {
+        function buildSingleShell(includePath, asScript) {
+      const inp = includePath ? '"/storage/emulated/0/Movies/AlightMotion/gtr_night_ramp.mp4"' : '"gtr_night_ramp.mp4"';
+      const out = includePath ? '"/storage/emulated/0/ConversionVault/Videos/gtr_night_ramp.mp4"' : '"gtr_night_ramp_out.mp4"';
+      const cmd = `ffmpeg -y -threads 8 -i ${inp} -c:v libx264 -preset slower -crf 18 -maxrate 12M -bufsize 24M -r 60 -c:a aac -b:a 192k -sn -map_metadata -1 -movflags +faststart ${out}`;
+      if (!asScript) return cmd;
+      const prep = includePath ? 'mkdir -p "/storage/emulated/0/ConversionVault/Videos/"\n' : '';
+      return `#!/usr/bin/env bash\n# Conversion Vault · Termux / SSH Script\n${prep}${cmd}\n`;
+    }
+
+    document.getElementById('btn-copy-cmd').addEventListener('click', () => {
+      const inc = document.getElementById('chk-inc-path').checked;
+      const txt = buildSingleShell(inc, false);
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(() => {});
+      showToast(inc ? 'Copied FFmpeg command (with paths)' : 'Copied clean FFmpeg command (no paths)');
+    });
+    document.getElementById('btn-export-sh').addEventListener('click', () => {
+      const inc = document.getElementById('chk-inc-path').checked;
+      const sh = buildSingleShell(inc, true);
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(sh).catch(() => {});
+      showToast('Saved to /ConversionVault/SH_Scripts/gtr_night_ramp.sh' + (inc ? ' (with paths)' : ' (portable)'));
+    });
+
+    pushLog('log-line-cur', `frame=${String(fr).padStart(5, ' ')} fps= 44 q=18.0 size=${String(sz).padStart(6, ' ')}kB time=00:00:${String(Math.round((state.pct / 100) * 30)).padStart(2, '0')}.00 speed=0.73x`);
+      }
+
+      if (state.pct >= 100) {
+        state.done = true;
+        state.running = false;
+        pushLog('log-line-ok', '✓ [muxer] Starting second pass: moving moov atom to front (+faststart)');
+        pushLog('log-line-ok', `✓ [OK] Saved gtr_night_ramp.mp4 (${EST_OUT_MB.toFixed(1)} MB)`);
+      }
+      render();
+    }, 250);
+
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Output Destination'));
+    document.getElementById('btn-pause').addEventListener('click', function() {
+      state.paused = !state.paused;
+      this.textContent = state.paused ? '▶ Resume Engine' : '⏸ Pause Engine';
+      showToast(state.paused ? 'Engine paused' : 'Engine resumed');
+      render();
+    });
+    document.getElementById('btn-abort').addEventListener('click', () => {
+      state.done = true;
+      state.aborted = true;
+      state.running = false;
+      pushLog('log-line-cmd', '■ Conversion stopped by user.');
+      render();
+    });
+    document.getElementById('btn-toggle-console').addEventListener('click', function() {
+      state.consoleOpen = !state.consoleOpen;
+      document.getElementById('console-body').classList.toggle('hidden', !state.consoleOpen);
+      document.getElementById('console-ico').textContent = state.consoleOpen ? '▴' : '▾';
+      this.setAttribute('aria-expanded', String(state.consoleOpen));
+    });
+    document.getElementById('btn-share').addEventListener('click', () => showToast('Opening Android Share Sheet →'));
+    document.getElementById('btn-open-folder').addEventListener('click', () => showToast('Opening /ConversionVault/Videos/ in File Manager →'));
+
+    pushLog('log-line-cur', 'frame=   45 fps= 44 q=18.0 size=    640kB time=00:00:00.75 speed=0.73x');
+    render();
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

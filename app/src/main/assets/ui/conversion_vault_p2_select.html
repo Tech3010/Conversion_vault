@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Vault Core — Step 1: Source Selection</title>
+  <style>
+    :root {
+      /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-hover: #182338;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle-text: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --blue: #3b82f6;
+      --blue-soft: rgba(59, 130, 246, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    [data-theme="light"] {
+      /* Red Bull Arctic White / Silver Light Mode */
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --card: #f1f5f9;
+      --card-hover: #e2e8f0;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --muted: #475569;
+      --subtle-text: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.08);
+      --crimson-hover: #be0837;
+      --gold: #eab308;
+      --gold-soft: rgba(234, 179, 8, 0.14);
+      --gold-text: #a16207;
+      --emerald: #059669;
+      --emerald-soft: rgba(5, 150, 105, 0.1);
+      --blue: #2563eb;
+      --blue-soft: rgba(37, 99, 235, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 520px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 88px;
+    }
+
+    @media (min-width: 600px) {
+      .app-frame {
+        border-left: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+      }
+    }
+
+    /* Top Navigation Header */
+    .app-bar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .bar-left { display: flex; align-items: center; gap: 10px; }
+    .back-btn {
+      width: 34px; height: 34px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.14s ease;
+    }
+    .back-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+    .page-title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+    .page-step-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    .icon-btn {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .icon-btn:hover { border-color: var(--crimson); }
+
+    /* Main Content */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      flex: 1;
+    }
+
+    /* Subtle, Visually Separated Optional Intro Note */
+    .intro-note {
+      background: transparent;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      opacity: 0.88;
+    }
+    .intro-text-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .intro-kicker {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--subtle-text);
+    }
+    .intro-body {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .intro-close {
+      background: transparent;
+      border: none;
+      color: var(--subtle-text);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .intro-close:hover { color: var(--text); background: var(--card); }
+
+    /* Clean Structural Divider Separating Intro from Action Zone */
+    .zone-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .zone-divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .zone-divider-lbl {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text);
+    }
+
+    /* Primary Selection Zone */
+    .select-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .select-card {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: left;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      transition: border-color 0.14s ease, background 0.14s ease, transform 0.12s ease;
+    }
+    .select-card:hover {
+      border-color: var(--crimson);
+      background: var(--card);
+      transform: translateY(-1px);
+    }
+    .select-card.is-picked {
+      border-color: var(--crimson);
+      background: linear-gradient(135deg, var(--crimson-soft) 0%, var(--surface) 75%);
+    }
+    .select-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .select-icon {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: var(--text);
+    }
+    .select-card.primary-opt .select-icon {
+      background: var(--crimson);
+      border-color: var(--crimson);
+      color: #ffffff;
+    }
+    .select-card.folder-opt .select-icon {
+      background: var(--gold-soft);
+      border-color: rgba(252, 209, 22, 0.4);
+      color: var(--gold-text);
+    }
+    .select-card.multi-opt .select-icon {
+      background: var(--blue-soft);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: var(--blue);
+    }
+    .folder-support-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold-text);
+      background: var(--gold-soft);
+      padding: 3px 8px;
+      border-radius: 5px;
+    }
+    .select-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .select-desc { font-size: 12px; color: var(--muted); line-height: 1.38; }
+
+    .go-chip {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: all 0.14s ease;
+    }
+    .select-card:hover .go-chip, .select-card.is-picked .go-chip {
+      background: var(--crimson);
+      border-color: var(--crimson);
+      color: #ffffff;
+    }
+
+    .secondary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 0 2px;
+    }
+    .ghost-link {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .ghost-link:hover { color: var(--text); }
+
+    /* Live Selection Summary Card (appears once picked) */
+    .picked-summary {
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .picked-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .picked-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--emerald-soft);
+      color: var(--emerald);
+    }
+    .picked-name {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      word-break: break-all;
+    }
+    .picked-meta {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+    .bucket-pills {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .bpill {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      text-align: center;
+    }
+    .bpill-k { font-size: 10px; text-transform: uppercase; color: var(--muted); font-weight: 700; display: block; }
+    .bpill-v { font-family: var(--mono); font-size: 14px; font-weight: 700; margin-top: 2px; display: block; }
+    .c-blue { color: var(--blue); }
+    .c-emerald { color: var(--emerald); }
+    .c-gold { color: var(--gold-text); }
+
+    /* Sticky Bottom Action Bar */
+    .bottom-cta-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      z-index: 40;
+    }
+    .cta-status {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .btn-continue {
+      background: var(--crimson);
+      border: 1px solid var(--crimson);
+      color: #ffffff;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.14s ease, opacity 0.14s ease;
+    }
+    .btn-continue:hover { background: var(--crimson-hover); }
+    .btn-continue:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed;
+      bottom: 74px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 90;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top Bar -->
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back-home" class="back-btn" aria-label="Back to Home Base">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div>
+          <div class="page-title">Vault Core</div>
+          <div class="page-step-sub">STEP 1 · SELECT MEDIA SOURCE</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- Subtle, Optional Intro Note (Visually muted & dismissible so it never blocks the action) -->
+      <aside class="intro-note" id="intro-box" aria-label="About Vault Core">
+        <div class="intro-text-wrap">
+          <span class="intro-kicker">About this module</span>
+          <p class="intro-body">Full-control offline transcoding for video, audio, and images. Convert one file directly, or drop a mixed folder to auto-split into organized buckets with zero quality guesswork.</p>
+        </div>
+        <button type="button" id="btn-dismiss-intro" class="intro-close" title="Hide intro" aria-label="Hide intro">×</button>
+      </aside>
+
+      <!-- Clear Visual Separator -->
+      <div class="zone-divider">
+        <span class="zone-divider-lbl">Choose Input Source</span>
+        <span class="zone-divider-line"></span>
+      </div>
+
+      <!-- Primary Selection Cards: 1. Single File, 2. Multiple Files, 3. Folder -->
+      <section class="select-stack" aria-label="File and Folder Selection">
+        <!-- Option 1: Single File -->
+        <button type="button" class="select-card primary-opt" id="card-single">
+          <div class="select-left">
+            <div class="select-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <div>
+              <div class="select-title">Single File</div>
+              <div class="select-desc">Pick one video, audio, or image for focused conversion and inspection.</div>
+            </div>
+          </div>
+          <span class="go-chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+        </button>
+
+        <!-- Option 2: Multiple Files -->
+        <button type="button" class="select-card multi-opt" id="card-multi">
+          <div class="select-left">
+            <div class="select-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="8" y="2" width="12" height="16" rx="2"/>
+                <path d="M4 6v14a2 2 0 0 0 2 2h10"/>
+              </svg>
+            </div>
+            <div>
+              <div class="select-title">Multiple Files</div>
+              <div class="select-desc">Select specific videos, audios, or images together for batch processing.</div>
+            </div>
+          </div>
+          <span class="go-chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+        </button>
+
+        <!-- Option 3: Folder -->
+        <button type="button" class="select-card folder-opt" id="card-folder">
+          <div class="select-left">
+            <div class="select-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="select-title">Folder</div>
+              <div class="select-desc">Scan an entire folder and convert everything into organized subfolders.</div>
+              <span class="folder-support-note">Supports multiple file types · Videos, Audios &amp; Images</span>
+            </div>
+          </div>
+          <span class="go-chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+        </button>
+
+        <input type="file" id="inp-single" class="hidden" accept="video/*,audio/*,image/*,.mkv,.mp4,.webm,.mov,.avi,.mp3,.flac,.wav,.opus,.m4a,.jpg,.png,.webp,.gif">
+        <input type="file" id="inp-multi" class="hidden" multiple accept="video/*,audio/*,image/*,.mkv,.mp4,.webm,.mov,.avi,.mp3,.flac,.wav,.opus,.m4a,.jpg,.png,.webp,.gif">
+        <input type="file" id="inp-folder" class="hidden" webkitdirectory directory multiple>
+      </section>
+
+      <!-- Live Selection Summary (Reveals immediately after picking) -->
+      <section class="picked-summary hidden" id="picked-box" aria-label="Selected Media Summary">
+        <div class="picked-head">
+          <span class="picked-badge" id="picked-badge">Ready</span>
+          <button type="button" id="btn-clear-pick" class="ghost-link" style="font-size:11px;">Clear</button>
+        </div>
+        <div class="picked-name" id="picked-name">—</div>
+        <div class="picked-meta" id="picked-meta">—</div>
+        <div class="bucket-pills hidden" id="picked-buckets">
+          <div class="bpill"><span class="bpill-k">Videos</span><span class="bpill-v c-blue" id="cnt-v">0</span></div>
+          <div class="bpill"><span class="bpill-k">Audios</span><span class="bpill-v c-emerald" id="cnt-a">0</span></div>
+          <div class="bpill"><span class="bpill-k">Images</span><span class="bpill-v c-gold" id="cnt-i">0</span></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Continue Bar -->
+    <footer class="bottom-cta-bar">
+      <span class="cta-status" id="cta-status">No source selected</span>
+      <button type="button" id="btn-continue" class="btn-continue" disabled>
+        <span>Continue</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const V_EXT = new Set(['mp4','mkv','webm','mov','avi','ts','flv','ogv','3gp','m4v']);
+    const A_EXT = new Set(['mp3','flac','opus','m4a','wav','ogg','ac3','aac','wma']);
+    const I_EXT = new Set(['jpg','jpeg','png','webp','gif','bmp','tiff','avif','heic']);
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function classify(name) {
+      const ext = (name.split('.').pop() || '').toLowerCase();
+      if (V_EXT.has(ext)) return 'v';
+      if (A_EXT.has(ext)) return 'a';
+      if (I_EXT.has(ext)) return 'i';
+      return null;
+    }
+
+    function showSelection(mode, title, meta, counts) {
+      document.getElementById('card-single').classList.toggle('is-picked', mode === 'single');
+      document.getElementById('card-multi').classList.toggle('is-picked', mode === 'multi');
+      document.getElementById('card-folder').classList.toggle('is-picked', mode === 'folder');
+      document.getElementById('picked-box').classList.remove('hidden');
+      document.getElementById('picked-badge').textContent = mode === 'single' ? 'Single File Ready' : (mode === 'multi' ? 'Multiple Files Split' : 'Folder Split Ready');
+      document.getElementById('picked-name').textContent = title;
+      document.getElementById('picked-meta').textContent = meta;
+
+      const bWrap = document.getElementById('picked-buckets');
+      if (counts) {
+        bWrap.classList.remove('hidden');
+        document.getElementById('cnt-v').textContent = String(counts.v);
+        document.getElementById('cnt-a').textContent = String(counts.a);
+        document.getElementById('cnt-i').textContent = String(counts.i);
+        const tot = counts.v + counts.a + counts.i;
+        document.getElementById('cta-status').textContent = tot + ' files queued';
+      } else {
+        bWrap.classList.add('hidden');
+        document.getElementById('cta-status').textContent = '1 file ready';
+      }
+      document.getElementById('btn-continue').disabled = false;
+    }
+
+    function processFiles(list, modeFlag) {
+      const isFolder = modeFlag === true || modeFlag === 'folder';
+      const isMulti = modeFlag === 'multi';
+      if (!list || list.length === 0) return;
+      const arr = Array.from(list);
+      if (!isFolder && !isMulti && arr.length === 1) {
+        const f = arr[0];
+        const mb = (f.size / (1024 * 1024)).toFixed(2);
+        const ext = (f.name.split('.').pop() || 'FILE').toUpperCase();
+        showSelection('single', f.name, ext + ' · ' + mb + ' MB', null);
+        showToast('Loaded ' + f.name);
+        return;
+      }
+      const counts = { v: 0, a: 0, i: 0 };
+      let totalBytes = 0;
+      arr.forEach(f => {
+        const c = classify(f.name);
+        if (c) { counts[c]++; totalBytes += f.size; }
+      });
+      const total = counts.v + counts.a + counts.i;
+      const mb = (totalBytes / (1024 * 1024)).toFixed(1);
+      showSelection(isMulti ? 'multi' : 'folder', total + ' Media Files Detected', 'Total Size: ' + mb + ' MB · Auto-split into 3 buckets', counts);
+      showToast('Folder split into Videos, Audios & Images');
+    }
+
+    // Optional intro dismiss
+    document.getElementById('btn-dismiss-intro').addEventListener('click', () => {
+      document.getElementById('intro-box').classList.add('hidden');
+    });
+
+    // Back button
+    document.getElementById('btn-back-home').addEventListener('click', () => {
+      showToast('← Returns to Home Base');
+    });
+
+    // Pickers
+    document.getElementById('card-single').addEventListener('click', () => {
+      if (window.AndroidBridge && window.AndroidBridge.pickFile) {
+        window.AndroidBridge.pickFile();
+      } else {
+        document.getElementById('inp-single').click();
+      }
+    });
+
+    document.getElementById('card-folder').addEventListener('click', async () => {
+      if (window.AndroidBridge && window.AndroidBridge.pickFolder) {
+        window.AndroidBridge.pickFolder();
+        return;
+      }
+      if (typeof window.showDirectoryPicker === 'function') {
+        try {
+          const dir = await window.showDirectoryPicker();
+          const files = [];
+          for await (const e of dir.values()) {
+            if (e.kind === 'file') files.push(await e.getFile());
+          }
+          if (files.length > 0) processFiles(files, true);
+          return;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+        }
+      }
+      document.getElementById('inp-folder').click();
+    });
+
+    document.getElementById('card-multi').addEventListener('click', () => {
+      document.getElementById('inp-multi').click();
+    });
+
+    document.getElementById('btn-clear-pick').addEventListener('click', () => {
+      document.getElementById('picked-box').classList.add('hidden');
+      document.getElementById('card-single').classList.remove('is-picked');
+      document.getElementById('card-multi').classList.remove('is-picked');
+      document.getElementById('card-folder').classList.remove('is-picked');
+      document.getElementById('cta-status').textContent = 'No source selected';
+      document.getElementById('btn-continue').disabled = true;
+    });
+
+    document.getElementById('inp-single').addEventListener('change', function() { processFiles(this.files, false); });
+    document.getElementById('inp-multi').addEventListener('change', function() { processFiles(this.files, 'multi'); });
+    document.getElementById('inp-folder').addEventListener('change', function() { processFiles(this.files, true); });
+
+    document.getElementById('btn-continue').addEventListener('click', () => {
+      showToast('Advancing to Step 2: Stream Inspection & Settings →');
+    });
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

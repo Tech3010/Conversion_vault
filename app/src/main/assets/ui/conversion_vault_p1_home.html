@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Page 1: Home Base (shadcn/ui Red Bull Theme)</title>
+  <style>
+    :root {
+      /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-hover: #182338;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    [data-theme="light"] {
+      /* Red Bull Arctic White / Silver Light Mode */
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --card: #f1f5f9;
+      --card-hover: #e2e8f0;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --muted: #475569;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.09);
+      --crimson-hover: #be0837;
+      --gold: #eab308;
+      --gold-soft: rgba(234, 179, 8, 0.14);
+      --gold-text: #a16207;
+      --emerald: #059669;
+      --emerald-soft: rgba(5, 150, 105, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    /* Mobile-first App Frame (adapts cleanly to desktop too) */
+    .app-frame {
+      width: 100%;
+      max-width: 520px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 84px;
+    }
+
+    @media (min-width: 600px) {
+      .app-frame {
+        border-left: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+      }
+    }
+
+    /* Top App Header */
+    .app-bar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-left { display: flex; align-items: center; gap: 10px; }
+    .vault-logo {
+      width: 36px; height: 36px;
+      border-radius: 9px;
+      background: var(--crimson);
+      color: #ffffff;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(255,255,255,0.16);
+      flex-shrink: 0;
+    }
+    .brand-name { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+    .brand-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    .icon-btn {
+      height: 34px;
+      padding: 0 11px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .icon-btn:hover { border-color: var(--crimson); }
+
+    /* Main Scroll Content */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+    }
+
+    /* Engine Status Telemetry Pill Strip */
+    .status-strip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .status-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .engine-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--emerald);
+      background: var(--emerald-soft);
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+    .pulse-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--emerald);
+      display: inline-block;
+    }
+    .hw-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--gold-text);
+      background: var(--gold-soft);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .status-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .mini-stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 9px;
+    }
+    .mini-k { font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; display: block; }
+    .mini-v { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); margin-top: 2px; display: block; }
+
+    /* Section Header */
+    .sec-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .sec-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .sec-badge {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+
+    /* 2x3 Home Base Tool Grid (shadcn/ui crisp cards) */
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 11px;
+    }
+    .tool-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      text-align: left;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 142px;
+      transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .tool-card:hover {
+      border-color: var(--crimson);
+      background: var(--card);
+      transform: translateY(-2px);
+    }
+    .tool-card:active {
+      transform: scale(0.98);
+    }
+    .tool-card.primary-tile {
+      grid-column: 1 / -1;
+      min-height: 132px;
+      border-color: rgba(219, 10, 64, 0.65);
+      background: linear-gradient(135deg, var(--crimson-soft) 0%, var(--surface) 68%);
+      padding: 16px;
+    }
+    .hero-caps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .hero-cap-pill {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .tool-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .tool-icon {
+      width: 36px; height: 36px;
+      border-radius: 9px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text);
+    }
+    .tool-card.primary-tile .tool-icon {
+      background: var(--crimson);
+      border-color: var(--crimson);
+      color: #ffffff;
+    }
+    .tool-card.gold-tile {
+      border-color: rgba(252, 209, 22, 0.52);
+      background: linear-gradient(135deg, var(--gold-soft) 0%, var(--surface) 78%);
+    }
+    .tool-card.gold-tile:hover {
+      border-color: var(--gold);
+    }
+    .tool-card.gold-tile:hover .tool-go {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #111827;
+    }
+    .sec-badge.gold-badge {
+      background: var(--gold-soft);
+      border-color: rgba(252, 209, 22, 0.45);
+      color: var(--gold-text);
+    }
+    .tool-card.gold-tile .tool-icon {
+      background: var(--gold-soft);
+      border-color: rgba(252, 209, 22, 0.4);
+      color: var(--gold-text);
+    }
+    .tool-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .tool-card.primary-tile .tool-tag {
+      background: var(--crimson);
+      border-color: var(--crimson);
+      color: #ffffff;
+    }
+    .tool-card.gold-tile .tool-tag {
+      background: var(--gold-soft);
+      border-color: rgba(252, 209, 22, 0.35);
+      color: var(--gold-text);
+    }
+    .tool-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+    .tool-desc {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.38;
+    }
+    .tool-card-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .tool-go {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      transition: transform 0.14s ease, color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+    }
+    .tool-card:hover .tool-go {
+      transform: translateX(3px);
+      color: #ffffff;
+      background: var(--crimson);
+      border-color: var(--crimson);
+    }
+    .tool-card.primary-tile .tool-go {
+      background: var(--crimson);
+      border-color: var(--crimson);
+      color: #ffffff;
+    }
+
+    /* Quick Action / Active Preview Drawer inside Home Base */
+    .preview-banner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .preview-banner-text { font-size: 12px; color: var(--muted); }
+    .preview-banner-text strong { color: var(--text); display: block; font-size: 13px; margin-bottom: 2px; }
+    .btn-crimson {
+      background: var(--crimson);
+      border: 1px solid var(--crimson);
+      color: #ffffff;
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-crimson:hover { background: var(--crimson-hover); }
+
+    /* Placeholder views for Tabs 2 & 3 (so Bottom Bar feels real) */
+    .tab-placeholder {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 18px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .tab-placeholder h2 { font-size: 16px; font-weight: 700; }
+    .tab-placeholder p { font-size: 12.5px; color: var(--muted); max-width: 340px; }
+
+    /* Bottom Navigation Bar (Fixed, One-Thumb Reach) */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      padding: 8px 10px 10px;
+      z-index: 40;
+    }
+    .nav-item {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 4px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: color 0.14s ease, background 0.14s ease;
+    }
+    .nav-item.active {
+      color: var(--crimson);
+      background: var(--crimson-soft);
+    }
+    .nav-item svg { width: 20px; height: 20px; }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed;
+      bottom: 76px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      padding: 9px 16px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 90;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top Header -->
+    <header class="app-bar">
+      <div class="brand-left">
+        <div class="vault-logo" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="3"/>
+            <circle cx="12" cy="12" r="3.5"/>
+            <path d="M12 8.5V7M12 17v-1.5M15.5 12H17M7 12h1.5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">Conversion Vault</div>
+          <div class="brand-sub">OFFLINE MEDIA ENGINE · v1.0</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- TAB 1: HOME BASE (PAGE 1) -->
+    <main class="content" id="view-home">
+      <!-- Uniform Device & Engine Telemetry Strip -->
+      <section class="status-strip" aria-label="Engine and Hardware Status">
+        <div class="status-top">
+          <span class="engine-pill"><span class="pulse-dot"></span> FFmpeg 6.1 GPL Ready</span>
+          <span class="hw-tag">POCO X7 Pro</span>
+        </div>
+        <div class="status-metrics">
+          <div class="mini-stat">
+            <span class="mini-k">CPU</span>
+            <span class="mini-v">8x A725</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-k">RAM</span>
+            <span class="mini-v">LPDDR5X</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-k">Internal</span>
+            <span class="mini-v">UFS 4.0</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-k">SD / OTG</span>
+            <span class="mini-v" style="color:var(--muted);">None</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Master Engine -->
+      <div class="sec-head">
+        <span class="sec-title">Master Engine</span>
+        <span class="sec-badge">All-In-One Core</span>
+      </div>
+
+      <section class="tool-grid" aria-label="Master Vault Studio">
+        <!-- Flagship Full-Width Module: Master Vault Studio -->
+        <button type="button" class="tool-card primary-tile" data-tool="converter">
+          <div class="tool-card-top">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="tool-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              </div>
+              <div>
+                <div class="tool-title" style="font-size:15.5px; margin-bottom:2px;">Master Vault Studio</div>
+                <div class="tool-desc">Complete all-in-one engine — combines every converter, compressor, audio mute/extract, Intra/Inter-frame &amp; metadata control in one workspace.</div>
+              </div>
+            </div>
+          </div>
+          <div class="hero-caps">
+            <span class="hero-cap-pill">Video · Audio · Image</span>
+            <span class="hero-cap-pill">Mixed-Folder 3-Bucket</span>
+            <span class="hero-cap-pill">Metadata &amp; Audio</span>
+            <span class="hero-cap-pill">All Codecs &amp; CRF</span>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">All-In-One Core</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+      </section>
+
+      <!-- Special Vault Tools (Gold Signature Modules) -->
+      <div class="sec-head">
+        <span class="sec-title">Special Vault Tools</span>
+        <span class="sec-badge gold-badge">4 Signature Tools</span>
+      </div>
+
+      <section class="tool-grid" aria-label="Special Vault Tools">
+        <!-- Special Tool 1: Metadata Modifier & Wiper -->
+        <button type="button" class="tool-card gold-tile" data-tool="metadata">
+          <div class="tool-card-top">
+            <div class="tool-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="tool-title">Metadata Modifier</div>
+            <div class="tool-desc">View, edit, or wipe GPS, timestamps, device model &amp; EXIF/ID3 tags.</div>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">Privacy</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+
+        <!-- Special Tool 2: Smart Format Suggestor -->
+        <button type="button" class="tool-card gold-tile" data-tool="suggestor">
+          <div class="tool-card-top">
+            <div class="tool-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="tool-title">Format Suggestor</div>
+            <div class="tool-desc">Get 4 ranked codec presets tailored to your device, goal &amp; priority.</div>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">★ Suggestor</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+
+        <!-- Special Tool 3: Stream Inspector (FFprobe) -->
+        <button type="button" class="tool-card gold-tile" data-tool="inspector">
+          <div class="tool-card-top">
+            <div class="tool-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="tool-title">Stream Inspector</div>
+            <div class="tool-desc">Check real codec, bitrate, Intra/Inter GOP, color depth &amp; hidden tags.</div>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">FFprobe</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+
+        <!-- Special Tool 4: Integrity & Corruption Check -->
+        <button type="button" class="tool-card gold-tile" data-tool="integrity">
+          <div class="tool-card-top">
+            <div class="tool-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="tool-title">Integrity Check</div>
+            <div class="tool-desc">Detect incomplete downloads, broken frames, or corrupt files &amp; repair.</div>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">Diagnostic</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+      </section>
+
+      <!-- Quick Media Tools -->
+      <div class="sec-head">
+        <span class="sec-title">Quick Media Tools</span>
+        <span class="sec-badge">4 Fast Utilities</span>
+      </div>
+
+      <section class="tool-grid" aria-label="Quick Media Tools">
+        <!-- Quick Tool 1: Target-Size Compressor -->
+        <button type="button" class="tool-card" data-tool="compressor">
+          <div class="tool-card-top">
+            <div class="tool-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+                <line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="tool-title">Target Compressor</div>
+            <div class="tool-desc">Shrink any video to an exact MB limit (e.g. under 15 MB) automatically.</div>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">Size Cap</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+
+        <!-- Quick Tool 2: Audio Extractor & Muter -->
+        <button type="button" class="tool-card" data-tool="audio_tools">
+          <div class="tool-card-top">
+            <div class="tool-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="tool-title">Audio Extract &amp; Mute</div>
+            <div class="tool-desc">Pull lossless FLAC/Opus/MP3 from video, or mute clips instantly (-an).</div>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">Audio</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+
+        <!-- Quick Tool 3: Lossless Trim & GIF Maker -->
+        <button type="button" class="tool-card" data-tool="trim_gif">
+          <div class="tool-card-top">
+            <div class="tool-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+                <line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="tool-title">Trim &amp; GIF Maker</div>
+            <div class="tool-desc">Zero-loss clip cutting (-c copy) and 2-pass custom-palette GIFs.</div>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">Fast Cut</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+
+        <!-- Quick Tool 4: Lossless Thumbnail Capturer -->
+        <button type="button" class="tool-card" data-tool="thumbnail">
+          <div class="tool-card-top">
+            <div class="tool-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="tool-title">Thumbnail Capturer</div>
+            <div class="tool-desc">Pick exact timestamp (HH:MM:SS.ms) to grab a bit-exact lossless PNG frame.</div>
+          </div>
+          <div class="tool-card-foot">
+            <span class="tool-tag">Lossless PNG</span>
+            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          </div>
+        </button>
+      </section>
+    </main>
+
+    <!-- TAB 2: QUEUE & HISTORY SHELL -->
+    <main class="content hidden" id="view-queue">
+      <div class="tab-placeholder">
+        <div class="tool-icon" style="width:46px; height:46px; color:var(--crimson); border-color:var(--crimson);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <h2>Queue &amp; History</h2>
+        <p>This dedicated tab will show active FFmpeg progress bars, real-time FPS, elapsed/ETA timers, Pause/Cancel buttons, live logs, and your completed files.</p>
+        <span class="hw-tag">Dedicated Page · Built in Next Step</span>
+      </div>
+    </main>
+
+    <!-- TAB 3: SETTINGS SHELL -->
+    <main class="content hidden" id="view-settings">
+      <div class="tab-placeholder">
+        <div class="tool-icon" style="width:46px; height:46px; color:var(--gold-text); border-color:var(--gold);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </div>
+        <h2>Settings &amp; Reference</h2>
+        <p>Kept completely separate from Conversion: Red Bull Dark/Light theme, default output subfolders, hardware profile, and searchable FFmpeg Flag Encyclopedia.</p>
+        <span class="hw-tag">Dedicated Page · Built in Next Step</span>
+      </div>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav" aria-label="Primary Navigation">
+      <button type="button" class="nav-item active" data-nav="home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Home</span>
+      </button>
+      <button type="button" class="nav-item " data-nav="queue">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Queue</span>
+      </button>
+      <button type="button" class="nav-item " data-nav="presets">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <span>Presets</span>
+      </button>
+      <button type="button" class="nav-item " data-nav="settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="toast" id="toast">Selected!</div>
+
+  <script>
+    const toolDetails = {
+      converter: { title: 'Master Vault Studio Selected', desc: 'Opens the dedicated Single-File & 3-Bucket Mixed Folder converter (Videos, Audios, Images).' },
+      metadata: { title: 'Metadata Modifier Selected', desc: 'Opens the GPS, Timestamp, Device Model & EXIF/ID3 Viewer, Editor, and One-Tap Wiper.' },
+      compressor: { title: 'Target Compressor Selected', desc: 'Opens the exact-MB target compressor (auto-calculates bitrate & CRF for WhatsApp/Discord/Web).' },
+      audio_tools: { title: 'Audio Extract & Mute Selected', desc: 'Opens lossless audio extraction (FLAC/Opus/MP3) and instant zero-reencode video muter (-an).' },
+      inspector: { title: 'Stream Inspector Selected', desc: 'Opens raw FFprobe diagnostics: codec, bitrate, Intra/Inter GOP structure, and hidden tags.' },
+      trim_gif: { title: 'Trim & GIF Maker Selected', desc: 'Opens instant lossless clip cutting (-c copy) and 2-pass palette GIFs.' },
+      thumbnail: { title: 'Thumbnail Capturer Selected', desc: 'Opens exact-timestamp lossless PNG frame capture.' },
+      suggestor: { title: 'Format Suggestor Selected', desc: 'Opens 4 ranked codec presets tailored to your device, goal & priority.' },
+      integrity: { title: 'Integrity Check Selected', desc: 'Opens Deep Frame Scan (-f null -) & Quick Header Check to detect corruption and repair.' }
+    };
+
+    let selectedToolKey = 'converter';
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    // Direct Tool Launch on Card Tap
+    document.querySelectorAll('.tool-card').forEach(card => {
+      card.addEventListener('click', () => {
+        selectedToolKey = card.getAttribute('data-tool');
+        const info = toolDetails[selectedToolKey];
+        if (info) {
+          showToast('Opening ' + info.title.replace(' Selected', '') + ' →');
+        }
+      });
+    });
+
+    // Bottom Navigation Switching
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-nav');
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b === btn));
+        if (tab === 'presets') {
+          showToast('Opening Presets Hub →');
+          return;
+        }
+        document.getElementById('view-home').classList.toggle('hidden', tab !== 'home');
+        document.getElementById('view-queue').classList.toggle('hidden', tab !== 'queue');
+        document.getElementById('view-settings').classList.toggle('hidden', tab !== 'settings');
+      });
+    });
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

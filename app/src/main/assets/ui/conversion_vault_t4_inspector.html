@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Stream Inspector</title>
+  <style>
+    :root {
+      --bg:#090d16; --surface:#0f1624; --card:#131c2e; --card-elev:#172236; --input:#0a0f1a;
+      --border:#1e293b; --border-strong:#334155; --text:#f8fafc; --muted:#94a3b8;
+      --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14);
+      --gold:#fcd116; --gold-soft:rgba(252,209,22,0.13); --gold-text:#fcd116;
+      --emerald:#10b981; --emerald-soft:rgba(16,185,129,0.14);
+      --radius:12px; --radius-sm:8px;
+      --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13.5px;line-height:1.45;min-height:100vh;display:flex;justify-content:center;}
+    .app-frame{width:100%;max-width:540px;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);padding-bottom:84px;}
+    @media(min-width:600px){.app-frame{border-left:1px solid var(--border);border-right:1px solid var(--border);}}
+    .app-bar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .bar-left{display:flex;align-items:center;gap:10px;}
+    .back-btn{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+    .back-btn:hover{border-color:var(--crimson);color:var(--crimson);}
+    .page-title{font-size:15px;font-weight:700;line-height:1.2;}
+    .page-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
+    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--card-elev);color:var(--gold-text);border:1px solid var(--border-strong);}
+    .content{padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1;}
+    .card-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:10px;}
+    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .file-pick{background:var(--card-elev);border:1px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .fname{font-family:var(--mono);font-size:12.5px;font-weight:700;word-break:break-all;}
+    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;}
+    .btn-sm{padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .btn-sm:hover{border-color:var(--crimson);color:var(--crimson);}
+    .info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;}
+    .info-cell{background:var(--card-elev);border:1px solid var(--border);border-radius:7px;padding:7px 9px;}
+    .info-k{font-family:var(--mono);font-size:9.5px;color:var(--muted);text-transform:uppercase;display:block;}
+    .info-v{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text);margin-top:2px;display:block;word-break:break-word;}
+    .c-ok{color:var(--emerald);} .c-gold{color:var(--gold-text);}
+    .raw-tags{background:#05070b;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.55;word-break:break-word;}
+    .json-box{background:#05070b;border:1px solid var(--border-strong);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:10.5px;color:var(--emerald);line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;}
+    .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:540px;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:40;}
+    .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;}
+    .hidden{display:none !important;}
+    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast.show{opacity:1;}
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Home">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <div>
+          <div class="page-title">Stream Inspector</div>
+          <div class="page-sub">28-FIELD DEEP FFPROBE ANALYZER</div>
+        </div>
+      </div>
+      <span class="badge">FFPROBE 6.1</span>
+    </header>
+
+    <main class="content">
+      <section class="card-box">
+        <div class="sec-lbl"><span>1. Target Media File</span></div>
+        <div class="file-pick">
+          <div style="min-width:0;">
+            <div class="fname" id="lbl-fname">gtr_night_ramp.mp4</div>
+            <div class="fmeta" id="lbl-fmeta">64.2 MB · 2 Streams (v:0, a:0) · 0 Chapters</div>
+          </div>
+          <button type="button" id="btn-pick" class="btn-sm">Pick File</button>
+          <input type="file" id="inp-file" class="hidden" accept="video/*,audio/*,image/*">
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>2. Container &amp; Muxer (6 Fields)</span></div>
+        <div class="info-grid">
+          <div class="info-cell"><span class="info-k">Format Name</span><span class="info-v">mov,mp4,m4a,3gp</span></div>
+          <div class="info-cell"><span class="info-k">Major / Brands</span><span class="info-v">mp42 · isommp42</span></div>
+          <div class="info-cell"><span class="info-k">Exact Byte Size</span><span class="info-v">67,318,579 B (64.2M)</span></div>
+          <div class="info-cell"><span class="info-k">Duration / Start</span><span class="info-v">00:30.000 · 0.000s</span></div>
+          <div class="info-cell"><span class="info-k">Overall Bitrate</span><span class="info-v">17.95 Mbps</span></div>
+          <div class="info-cell"><span class="info-k">Moov / Faststart</span><span class="info-v c-ok">Faststart ✓ · 2 Streams</span></div>
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>3. Video Stream v:0 (12 Fields)</span></div>
+        <div class="info-grid">
+          <div class="info-cell"><span class="info-k">Codec &amp; Tag</span><span class="info-v">h264 (avc1)</span></div>
+          <div class="info-cell"><span class="info-k">Profile / Level</span><span class="info-v">High @ L4.2</span></div>
+          <div class="info-cell"><span class="info-k">Frame Structure</span><span class="info-v">Inter-Frame (Long-GOP)</span></div>
+          <div class="info-cell"><span class="info-k">GOP Keyint</span><span class="info-v">60 frames (Closed)</span></div>
+          <div class="info-cell"><span class="info-k">B-Frames / Refs</span><span class="info-v">2 B-frames · 4 ref</span></div>
+          <div class="info-cell"><span class="info-k">Pixel Fmt &amp; Depth</span><span class="info-v">yuv420p · 8-bit</span></div>
+          <div class="info-cell"><span class="info-k">Chroma &amp; Sample</span><span class="info-v">4:2:0 · left</span></div>
+          <div class="info-cell"><span class="info-k">Color Primaries</span><span class="info-v">BT.709 / BT.709</span></div>
+          <div class="info-cell"><span class="info-k">Color Space/Range</span><span class="info-v">bt709 · TV Limited</span></div>
+          <div class="info-cell"><span class="info-k">SAR / DAR</span><span class="info-v">1:1 · 9:16 (1080×1920)</span></div>
+          <div class="info-cell"><span class="info-k">FPS &amp; Total Frames</span><span class="info-v">60/1 CFR · 1,800 fr</span></div>
+          <div class="info-cell"><span class="info-k">Entropy / Scan / Rot</span><span class="info-v">CABAC · Prog · 0°</span></div>
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>4. Audio Stream a:0 (6 Fields)</span></div>
+        <div class="info-grid">
+          <div class="info-cell"><span class="info-k">Audio Codec</span><span class="info-v">AAC-LC (mp4a)</span></div>
+          <div class="info-cell"><span class="info-k">Sample Rate / Fmt</span><span class="info-v">48,000 Hz · fltp</span></div>
+          <div class="info-cell"><span class="info-k">Channels &amp; Layout</span><span class="info-v">2 ch · Stereo (FL+FR)</span></div>
+          <div class="info-cell"><span class="info-k">Audio Bitrate</span><span class="info-v">192 kbps CBR</span></div>
+          <div class="info-cell"><span class="info-k">Frame / Timebase</span><span class="info-v">1024 smp · tbn 48000</span></div>
+          <div class="info-cell"><span class="info-k">Language / Delay</span><span class="info-v">und · 0.000s</span></div>
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>5. Subtitles, HW Decode &amp; Tags (4 Fields)</span></div>
+        <div class="info-grid">
+          <div class="info-cell"><span class="info-k">Subtitle Streams</span><span class="info-v">0 Tracks</span></div>
+          <div class="info-cell"><span class="info-k">Data / Timecode</span><span class="info-v">0 Tracks</span></div>
+          <div class="info-cell"><span class="info-k">MediaCodec HW</span><span class="info-v c-ok">Supported ✓</span></div>
+          <div class="info-cell"><span class="info-k">Privacy Risk</span><span class="info-v c-gold">GPS + Model EXIF</span></div>
+        </div>
+        <div class="raw-tags">
+          <strong>Raw Extracted Metadata Tags:</strong><br>
+          encoder: Lavf60.16.100 · creation_time: 2026-11-22T18:14:09.000000Z<br>
+          com.android.manufacturer: Xiaomi · model: POCO X7 Pro · location: +13.0827+080.2707/
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>6. Raw FFprobe JSON Output</span></div>
+        <div class="json-box" id="json-box">{
+  "format": { "filename": "gtr_night_ramp.mp4", "nb_streams": 2, "format_name": "mov,mp4,m4a,3gp", "duration": "30.000000", "size": "67318579", "bit_rate": "17951621" },
+  "streams": [
+    { "index": 0, "codec_name": "h264", "profile": "High", "level": 42, "width": 1080, "height": 1920, "pix_fmt": "yuv420p", "color_space": "bt709", "color_range": "tv", "has_b_frames": 2, "refs": 4, "r_frame_rate": "60/1", "nb_frames": "1800" },
+    { "index": 1, "codec_name": "aac", "profile": "LC", "sample_fmt": "fltp", "sample_rate": "48000", "channels": 2, "channel_layout": "stereo", "bit_rate": "192000" }
+  ]
+}</div>
+      </section>
+    </main>
+
+    <footer class="bottom-bar">
+      <button type="button" id="btn-copy-json" class="btn-sm" style="padding:10px 12px;">Copy JSON</button>
+      <button type="button" id="btn-export-json" class="btn-primary">Export Report (.json) ↗</button>
+    </footer>
+  </div>
+  <div class="toast" id="toast">Ready</div>
+  <script>
+    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+    document.getElementById('btn-pick').addEventListener('click', () => document.getElementById('inp-file').click());
+    document.getElementById('inp-file').addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        document.getElementById('lbl-fname').textContent = this.files[0].name;
+        document.getElementById('lbl-fmeta').textContent = (this.files[0].size / (1024 * 1024)).toFixed(1) + ' MB · Probed via FFprobe';
+        showToast('Probed ' + this.files[0].name);
+      }
+    });
+    document.getElementById('btn-copy-json').addEventListener('click', () => showToast('Copied FFprobe JSON'));
+    document.getElementById('btn-export-json').addEventListener('click', () => showToast('Saved to /ConversionVault/Reports/probe_report.json'));
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

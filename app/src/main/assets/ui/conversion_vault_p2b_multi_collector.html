@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Multi-Folder File Collector</title>
+  <style>
+    :root {
+      /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --blue: #3b82f6;
+      --blue-soft: rgba(59, 130, 246, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    [data-theme="light"] {
+      /* Red Bull Arctic White / Silver Light Mode */
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --card: #f1f5f9;
+      --card-elev: #ffffff;
+      --input: #ffffff;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --muted: #475569;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.08);
+      --crimson-hover: #be0837;
+      --gold: #eab308;
+      --gold-soft: rgba(234, 179, 8, 0.15);
+      --gold-text: #a16207;
+      --emerald: #059669;
+      --emerald-soft: rgba(5, 150, 105, 0.1);
+      --blue: #2563eb;
+      --blue-soft: rgba(37, 99, 235, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 84px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    /* Top App Bar */
+    .app-bar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .bar-left { display: flex; align-items: center; gap: 10px; }
+    .back-btn {
+      width: 34px; height: 34px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .back-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+    .page-title { font-size: 15px; font-weight: 700; line-height: 1.2; }
+    .page-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+    .icon-btn {
+      height: 32px; padding: 0 10px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      font-size: 11.5px; font-weight: 600; cursor: pointer;
+    }
+    .icon-btn:hover { border-color: var(--crimson); }
+
+    .content { padding: 16px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+
+    /* Multi-Add Action Zone */
+    .add-zone {
+      background: linear-gradient(135deg, var(--crimson-soft) 0%, var(--surface) 72%);
+      border: 1px solid rgba(219, 10, 64, 0.5);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .add-zone-head { display: flex; flex-direction: column; gap: 3px; }
+    .add-zone-title { font-size: 15px; font-weight: 700; }
+    .add-zone-desc { font-size: 12px; color: var(--muted); }
+    .add-btn-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 8px; }
+    @media (max-width: 380px) { .add-btn-grid { grid-template-columns: 1fr; } }
+
+    .btn-add-primary {
+      background: var(--crimson); border: 1px solid var(--crimson); color: #ffffff;
+      padding: 11px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      transition: background 0.14s ease;
+    }
+    .btn-add-primary:hover { background: var(--crimson-hover); }
+
+    .btn-add-sec {
+      background: var(--surface); border: 1px solid var(--border-strong); color: var(--text);
+      padding: 11px 12px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-add-sec:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    /* Basket Summary Strip */
+    .basket-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    }
+    .bstat {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 9px 10px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .bstat-k { font-family: var(--mono); font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+    .bstat-v { font-family: var(--mono); font-size: 14px; font-weight: 800; }
+    .c-crimson { color: var(--crimson); }
+    .c-emerald { color: var(--emerald); }
+    .c-gold { color: var(--gold-text); }
+
+    /* Collected Queue Header */
+    .list-head {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    }
+    .list-head-left { display: flex; align-items: center; gap: 8px; }
+    .sec-lbl { font-family: var(--mono); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .folder-count-pill {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 2px 8px;
+      border-radius: 999px; background: var(--gold-soft); color: var(--gold-text);
+    }
+    .btn-clear {
+      background: transparent; border: none; color: var(--muted); font-size: 11.5px; font-weight: 600;
+      cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+    }
+    .btn-clear:hover { color: var(--crimson); }
+
+    /* Separated Collected File Boxes */
+    .collected-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .c-file-box {
+      background: var(--card-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      transition: border-color 0.14s ease;
+    }
+    .c-file-box.type-video { border-left: 3px solid var(--crimson); }
+    .c-file-box.type-audio { border-left: 3px solid var(--emerald); }
+    .c-file-box.type-image { border-left: 3px solid var(--gold); }
+
+    .c-file-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .type-badge {
+      font-family: var(--mono); font-size: 10px; font-weight: 800; padding: 4px 6px;
+      border-radius: 5px; text-transform: uppercase; flex-shrink: 0;
+    }
+    .tb-video { background: var(--crimson-soft); color: var(--crimson); }
+    .tb-audio { background: var(--emerald-soft); color: var(--emerald); }
+    .tb-image { background: var(--gold-soft); color: var(--gold-text); }
+
+    .c-file-info { min-width: 0; flex: 1; }
+    .c-file-name { font-family: var(--mono); font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .c-file-folder {
+      font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+      display: flex; align-items: center; gap: 6px; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .btn-remove {
+      width: 28px; height: 28px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+      font-size: 16px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .btn-remove:hover { border-color: var(--crimson); color: var(--crimson); background: var(--crimson-soft); }
+
+    .empty-basket {
+      background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius);
+      padding: 28px 16px; text-align: center; color: var(--muted); font-size: 12.5px;
+    }
+
+    /* Sticky Bottom Action Bar */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 540px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 40;
+    }
+    .foot-val { font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
+    .btn-next {
+      background: var(--crimson); border: 1px solid var(--crimson); color: #ffffff;
+      padding: 10px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-next:hover { background: var(--crimson-hover); }
+    .btn-next:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 90;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top Bar -->
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Source Selection">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div>
+          <div class="page-title">Collect Multiple Files</div>
+          <div class="page-sub">STEP 1B · ADD FROM MULTIPLE FOLDERS</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- Repeatable Add Action Zone -->
+      <section class="add-zone" aria-label="Add Files from Different Folders">
+        <div class="add-zone-head">
+          <div class="add-zone-title">Add Files Across Any Folders</div>
+          <div class="add-zone-desc">Tap as many times as you need — open different folders and every file you pick is added to your list below without replacing previous picks.</div>
+        </div>
+        <div class="add-btn-grid">
+          <button type="button" id="btn-add-files" class="btn-add-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Add Files</span>
+          </button>
+          <button type="button" id="btn-add-folder" class="btn-add-sec">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>+ Folder</span>
+          </button>
+        </div>
+        <input type="file" id="inp-add-files" class="hidden" multiple accept="video/*,audio/*,image/*,.mkv,.mp4,.webm,.mov,.avi,.mp3,.flac,.wav,.opus,.m4a,.jpg,.png,.webp,.gif">
+        <input type="file" id="inp-add-folder" class="hidden" webkitdirectory directory multiple>
+      </section>
+
+      <!-- Live Basket Category Breakdown -->
+      <section class="basket-stats" aria-label="Collected Media Breakdown">
+        <div class="bstat">
+          <span class="bstat-k">Videos</span>
+          <span class="bstat-v c-crimson" id="stat-v">3</span>
+        </div>
+        <div class="bstat">
+          <span class="bstat-k">Audios</span>
+          <span class="bstat-v c-emerald" id="stat-a">1</span>
+        </div>
+        <div class="bstat">
+          <span class="bstat-k">Images</span>
+          <span class="bstat-v c-gold" id="stat-i">1</span>
+        </div>
+      </section>
+
+      <!-- Collected Files List -->
+      <section>
+        <div class="list-head">
+          <div class="list-head-left">
+            <span class="sec-lbl">Collected Queue</span>
+            <span class="folder-count-pill" id="lbl-folder-count">3 Folders</span>
+          </div>
+          <button type="button" id="btn-clear-all" class="btn-clear">Clear All</button>
+        </div>
+        <div class="collected-list" id="collected-list" style="margin-top:10px;"></div>
+      </section>
+    </main>
+
+    <!-- Bottom Next Bar (Leads directly to the Folder Workspace) -->
+    <footer class="bottom-bar">
+      <div>
+        <div class="foot-val" id="foot-cnt">5 files collected</div>
+        <div class="page-sub" id="foot-size">248.1 MB total</div>
+      </div>
+      <button type="button" id="btn-next-workspace" class="btn-next">
+        <span>Next: Workspace</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Added</div>
+
+  <script>
+    const V_EXT = new Set(['mp4','mkv','webm','mov','avi','ts','flv','ogv','3gp','m4v']);
+    const A_EXT = new Set(['mp3','flac','opus','m4a','wav','ogg','ac3','aac','wma']);
+    const I_EXT = new Set(['jpg','jpeg','png','webp','gif','bmp','tiff','avif','heic']);
+
+    let nextId = 6;
+    let collected = [
+      { id: 1, cat: 'video', name: 'gtr_night_ramp.mp4', folder: '/Movies/AlightMotion', sizeMB: 64.2 },
+      { id: 2, cat: 'video', name: 'porsche_tunnel_4k.mov', folder: '/Movies/AlightMotion', sizeMB: 142.8 },
+      { id: 3, cat: 'video', name: 'camera_broll_04.mp4', folder: '/DCIM/Camera', sizeMB: 24.5 },
+      { id: 4, cat: 'audio', name: 'phonk_master_mix.wav', folder: '/Download/Music', sizeMB: 11.4 },
+      { id: 5, cat: 'image', name: 'cover_thumb_4k.png', folder: '/Pictures/Exports', sizeMB: 5.2 }
+    ];
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function classify(name) {
+      const ext = (name.split('.').pop() || '').toLowerCase();
+      if (V_EXT.has(ext)) return 'video';
+      if (A_EXT.has(ext)) return 'audio';
+      if (I_EXT.has(ext)) return 'image';
+      return null;
+    }
+
+    function render() {
+      const list = document.getElementById('collected-list');
+      let v = 0, a = 0, i = 0, totalMB = 0;
+      const folders = new Set();
+
+      collected.forEach(item => {
+        if (item.cat === 'video') v++;
+        else if (item.cat === 'audio') a++;
+        else i++;
+        totalMB += item.sizeMB;
+        folders.add(item.folder);
+      });
+
+      document.getElementById('stat-v').textContent = String(v);
+      document.getElementById('stat-a').textContent = String(a);
+      document.getElementById('stat-i').textContent = String(i);
+      document.getElementById('lbl-folder-count').textContent = folders.size + (folders.size === 1 ? ' Folder' : ' Folders');
+      document.getElementById('foot-cnt').textContent = collected.length + (collected.length === 1 ? ' file collected' : ' files collected');
+      document.getElementById('foot-size').textContent = totalMB.toFixed(1) + ' MB total';
+      document.getElementById('btn-next-workspace').disabled = collected.length === 0;
+
+      if (collected.length === 0) {
+        list.innerHTML = '<div class="empty-basket">No files collected yet. Tap <strong>+ Add Files</strong> above to pick files from one or more folders.</div>';
+        return;
+      }
+
+      list.innerHTML = '';
+      collected.forEach(item => {
+        const box = document.createElement('div');
+        box.className = 'c-file-box type-' + item.cat;
+        const tbClass = item.cat === 'video' ? 'tb-video' : (item.cat === 'audio' ? 'tb-audio' : 'tb-image');
+        const tbText = item.cat === 'video' ? 'VID' : (item.cat === 'audio' ? 'AUD' : 'IMG');
+        box.innerHTML = `
+          <div class="c-file-left">
+            <span class="type-badge ${tbClass}">${tbText}</span>
+            <div class="c-file-info">
+              <span class="c-file-name">${item.name}</span>
+              <span class="c-file-folder">${item.folder} · ${item.sizeMB.toFixed(1)} MB</span>
+            </div>
+          </div>
+          <button type="button" class="btn-remove" data-rm="${item.id}" aria-label="Remove ${item.name}">×</button>
+        `;
+        list.appendChild(box);
+      });
+    }
+
+    function appendPickedFiles(fileList, defaultFolder) {
+      if (!fileList || fileList.length === 0) return;
+      let added = 0;
+      Array.from(fileList).forEach(f => {
+        const cat = classify(f.name);
+        if (!cat) return;
+        let folder = defaultFolder;
+        if (f.webkitRelativePath && f.webkitRelativePath.includes('/')) {
+          const parts = f.webkitRelativePath.split('/');
+          parts.pop();
+          folder = '/' + parts.join('/');
+        }
+        const exists = collected.some(x => x.name === f.name && x.folder === folder);
+        if (!exists) {
+          collected.push({
+            id: nextId++,
+            cat,
+            name: f.name,
+            folder,
+            sizeMB: Math.max(0.1, f.size / (1024 * 1024))
+          });
+          added++;
+        }
+      });
+      render();
+      showToast(added > 0 ? 'Added ' + added + (added === 1 ? ' file' : ' files') + ' to queue' : 'Already in queue');
+    }
+
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Step 1: Choose Source'));
+    document.getElementById('btn-add-files').addEventListener('click', () => document.getElementById('inp-add-files').click());
+    document.getElementById('btn-add-folder').addEventListener('click', () => document.getElementById('inp-add-folder').click());
+    document.getElementById('inp-add-files').addEventListener('change', function() { appendPickedFiles(this.files, '/Selected Folder'); this.value = ''; });
+    document.getElementById('inp-add-folder').addEventListener('change', function() { appendPickedFiles(this.files, '/Selected Folder'); this.value = ''; });
+
+    document.getElementById('btn-clear-all').addEventListener('click', () => {
+      collected = [];
+      render();
+      showToast('Queue cleared');
+    });
+
+    document.addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-rm]');
+      if (rm) {
+        const id = parseInt(rm.getAttribute('data-rm'), 10);
+        collected = collected.filter(x => x.id !== id);
+        render();
+      }
+    });
+
+    document.getElementById('btn-next-workspace').addEventListener('click', () => {
+      showToast('Opening Folder Workspace with ' + collected.length + ' files →');
+    });
+
+    render();
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

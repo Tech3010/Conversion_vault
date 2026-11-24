@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Target Compressor</title>
+  <style>
+    :root {
+      --bg:#090d16; --surface:#0f1624; --card:#131c2e; --card-elev:#172236; --input:#0a0f1a;
+      --border:#1e293b; --border-strong:#334155; --text:#f8fafc; --muted:#94a3b8;
+      --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14); --crimson-hover:#be0837;
+      --gold:#fcd116; --gold-soft:rgba(252,209,22,0.13); --gold-text:#fcd116;
+      --emerald:#10b981; --emerald-soft:rgba(16,185,129,0.14);
+      --radius:12px; --radius-sm:8px;
+      --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13.5px;line-height:1.45;min-height:100vh;display:flex;justify-content:center;}
+    .app-frame{width:100%;max-width:540px;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);padding-bottom:84px;}
+    @media(min-width:600px){.app-frame{border-left:1px solid var(--border);border-right:1px solid var(--border);}}
+    .app-bar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .bar-left{display:flex;align-items:center;gap:10px;}
+    .back-btn{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+    .back-btn:hover{border-color:var(--crimson);color:var(--crimson);}
+    .page-title{font-size:15px;font-weight:700;line-height:1.2;}
+    .page-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
+    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--gold-soft);color:var(--gold-text);border:1px solid rgba(252,209,22,0.35);}
+    .content{padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1;}
+    .card-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:11px;}
+    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .file-pick{background:var(--card-elev);border:1px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .fname{font-family:var(--mono);font-size:12.5px;font-weight:700;word-break:break-all;}
+    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;}
+    .btn-sm{padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .btn-sm:hover{border-color:var(--crimson);color:var(--crimson);}
+    .cap-pills{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+    .cap-btn{padding:7px 4px;border-radius:7px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;}
+    .cap-btn small{font-size:9px;color:var(--subtle);}
+    .cap-btn.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
+    .cap-btn.active small{color:var(--gold-text);}
+    .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+    .field{display:flex;flex-direction:column;gap:4px;}
+    .field label{font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--muted);}
+    .field input,.field select{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--border-strong);background:var(--input);color:var(--text);font-size:12px;}
+    .stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+    .stat-cell{background:var(--card-elev);border:1px solid var(--border);border-radius:7px;padding:8px 10px;}
+    .stat-k{font-family:var(--mono);font-size:9.5px;color:var(--muted);text-transform:uppercase;display:block;}
+    .stat-v{font-family:var(--mono);font-size:11.5px;font-weight:800;color:var(--text);margin-top:2px;display:block;}
+    .c-ok{color:var(--emerald);} .c-warn{color:var(--gold-text);} .c-bad{color:var(--crimson);}
+    .warn-banner{background:var(--crimson-soft);border:1px solid rgba(219,10,64,0.55);border-radius:8px;padding:9px 11px;font-size:11.5px;color:#fecdd3;line-height:1.45;}
+    .cmd-wrap{background:#05070b;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;}
+    .cmd-box{font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.45;word-break:break-all;}
+    .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:540px;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:40;}
+    .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;}
+    .btn-primary:hover{background:var(--crimson-hover);}
+    .btn-primary:disabled{opacity:0.42;cursor:not-allowed;}
+    .dest-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+    .dest-pill{padding:7px 6px;border-radius:7px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;text-align:center;}
+    .dest-pill.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
+    .dest-path-bar{background:var(--input);border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-family:var(--mono);font-size:10.5px;color:var(--emerald);word-break:break-all;}
+    .hidden{display:none !important;}
+    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast.show{opacity:1;}
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Home">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <div>
+          <div class="page-title">Target Compressor</div>
+          <div class="page-sub">SMART FILE-AWARE SIZE CAP &amp; STATS</div>
+        </div>
+      </div>
+      <span class="badge">SIZE CAP</span>
+    </header>
+
+    <main class="content">
+      <section class="card-box">
+        <div class="sec-lbl"><span>1. Source Video</span><span id="lbl-range-note" style="color:var(--muted); font-size:9.5px;"></span></div>
+        <div class="file-pick">
+          <div style="min-width:0;">
+            <div class="fname" id="lbl-fname">porsche_tunnel_4k.mov</div>
+            <div class="fmeta" id="lbl-fmeta">142.8 MB · 3840×2160 · 45.6 Mbps · 25s</div>
+          </div>
+          <button type="button" id="btn-pick" class="btn-sm">Change File</button>
+          <input type="file" id="inp-file" class="hidden" accept="video/*">
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>2. File-Aware Target Limit</span><span id="lbl-safe-bounds" style="color:var(--muted); font-size:9.5px;"></span></div>
+        <div class="cap-pills" id="cap-pills"></div>
+        <div class="grid-2">
+          <div class="field"><label for="inp-mb">Target Size (MB)</label><input type="number" id="inp-mb" min="1" max="50000" value="36"></div>
+          <div class="field"><label for="sel-codec">Codec</label>
+            <select id="sel-codec"><option value="libx264">libx264 (H.264)</option><option value="libx265" selected>libx265 (HEVC)</option></select>
+          </div>
+          <div class="field"><label for="sel-scale">Resolution</label>
+            <select id="sel-scale"><option value="original">Keep 4K (2160p)</option><option value="1080" selected>Downscale 1080p</option><option value="720">Downscale 720p</option></select>
+          </div>
+          <div class="field"><label for="sel-aud">Audio Bitrate</label>
+            <select id="sel-aud"><option value="192">192 kbps AAC</option><option value="128" selected>128 kbps AAC</option><option value="96">96 kbps AAC</option><option value="0">Mute (-an)</option></select>
+          </div>
+        </div>
+        <div id="warn-banner" class="warn-banner hidden"></div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>3. What Will Change (Before → After)</span></div>
+        <div class="stat-row">
+          <div class="stat-cell"><span class="stat-k">File Size Shift</span><span class="stat-v c-ok" id="st-size">—</span></div>
+          <div class="stat-cell"><span class="stat-k">Video Bitrate Shift</span><span class="stat-v" id="st-vbr">—</span></div>
+          <div class="stat-cell"><span class="stat-k">Resolution Change</span><span class="stat-v" id="st-res">—</span></div>
+          <div class="stat-cell"><span class="stat-k">Audio Track Change</span><span class="stat-v" id="st-aud">—</span></div>
+          <div class="stat-cell"><span class="stat-k">Codec Change</span><span class="stat-v" id="st-codec">—</span></div>
+          <div class="stat-cell"><span class="stat-k">Visual Quality</span><span class="stat-v" id="st-qual">—</span></div>
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl"><span>4. Generated FFmpeg Command</span></div>
+        <div class="cmd-wrap"><div class="cmd-box" id="cmd-box"></div></div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="btn-copy" class="btn-sm" style="flex:1;">Copy Command</button>
+          <button type="button" id="btn-sh" class="btn-sm" style="flex:1;">Export .sh (/SH_Scripts/)</button>
+        </div>
+      </section>
+      <section class="card-box" aria-label="Output Location">
+        <div class="sec-lbl"><span>Save Location</span></div>
+        <div class="dest-pills" id="dest-pills">
+          <button type="button" class="dest-pill active" data-dest="vault">Vault Folder</button>
+          <button type="button" class="dest-pill" data-dest="source">Source Folder</button>
+          <button type="button" class="dest-pill" data-dest="custom">Custom ↗</button>
+        </div>
+        <div class="dest-path-bar" id="lbl-dest-path">/storage/emulated/0/ConversionVault/Target_Compressor/36mb_porsche_tunnel_4k.mov</div>
+      </section>
+    </main>
+
+    <footer class="bottom-bar">
+      <button type="button" id="btn-fm" class="btn-sm" style="padding:10px 12px;">File Manager ↗</button>
+      <button type="button" id="btn-run" class="btn-primary">Compress to Target Size ▶</button>
+    </footer>
+  </div>
+  <div class="toast" id="toast">Ready</div>
+  <script>
+    const state = {
+      fname: 'porsche_tunnel_4k.mov', sizeMB: 142.8, durSec: 25, srcRes: '3840×2160', srcVbrK: 45600, srcAud: 'PCM 2304k', srcCodec: 'HEVC 10-bit',
+      targetMB: 36, codec: 'libx265', scale: '1080', audK: 128
+    };
+    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+
+    function getBounds() {
+      // Safe practical floor: ~250 kbps video + audio over duration (prevents 20GB -> 50MB impossible crushes)
+      const minKbps = 250 + state.audK;
+      const minMB = Math.max(1, Math.ceil((minKbps * state.durSec) / 8192));
+      const maxMB = Math.max(minMB + 1, Math.floor(state.sizeMB * 0.95));
+      return { minMB, maxMB };
+    }
+
+    function render() {
+      const { minMB, maxMB } = getBounds();
+      document.getElementById('lbl-safe-bounds').textContent = `Safe range: ${minMB}–${maxMB} MB`;
+
+      const presets = [
+        { pct: 75, mb: Math.max(minMB, Math.round(state.sizeMB * 0.75)) },
+        { pct: 50, mb: Math.max(minMB, Math.round(state.sizeMB * 0.50)) },
+        { pct: 25, mb: Math.max(minMB, Math.round(state.sizeMB * 0.25)) },
+        { pct: 10, mb: Math.max(minMB, Math.round(state.sizeMB * 0.10)) }
+      ];
+      document.getElementById('cap-pills').innerHTML = presets.map(p => `
+        <button type="button" class="cap-btn ${state.targetMB === p.mb ? 'active' : ''}" data-mb="${p.mb}">
+          <span>${p.mb} MB</span>
+          <small>-${100 - p.pct}%</small>
+        </button>
+      `).join('');
+
+      const totalKbps = (state.targetMB * 8192) / state.durSec;
+      const vbr = Math.round(totalKbps - state.audK - 40);
+      const red = Math.round(((state.sizeMB - state.targetMB) / state.sizeMB) * 100);
+
+      const warnEl = document.getElementById('warn-banner');
+      let blocked = false;
+      if (state.targetMB >= state.sizeMB) {
+        warnEl.classList.remove('hidden');
+        warnEl.textContent = `⚠ Target (${state.targetMB} MB) is not smaller than source (${state.sizeMB.toFixed(1)} MB). Pick a lower target.`;
+        blocked = true;
+      } else if (vbr < 250) {
+        warnEl.classList.remove('hidden');
+        warnEl.textContent = `⚠ Target too small for ${state.durSec}s duration (video bitrate drops to ${Math.max(0, vbr)} kbps). Minimum practical limit is ${minMB} MB.`;
+        blocked = true;
+      } else {
+        warnEl.classList.add('hidden');
+      }
+
+      document.getElementById('btn-run').disabled = blocked;
+      document.getElementById('st-size').textContent = `${state.sizeMB.toFixed(1)} → ${state.targetMB} MB (-${red}%)`;
+      document.getElementById('st-vbr').textContent = `${(state.srcVbrK / 1000).toFixed(1)}M → ${(Math.max(0, vbr) / 1000).toFixed(2)}M`;
+      document.getElementById('st-res').textContent = state.scale === 'original' ? `${state.srcRes} (Unchanged)` : `${state.srcRes} → ${state.scale}p`;
+      document.getElementById('st-aud').textContent = state.audK === 0 ? `${state.srcAud} → Muted` : `${state.srcAud} → ${state.audK}k AAC`;
+      document.getElementById('st-codec').textContent = `${state.srcCodec} → ${state.codec.replace('lib','')}`;
+
+      const qualEl = document.getElementById('st-qual');
+      qualEl.className = 'stat-v ' + (vbr >= 4000 ? 'c-ok' : (vbr >= 1200 ? 'c-warn' : 'c-bad'));
+      qualEl.textContent = vbr >= 4000 ? 'Sharp ✓' : (vbr >= 1200 ? 'Balanced' : 'Heavy Squeeze ⚠');
+
+      const vf = state.scale === 'original' ? '' : ` -vf scale=-2:${state.scale}`;
+      const aud = state.audK === 0 ? '-an' : `-c:a aac -b:a ${state.audK}k`;
+      document.getElementById('cmd-box').textContent = `$ ffmpeg -y -i "${state.fname}" -c:v ${state.codec} -b:v ${Math.max(250, vbr)}k -maxrate ${Math.max(300, Math.round(vbr*1.2))}k -bufsize ${Math.max(600, vbr*2)}k${vf} ${aud} -movflags +faststart "${state.targetMB}mb_${state.fname}"`;
+    }
+
+    document.getElementById('cap-pills').addEventListener('click', (e) => {
+      const b = e.target.closest('.cap-btn');
+      if (b) { state.targetMB = parseInt(b.getAttribute('data-mb'), 10); document.getElementById('inp-mb').value = state.targetMB; render(); }
+    });
+    document.getElementById('inp-mb').addEventListener('input', function() { state.targetMB = Math.max(1, parseInt(this.value, 10) || 1); render(); });
+    document.getElementById('sel-codec').addEventListener('change', function() { state.codec = this.value; render(); });
+    document.getElementById('sel-scale').addEventListener('change', function() { state.scale = this.value; render(); });
+    document.getElementById('sel-aud').addEventListener('change', function() { state.audK = parseInt(this.value, 10); render(); });
+    document.getElementById('btn-pick').addEventListener('click', () => document.getElementById('inp-file').click());
+    document.getElementById('inp-file').addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        state.fname = this.files[0].name;
+        state.sizeMB = Math.max(2, this.files[0].size / (1024 * 1024));
+        state.targetMB = Math.max(1, Math.round(state.sizeMB * 0.25));
+        document.getElementById('inp-mb').value = state.targetMB;
+        document.getElementById('lbl-fname').textContent = state.fname;
+        document.getElementById('lbl-fmeta').textContent = state.sizeMB.toFixed(1) + ' MB · Probed';
+        render();
+      }
+    });
+    document.getElementById('btn-copy').addEventListener('click', () => showToast('Copied Target Compressor command'));
+    document.getElementById('btn-sh').addEventListener('click', () => showToast('Saved to /ConversionVault/SH_Scripts/target_compress.sh'));
+    document.getElementById('btn-fm').addEventListener('click', () => showToast('Opening /ConversionVault/ in File Manager →'));
+    document.getElementById('btn-run').addEventListener('click', () => showToast('Compressing to ' + state.targetMB + ' MB →'));
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+    render();
+    let destMode = 'vault';
+    function updateDestPath() {
+      const base = destMode === 'vault' ? '/storage/emulated/0/ConversionVault/Target_Compressor/' : (destMode === 'source' ? '/Movies/AlightMotion/Converted/' : '/storage/emulated/0/Documents/Exports/');
+      document.getElementById('lbl-dest-path').textContent = base + '36mb_porsche_tunnel_4k.mov';
+    }
+    document.getElementById('dest-pills').addEventListener('click', (e) => {
+      const p = e.target.closest('.dest-pill');
+      if (!p) return;
+      destMode = p.getAttribute('data-dest');
+      document.querySelectorAll('.dest-pill').forEach(x => x.classList.toggle('active', x.getAttribute('data-dest') === destMode));
+      updateDestPath();
+      if (destMode === 'custom') showToast('Pick custom output folder →');
+    });
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

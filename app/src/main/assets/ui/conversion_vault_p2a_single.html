@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Single File Workspace</title>
+  <style>
+    :root {
+      /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 84px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    /* Top App Bar (Clean — No Theme Toggle) */
+    .app-bar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .bar-left { display: flex; align-items: center; gap: 10px; }
+    .back-btn {
+      width: 34px; height: 34px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .back-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+    .page-title { font-size: 15px; font-weight: 700; line-height: 1.2; }
+    .page-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+    .single-badge {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 3px 8px;
+      border-radius: 6px; background: var(--crimson-soft); color: var(--crimson);
+      border: 1px solid rgba(219, 10, 64, 0.35);
+    }
+
+    .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+
+    /* Unified Section Cards */
+    .sec-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; transition: opacity 0.2s ease, filter 0.2s ease;
+    }
+    .sec-card.s-info { border-top: 2px solid var(--crimson); }
+    .sec-card.s-format { border-top: 2px solid var(--gold); }
+    .sec-card.s-perf { border-top: 2px solid var(--emerald); }
+
+    .sec-head {
+      padding: 11px 14px; background: var(--card); border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .sec-title {
+      font-family: var(--mono); font-size: 11.5px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--text);
+    }
+    .sec-tag {
+      font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 5px;
+      background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+    }
+    .sec-body { padding: 13px 14px; display: flex; flex-direction: column; gap: 11px; }
+
+    /* Section 1: File Identity + Stream Grid */
+    .file-banner {
+      background: var(--card-elev); border: 1px solid var(--border-strong);
+      border-left: 3px solid var(--crimson); border-radius: var(--radius-sm);
+      padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .fb-name { font-family: var(--mono); font-size: 13px; font-weight: 700; word-break: break-all; }
+    .fb-path { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 2px; word-break: break-all; }
+    .fb-size {
+      font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 4px 8px;
+      border-radius: 6px; background: var(--surface); border: 1px solid var(--border); white-space: nowrap;
+    }
+
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .info-cell { background: var(--card-elev); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; }
+    .info-k { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; display: block; }
+    .info-v { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text); margin-top: 2px; display: block; word-break: break-word; }
+    .c-crimson { color: var(--crimson); }
+    .c-gold { color: var(--gold-text); }
+    .c-emerald { color: var(--emerald); }
+
+    .btn-more-info {
+      width: 100%; padding: 8px 10px; border-radius: 7px;
+      border: 1px dashed var(--border-strong); background: var(--input); color: var(--muted);
+      font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      transition: border-color 0.14s ease, color 0.14s ease;
+    }
+    .btn-more-info:hover { border-color: var(--crimson); color: var(--text); }
+    .deep-probe-box {
+      display: flex; flex-direction: column; gap: 10px;
+      padding-top: 10px; border-top: 1px dashed var(--border-strong);
+    }
+    .probe-group-lbl {
+      font-family: var(--mono); font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--gold-text); margin-bottom: -4px;
+    }
+    .raw-meta-pill {
+      background: var(--input); border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 10px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.55;
+      word-break: break-word;
+    }
+    .raw-meta-pill strong { color: var(--gold-text); }
+
+    /* Section 2: Format & Preset Box + Mini Status Bars */
+    .preset-box {
+      background: var(--card-elev); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+      padding: 12px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .preset-box.has-preset {
+      border-color: rgba(252, 209, 22, 0.55);
+      box-shadow: inset 3px 0 0 var(--gold);
+    }
+    .ps-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .ps-name { font-size: 13.5px; font-weight: 700; color: var(--text); }
+    .ps-tags { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+    .btn-choose {
+      padding: 7px 12px; border-radius: 6px;
+      border: 1px solid var(--crimson); background: var(--crimson); color: #ffffff;
+      font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-choose:hover { background: var(--crimson-hover); }
+
+    .mini-bars-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 12px; }
+    .mbar-col { display: flex; flex-direction: column; gap: 3px; }
+    .mbar-head { display: flex; justify-content: space-between; align-items: center; gap: 4px; white-space: nowrap; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+    .mbar-track { height: 5px; background: var(--input); border-radius: 999px; overflow: hidden; }
+    .mbar-track.is-zero { background: #05070b; border: 1px solid var(--border); }
+    .mbar-fill { height: 100%; border-radius: 999px; transition: width 0.2s ease; }
+
+    /* Section 3: Device Performance */
+    .perf-hero-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      background: var(--card-elev); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 12px;
+    }
+    .perf-big-time { font-family: var(--mono); font-size: 24px; font-weight: 800; line-height: 1.1; }
+    .hw-chip {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 3px 8px;
+      border-radius: 6px; background: var(--gold-soft); color: var(--gold-text);
+    }
+
+    /* Untouched / Dimmed State */
+    .is-untouched { opacity: 0.42; filter: grayscale(0.75); transition: opacity 0.2s ease, filter 0.2s ease; }
+    .is-untouched:hover { opacity: 0.65; }
+    .is-untouched input[type="range"] { accent-color: #1e293b; }
+    .status-unselected { color: var(--subtle); font-style: italic; }
+
+    /* Form Controls */
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label {
+      font-size: 11px; font-weight: 700; color: var(--muted); font-family: var(--mono);
+      display: flex; justify-content: space-between;
+    }
+    .field-val-pill { color: var(--gold-text); }
+    select, input[type="number"], input[type="text"] {
+      width: 100%; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--input); color: var(--text);
+      font-size: 12px; font-family: var(--sans);
+    }
+    input[type="range"] { width: 100%; accent-color: var(--gold); cursor: pointer; }
+    .field-help { font-size: 11px; color: var(--subtle); line-height: 1.35; }
+
+    /* Modal Sheet */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 80;
+      background: rgba(5, 8, 15, 0.78);
+      display: flex; justify-content: center; align-items: flex-end; padding: 10px;
+    }
+    @media (min-width: 600px) { .modal-backdrop { align-items: center; } }
+    .modal-sheet {
+      width: 100%; max-width: 520px; max-height: 90vh;
+      background: var(--bg); border: 1px solid var(--border-strong); border-radius: 14px;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+    .modal-head {
+      padding: 14px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .modal-title { font-size: 15px; font-weight: 700; }
+    .modal-sub { font-size: 11px; font-family: var(--mono); color: var(--gold-text); }
+    .modal-close {
+      width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); font-size: 16px; cursor: pointer;
+    }
+    .modal-body {
+      padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; flex: 1;
+    }
+    .modal-foot {
+      padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .lib-tabs {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px;
+    }
+    .lib-tab {
+      padding: 6px 4px; border: none; border-radius: 5px; background: transparent;
+      color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .lib-tab.active { background: var(--crimson); color: #ffffff; }
+    .preset-cards-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .pcard {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 9px 10px; text-align: left; color: var(--text); cursor: pointer;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .pcard:hover, .pcard.active { border-color: var(--crimson); background: var(--crimson-soft); }
+    .pcard-name { font-size: 12px; font-weight: 700; }
+    .pcard-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+    .telemetry-box {
+      background: var(--card-elev); border: 1px solid var(--border-strong); border-radius: 8px;
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .scope-lbl {
+      font-family: var(--mono); font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted);
+    }
+    .adv-sec-lbl {
+      grid-column: 1 / -1;
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--gold-text); padding-bottom: 5px; margin-top: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .adv-sec-lbl:first-child { margin-top: 0; }
+    .adv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Sticky Bottom Action Bar */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 540px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 40;
+    }
+    .btn-secondary {
+      background: var(--card); border: 1px solid var(--border-strong); color: var(--text);
+      padding: 9px 14px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    .btn-secondary:disabled { opacity: 0.42; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--crimson); border: 1px solid var(--crimson); color: #ffffff;
+      padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary:hover { background: var(--crimson-hover); }
+    .btn-primary:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .i-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px; border-radius: 50%;
+      border: 1px solid rgba(252, 209, 22, 0.5);
+      background: var(--gold-soft);
+      color: var(--gold-text);
+      font-family: var(--mono); font-size: 9.5px; font-weight: 800; line-height: 1;
+      cursor: pointer; flex-shrink: 0;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+    .i-btn:hover { background: var(--gold); color: #090d16; transform: scale(1.1); }
+    body.hide-hints .i-btn { display: none !important; }
+    .btn-hint-toggle {
+      padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card); color: var(--gold-text); font-family: var(--mono);
+      font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-hint-toggle.is-off { color: var(--muted); }
+    .mbar-col { min-width: 0; }
+    .mini-bars-grid { width: 100%; }
+    .mbar-right { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .lbl-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; width: 100%; }
+    .lbl-right { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .info-pop-backdrop {
+      position: fixed; inset: 0; z-index: 110;
+      background: rgba(5, 8, 15, 0.76);
+      display: flex; justify-content: center; align-items: center; padding: 16px;
+    }
+    .info-pop-card {
+      width: 100%; max-width: 380px; background: var(--surface);
+      border: 1px solid var(--gold); border-radius: 13px; padding: 15px;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .info-pop-title { font-size: 14px; font-weight: 800; color: var(--gold-text); display: flex; align-items: center; gap: 7px; }
+    .info-pop-body { font-size: 12.5px; color: var(--text); line-height: 1.55; white-space: pre-line; }
+    .info-pop-btn {
+      align-self: flex-end; padding: 7px 14px; border-radius: 7px;
+      border: 1px solid var(--crimson); background: var(--crimson);
+      color: #ffffff; font-family: var(--mono); font-size: 11px; font-weight: 800; cursor: pointer;
+    }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top App Bar -->
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Source Selection">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div>
+          <div class="page-title">Single File Workspace</div>
+          <div class="page-sub">STEP 2 · INFO · FORMAT · PERFORMANCE</div>
+        </div>
+      </div>
+      <span class="single-badge">VIDEO</span>
+    </header>
+
+    <main class="content">
+      <!-- 1. FILE INFORMATION -->
+      <section class="sec-card s-info" aria-label="File Information">
+        <div class="sec-head">
+          <span class="sec-title">1. File Information</span>
+          <span class="sec-tag">FFprobe Deep Stream</span>
+        </div>
+        <div class="sec-body">
+          <div class="file-banner">
+            <div style="min-width:0;">
+              <div class="fb-name">gtr_night_ramp.mp4</div>
+              <div class="fb-path">/storage/emulated/0/Movies/AlightMotion</div>
+            </div>
+            <span class="fb-size">64.2 MB</span>
+          </div>
+          <div class="info-grid">
+            <div class="info-cell"><span class="info-k">Resolution &amp; FPS</span><span class="info-v">1080×1920 · 60 fps</span></div>
+            <div class="info-cell"><span class="info-k">Video Codec</span><span class="info-v">H.264 (yuv420p)</span></div>
+            <div class="info-cell"><span class="info-k">Source Bitrate</span><span class="info-v">17.1 Mbps (High)</span></div>
+            <div class="info-cell"><span class="info-k">Duration</span><span class="info-v">00:30.0 (1,800 fr)</span></div>
+            <div class="info-cell"><span class="info-k">Audio Stream</span><span class="info-v">AAC-LC · 192k · 48kHz</span></div>
+            <div class="info-cell"><span class="info-k">Detected Metadata</span><span class="info-v c-gold">Camera + GPS EXIF</span></div>
+          </div>
+
+          <button type="button" id="btn-more-probe" class="btn-more-info" aria-expanded="false">
+            <span id="lbl-more-probe">More FFprobe Info (GOP, Chroma, Color, Audio, Subtitles, Tags)</span>
+            <span id="ico-more-probe">▾</span>
+          </button>
+
+          <div class="deep-probe-box hidden" id="deep-probe-panel">
+            <span class="probe-group-lbl">Video Stream (v:0) · Frame &amp; Color</span>
+            <div class="info-grid">
+              <div class="info-cell"><span class="info-k">Frame Structure</span><span class="info-v">Inter-Frame (Long-GOP)</span></div>
+              <div class="info-cell"><span class="info-k">GOP &amp; B-Frames</span><span class="info-v">Keyint 60 · 2 B-frames · Closed</span></div>
+              <div class="info-cell"><span class="info-k">Chroma &amp; Location</span><span class="info-v">4:2:0 · left · 8-bit</span></div>
+              <div class="info-cell"><span class="info-k">Color Space / Transfer</span><span class="info-v">BT.709 · BT.709 · TV Limited</span></div>
+              <div class="info-cell"><span class="info-k">Profile / Level / Ref</span><span class="info-v">High @ L4.2 · CABAC · 4 ref</span></div>
+              <div class="info-cell"><span class="info-k">Rate &amp; Timebase</span><span class="info-v">60/1 CFR · tbn 15360</span></div>
+              <div class="info-cell"><span class="info-k">SAR / DAR &amp; Rotation</span><span class="info-v">1:1 · 9:16 · Display 0°</span></div>
+              <div class="info-cell"><span class="info-k">Field Order &amp; HW</span><span class="info-v c-emerald">Progressive · MediaCodec ✓</span></div>
+            </div>
+
+            <span class="probe-group-lbl">Audio (a:0), Subtitles &amp; Container</span>
+            <div class="info-grid">
+              <div class="info-cell"><span class="info-k">Audio Codec / Fmt</span><span class="info-v">AAC-LC · fltp (32-bit)</span></div>
+              <div class="info-cell"><span class="info-k">Channels &amp; Layout</span><span class="info-v">2 ch (Stereo) · 192 kbps</span></div>
+              <div class="info-cell"><span class="info-k">Container &amp; Moov</span><span class="info-v">ISOBMFF (mp42) · Faststart ✓</span></div>
+              <div class="info-cell"><span class="info-k">Subtitles &amp; Chapters</span><span class="info-v">0 Sub Streams · 0 Chapters</span></div>
+            </div>
+
+            <div class="raw-meta-pill">
+              <strong>Raw Extracted FFprobe Tags:</strong><br>
+              major_brand: mp42 · compatible_brands: isommp42 · encoder: Lavf60.16.100<br>
+              creation_time: 2026-11-22T18:14:09.000000Z · start_time: 0.000000s<br>
+              com.android.manufacturer: Xiaomi · model: POCO X7 Pro · location: +13.0827+080.2707/
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. FORMAT & PRESET SELECTION -->
+      <section class="sec-card s-format" aria-label="Format and Preset Selection">
+        <div class="sec-head">
+          <span class="sec-title">2. Format &amp; Preset</span>
+          <span class="sec-tag" id="fmt-status-pill">Not Selected</span>
+        </div>
+        <div class="sec-body">
+          <div class="preset-box" id="main-preset-box">
+            <div class="ps-top">
+              <div>
+                <div class="ps-name" id="main-ps-name">No format selected yet</div>
+                <div class="ps-tags" id="main-ps-tags">Tap Choose Format to pick a preset or tune video, audio, orientation, FPS &amp; subtitles</div>
+              </div>
+              <button type="button" id="btn-open-format" class="btn-choose">Choose Format ↗</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:-4px;"><span class="scope-lbl">Preset Status</span><button type="button" class="i-btn" data-info="Preset Status Bars" aria-label="Info about Status Bars">i</button></div>
+            <div class="mini-bars-grid" id="main-ps-bars"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. DEVICE PERFORMANCE ESTIMATION -->
+      <section class="sec-card s-perf is-untouched" id="sec-perf" aria-label="Device Performance Estimation">
+        <div class="sec-head">
+          <span class="sec-title">3. Device Performance</span>
+          <span class="hw-chip">POCO X7 Pro · 8x A725</span>
+        </div>
+        <div class="sec-body">
+          <div class="perf-hero-row">
+            <div>
+              <span class="info-k">Approx. Conversion Time</span>
+              <div class="perf-big-time" id="perf-time">—</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="info-k">Throughput</span>
+              <span class="info-v c-emerald" id="perf-fps">—</span>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-cell"><span class="info-k">Est. Output Size</span><span class="info-v" id="perf-size">—</span></div>
+            <div class="info-cell"><span class="info-k">RAM &amp; Battery</span><span class="info-v" id="perf-res">—</span></div>
+          </div>
+
+          <div class="field">
+            <label for="sel-threads">CPU Thread Allocation (-threads)</label>
+            <select id="sel-threads">
+              <option value="8" selected>Auto · 8 Threads (Fastest)</option>
+              <option value="6">6 Threads (Balanced Thermals)</option>
+              <option value="4">4 Threads (Coolest Battery)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sel-cores">Core Affinity (CPU Pinning · Best-Effort)</label>
+            <select id="sel-cores">
+              <option value="auto" selected>All 8 Cores (OS Scheduler Default)</option>
+              <option value="4-7">Perf + Prime (Cores 4–7 · 3.0–3.25 GHz)</option>
+              <option value="0-3">Efficiency Only (Cores 0–3 · 2.1 GHz)</option>
+              <option value="7">Prime Core Only (Core 7 · 3.25 GHz)</option>
+            </select>
+            <span class="field-help" id="core-warn-note" style="color:var(--gold-text); margin-top:2px;">Note: Non-rooted Android / HyperOS cpuset policies may override manual core pinning under thermal load.</span>
+          </div>
+          <div class="raw-meta-pill hidden" id="core-cmd-pill"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Sticky Action Bar -->
+    <footer class="bottom-bar">
+      <div>
+        <div class="info-v" id="foot-title" style="font-size:12.5px;">No format selected</div>
+        <div class="page-sub" id="foot-sub">Choose a format in Section 2 first</div>
+      </div>
+      <button type="button" id="btn-move-convert" class="btn-primary" disabled>
+        <span>Output Destination</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+    </footer>
+  </div>
+
+  <!-- ADVANCED PRESET POP-UP MODAL (Built-In + Saved Only, Untouched 0% State) -->
+  <div class="modal-backdrop hidden" id="preset-modal" role="dialog" aria-modal="true" aria-label="Advanced Video Preset">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title">Advanced Video Presets</div>
+          <div class="modal-sub">Target: gtr_night_ramp.mp4</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;"><button type="button" class="btn-hint-toggle" data-toggle-hints="1">ⓘ Hints: ON</button><button type="button" id="btn-modal-close" class="modal-close" aria-label="Close modal">×</button></div>
+      </div>
+
+      <div class="modal-body">
+        <div class="lib-tabs" role="tablist">
+          <button type="button" class="lib-tab active" data-lib="builtin">Built-In Presets</button>
+          <button type="button" class="lib-tab" data-lib="saved">Saved Presets</button>
+        </div>
+
+        <div class="preset-cards-row" id="m-preset-grid"></div>
+
+        <div class="telemetry-box" id="m-telemetry-box">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="scope-lbl" style="display:inline-flex; align-items:center; gap:5px;">Live Preset Status <button type="button" class="i-btn" data-info="Preset Status Bars" aria-label="Info about Status Bars">i</button></span>
+            <span class="page-sub" id="m-live-tag">No format selected yet</span>
+          </div>
+          <div class="mini-bars-grid" id="m-status-bars"></div>
+        </div>
+
+        <div class="adv-grid" id="m-adv-controls"></div>
+      </div>
+
+      <div class="modal-foot">
+        <button type="button" id="btn-modal-save" class="btn-secondary" disabled>+ Save Preset</button>
+        <button type="button" id="btn-modal-apply" class="btn-primary" disabled>Apply Format</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bright Info Explanation Popover -->
+  <div class="info-pop-backdrop hidden" id="info-pop-modal" role="dialog" aria-modal="true" aria-label="Setting Explanation">
+    <div class="info-pop-card">
+      <div class="info-pop-title" id="info-pop-title">ⓘ Info</div>
+      <div class="info-pop-body" id="info-pop-body"></div>
+      <button type="button" id="btn-info-pop-close" class="info-pop-btn">Got it</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const FILE = { name: 'gtr_night_ramp.mp4', sizeMB: 64.2, durSec: 30, fps: 60 };
+
+    const PRESETS = {
+      builtin: [
+        {
+          name: '60fps Reels HQ',
+          meta: 'MP4 · H.264 · 60fps · AAC 192k',
+          cfg: {
+            presetName: '60fps Reels HQ', container: 'mp4', codec: 'libx264', rcMode: 'crf_cap', crf: 18, maxrate: 12,
+            preset: 'slower', gop: 'auto', bframes: 2, fps: '60', scale: 'original', orient: 'keep', pixfmt: 'yuv420p',
+            audioCodec: 'aac', audioBr: '192k', audioAr: '48000', audioCh: 'stereo', audioNorm: 'none',
+            subMode: 'strip', meta: 'wipe', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart'
+          }
+        },
+        {
+          name: 'H.264 All-I Edit',
+          meta: 'MP4 · Intra -g 1 · CRF 15 · AAC 320k',
+          cfg: {
+            presetName: 'H.264 All-I Edit', container: 'mp4', codec: 'libx264', rcMode: 'crf_only', crf: 15, maxrate: 45,
+            preset: 'fast', gop: '1', bframes: 0, fps: 'original', scale: 'original', orient: 'keep', pixfmt: 'yuv420p',
+            audioCodec: 'aac', audioBr: '320k', audioAr: '48000', audioCh: 'keep', audioNorm: 'none',
+            subMode: 'strip', meta: 'wipe', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart'
+          }
+        },
+        {
+          name: 'HEVC 10-Bit Archive',
+          meta: 'MKV · H.265 · yuv420p10le · FLAC',
+          cfg: {
+            presetName: 'HEVC 10-Bit Archive', container: 'mkv', codec: 'libx265', rcMode: 'crf_only', crf: 19, maxrate: 20,
+            preset: 'slow', gop: 'auto', bframes: 3, fps: 'original', scale: 'original', orient: 'keep', pixfmt: 'yuv420p10le',
+            audioCodec: 'flac', audioBr: 'lossless', audioAr: '48000', audioCh: 'keep', audioNorm: 'none',
+            subMode: 'copy', meta: 'wipe', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'standard'
+          }
+        },
+        {
+          name: 'Ultra-Small Share',
+          meta: 'MP4 · 720p30 · CRF 25 · Opus 128k',
+          cfg: {
+            presetName: 'Ultra-Small Share', container: 'mp4', codec: 'libx264', rcMode: 'crf_cap', crf: 25, maxrate: 3,
+            preset: 'medium', gop: '120', bframes: 3, fps: '30', scale: '720', orient: 'auto', pixfmt: 'yuv420p',
+            audioCodec: 'libopus', audioBr: '128k', audioAr: '48000', audioCh: 'stereo', audioNorm: 'loudnorm',
+            subMode: 'strip', meta: 'wipe', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart'
+          }
+        }
+      ],
+      saved: [
+        {
+          name: 'My Daily Car Edit',
+          meta: 'MP4 · 1080×1920 60fps · AAC 256k',
+          cfg: {
+            presetName: 'My Daily Car Edit', container: 'mp4', codec: 'libx264', rcMode: 'crf_cap', crf: 17, maxrate: 14,
+            preset: 'slower', gop: '120', bframes: 2, fps: '60', scale: '1080_v', orient: 'keep', pixfmt: 'yuv420p',
+            audioCodec: 'aac', audioBr: '256k', audioAr: '48000', audioCh: 'stereo', audioNorm: 'loudnorm',
+            subMode: 'strip', meta: 'deep', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart'
+          }
+        }
+      ]
+    };
+
+    const state = {
+      hasPreset: false,
+      threads: 8,
+      cores: 'auto',
+      cfg: Object.assign({}, PRESETS.builtin[0].cfg),
+      modal: { open: false, libTab: 'builtin', touched: false, draft: Object.assign({}, PRESETS.builtin[0].cfg) }
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function fmtSec(sec) {
+      if (sec < 1) return '<1s';
+      if (sec < 60) return '~' + sec.toFixed(1) + 's';
+      const m = Math.floor(sec / 60);
+      const s = Math.round(sec % 60);
+      return '~' + m + 'm ' + s + 's';
+    }
+
+    function shortTag(cfg) {
+      if (cfg.codec === 'copy') return '.' + cfg.container + ' · Stream Copy · Audio:' + cfg.audioCodec + ' · Sub:' + cfg.subMode;
+      const fpsStr = cfg.fps === 'original' ? 'SrcFPS' : cfg.fps + 'fps';
+      const audStr = cfg.audioCodec === 'none' ? 'Muted' : cfg.audioCodec.replace('lib', '').toUpperCase() + ' ' + cfg.audioBr;
+      const oriStr = cfg.orient !== 'keep' ? ' · Rot:' + cfg.orient : '';
+      return '.' + cfg.container + ' · ' + cfg.codec.replace('lib', '') + ' · ' + fpsStr + ' · CRF ' + cfg.crf + ' · ' + audStr + oriStr + ' · Sub:' + cfg.subMode;
+    }
+
+    function computeBars(cfg) {
+      if (cfg.codec === 'copy') return { qual: 100, comp: 50, speed: 99, compat: 95, edit: 72, batt: 99 };
+      const qual = cfg.rcMode === 'lossless' ? 100 : Math.max(35, Math.min(99, Math.round(100 - (cfg.crf - 14) * 2.5 + (cfg.pixfmt === 'yuv420p10le' ? 3 : 0))));
+      const codecComp = cfg.codec === 'libsvtav1' ? 20 : (cfg.codec === 'libx265' ? 14 : (cfg.codec === 'libvpx-vp9' ? 10 : 0));
+      const comp = Math.max(15, Math.min(98, Math.round(52 + (cfg.crf - 18) * 2.3 + codecComp + (cfg.gop === '1' ? -30 : 0))));
+      const preMap = { ultrafast: 95, fast: 78, medium: 60, slow: 44, slower: 30, veryslow: 16 };
+      const speed = Math.max(10, Math.min(98, (preMap[cfg.preset] || 50) - (cfg.codec === 'libx265' ? 14 : (cfg.codec === 'libsvtav1' ? 20 : 0))));
+      let compat = cfg.codec === 'libx264' ? 98 : (cfg.codec === 'libx265' ? 74 : (cfg.codec === 'libvpx-vp9' ? 78 : 48));
+      if (cfg.pixfmt === 'yuv420p10le') compat -= 18;
+      if (cfg.container === 'mp4' && cfg.codec === 'libx264') compat = Math.min(99, compat + 1);
+      compat = Math.max(25, Math.min(99, compat));
+      const edit = cfg.gop === '1' ? 99 : (cfg.gop === '15' ? 84 : (cfg.codec === 'libx264' ? 68 : 46));
+      const batt = Math.max(18, Math.min(98, Math.round(speed * 0.85 + 12)));
+      return { qual, comp, speed, compat, edit, batt };
+    }
+
+    function renderBars(bars, zero) {
+      if (zero) {
+        return `
+          <div class="mbar-col"><div class="mbar-head"><span>Quality Preserved</span><span>—</span></div><div class="mbar-track is-zero"><div class="mbar-fill" style="width:0%;"></div></div></div>
+          <div class="mbar-col"><div class="mbar-head"><span>Size Compressed</span><span>—</span></div><div class="mbar-track is-zero"><div class="mbar-fill" style="width:0%;"></div></div></div>
+          <div class="mbar-col"><div class="mbar-head"><span>Processing Speed</span><span>—</span></div><div class="mbar-track is-zero"><div class="mbar-fill" style="width:0%;"></div></div></div>
+          <div class="mbar-col"><div class="mbar-head"><span>Compatibility</span><span>—</span></div><div class="mbar-track is-zero"><div class="mbar-fill" style="width:0%;"></div></div></div>
+          <div class="mbar-col"><div class="mbar-head"><span>Raw Fidelity</span><span>—</span></div><div class="mbar-track is-zero"><div class="mbar-fill" style="width:0%;"></div></div></div>
+          <div class="mbar-col"><div class="mbar-head"><span>Battery Efficiency</span><span>—</span></div><div class="mbar-track is-zero"><div class="mbar-fill" style="width:0%;"></div></div></div>
+        `;
+      }
+      return `
+        <div class="mbar-col"><div class="mbar-head"><span>Quality Preserved</span><span>${bars.qual}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.qual}%; background:var(--emerald);"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Size Compressed</span><span>${bars.comp}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.comp}%; background:var(--gold);"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Processing Speed</span><span>${bars.speed}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.speed}%; background:var(--crimson);"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Compatibility</span><span>${bars.compat}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.compat}%; background:#38bdf8;"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Raw Fidelity</span><span>${bars.edit}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.edit}%; background:#a855f7;"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Battery Efficiency</span><span>${bars.batt}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.batt}%; background:#22c55e;"></div></div></div>
+      `;
+    }
+
+    function estimateSingle(cfg) {
+      const cMultCore = state.cores === '0-3' ? 0.62 : (state.cores === '7' ? 0.35 : (state.cores === '4-7' ? 0.78 : 1.0));
+      const tMult = (state.threads === 8 ? 1.0 : (state.threads === 6 ? 0.82 : 0.58)) * cMultCore;
+      if (cfg.codec === 'copy') return { sec: 0.2, outMB: FILE.sizeMB, fpsLbl: 'UFS 4.0 Copy', rt: 'Instant' };
+      const preFps = { ultrafast: 280, fast: 122, medium: 92, slow: 62, slower: 44, veryslow: 25 }[cfg.preset] || 62;
+      const cMult = cfg.codec === 'libx265' ? 0.52 : (cfg.codec === 'libsvtav1' ? 0.34 : (cfg.codec === 'libvpx-vp9' ? 0.45 : 1.0));
+      const rMult = cfg.scale === '720' ? 1.9 : (cfg.scale === '480' ? 2.6 : 1.0);
+      const outFps = cfg.fps === 'original' ? FILE.fps : parseInt(cfg.fps, 10);
+      const fps = Math.max(4, preFps * cMult * rMult * tMult);
+      const sec = (FILE.durSec * outFps) / fps;
+      const cSize = cfg.codec === 'libx265' ? 0.44 : (cfg.codec === 'libsvtav1' ? 0.38 : 0.62);
+      const outMB = Math.max(1.5, FILE.sizeMB * cSize * (cfg.gop === '1' ? 1.8 : 1.0) * (outFps / FILE.fps) * Math.pow(2, (18 - cfg.crf) / 8));
+      return { sec, outMB, fpsLbl: '~' + Math.round(fps) + ' fps', rt: (FILE.durSec / sec).toFixed(2) + 'x RT' };
+    }
+
+    function renderMain() {
+      const box = document.getElementById('main-preset-box');
+      const perfSec = document.getElementById('sec-perf');
+
+      if (!state.hasPreset) {
+        box.classList.remove('has-preset');
+        document.getElementById('fmt-status-pill').textContent = 'Not Selected';
+        document.getElementById('main-ps-name').textContent = 'No format selected yet';
+        document.getElementById('main-ps-tags').textContent = 'Tap Choose Format to pick a preset or tune video, audio, orientation, FPS & subtitles';
+        document.getElementById('btn-open-format').textContent = 'Choose Format ↗';
+        document.getElementById('main-ps-bars').innerHTML = renderBars(null, true);
+        perfSec.classList.add('is-untouched');
+        document.getElementById('perf-time').textContent = '—';
+        document.getElementById('perf-fps').textContent = 'Select format above';
+        document.getElementById('perf-size').textContent = '—';
+        document.getElementById('perf-res').textContent = '—';
+        document.getElementById('foot-title').textContent = 'No format selected';
+        document.getElementById('foot-sub').textContent = 'Choose a format in Section 2 first';
+        document.getElementById('btn-move-convert').disabled = true;
+        return;
+      }
+
+      box.classList.add('has-preset');
+      perfSec.classList.remove('is-untouched');
+      const bars = computeBars(state.cfg);
+      const est = estimateSingle(state.cfg);
+      const delta = Math.round(((est.outMB - FILE.sizeMB) / FILE.sizeMB) * 100);
+      const sign = delta <= 0 ? delta + '%' : '+' + delta + '%';
+      const batt = Math.max(0.1, (est.sec / 3600) * (state.threads === 4 ? 18 : 28));
+
+      document.getElementById('fmt-status-pill').textContent = state.cfg.presetName;
+      document.getElementById('main-ps-name').textContent = state.cfg.presetName;
+      document.getElementById('main-ps-tags').textContent = shortTag(state.cfg);
+      document.getElementById('btn-open-format').textContent = 'Change Format ↗';
+      document.getElementById('main-ps-bars').innerHTML = renderBars(bars, false);
+
+      document.getElementById('perf-time').textContent = fmtSec(est.sec);
+      document.getElementById('perf-fps').textContent = est.fpsLbl + ' · ' + est.rt;
+      document.getElementById('perf-size').textContent = FILE.sizeMB.toFixed(1) + ' → ' + est.outMB.toFixed(1) + ' MB (' + sign + ')';
+      document.getElementById('perf-res').textContent = '~480 MB RAM · ~' + batt.toFixed(1) + '% Batt';
+
+      const cmdPill = document.getElementById('core-cmd-pill');
+      const warnEl = document.getElementById('core-warn-note');
+      if (state.cores === 'auto') {
+        cmdPill.classList.add('hidden');
+        warnEl.textContent = 'Note: OS scheduler manages all 8 Cortex-A725 cores automatically.';
+      } else {
+        cmdPill.classList.remove('hidden');
+        cmdPill.innerHTML = '<strong>Core Pinning Command:</strong> taskset -c ' + state.cores + ' ffmpeg -threads ' + state.threads + ' ...';
+        warnEl.textContent = state.cores === '0-3'
+          ? 'Warning: Efficiency cores (2.1 GHz) run significantly slower. OS / HyperOS thermal policies may also override affinity.'
+          : 'Best-effort affinity (sched_setaffinity / taskset -c ' + state.cores + '). OS / HyperOS cpuset may override under load.';
+      }
+
+      document.getElementById('foot-title').textContent = fmtSec(est.sec) + ' · ' + est.outMB.toFixed(1) + ' MB';
+      document.getElementById('foot-sub').textContent = shortTag(state.cfg);
+      document.getElementById('btn-move-convert').disabled = false;
+    }
+
+    function renderModal() {
+      const { libTab, touched, draft } = state.modal;
+      document.querySelectorAll('.lib-tab').forEach(b => b.classList.toggle('active', b.getAttribute('data-lib') === libTab));
+
+      const grid = document.getElementById('m-preset-grid');
+      const list = PRESETS[libTab] || [];
+      grid.innerHTML = list.map((p, idx) => `
+        <button type="button" class="pcard ${touched && draft.presetName === p.cfg.presetName ? 'active' : ''}" data-pick="${idx}">
+          <span class="pcard-name">${p.name}</span>
+          <span class="pcard-meta">${p.meta}</span>
+        </button>
+      `).join('');
+
+      document.getElementById('m-telemetry-box').classList.toggle('is-untouched', !touched);
+      document.getElementById('m-adv-controls').classList.toggle('is-untouched', !touched);
+      document.getElementById('btn-modal-apply').disabled = !touched;
+      document.getElementById('btn-modal-save').disabled = !touched;
+
+      const tagEl = document.getElementById('m-live-tag');
+      if (!touched) {
+        tagEl.textContent = 'No format selected yet';
+        tagEl.classList.add('status-unselected');
+        document.getElementById('m-status-bars').innerHTML = renderBars(null, true);
+      } else {
+        tagEl.classList.remove('status-unselected');
+        tagEl.textContent = shortTag(draft);
+        document.getElementById('m-status-bars').innerHTML = renderBars(computeBars(draft), false);
+      }
+
+      const audioDisabled = draft.audioCodec === 'none';
+
+      document.getElementById('m-adv-controls').innerHTML = `
+        <div class="adv-sec-lbl">Video Stream, FPS &amp; Orientation</div>
+        <div class="field"><label class="lbl-row"><span>Container</span><button type="button" class="i-btn" data-info="Container" aria-label="Info about Container">i</button></label>
+          <select data-mf="container">
+            <option value="mp4" ${draft.container === 'mp4' ? 'selected' : ''}>.mp4 (Universal)</option>
+            <option value="mkv" ${draft.container === 'mkv' ? 'selected' : ''}>.mkv (Matroska)</option>
+            <option value="webm" ${draft.container === 'webm' ? 'selected' : ''}>.webm (WebM)</option>
+            <option value="mov" ${draft.container === 'mov' ? 'selected' : ''}>.mov (QuickTime)</option>
+            <option value="ts" ${draft.container === 'ts' ? 'selected' : ''}>.ts (Transport)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Video Codec (-c:v)</span><button type="button" class="i-btn" data-info="Video Codec (-c:v)" aria-label="Info about Video Codec (-c:v)">i</button></label>
+          <select data-mf="codec">
+            <option value="libx264" ${draft.codec === 'libx264' ? 'selected' : ''}>libx264 (H.264)</option>
+            <option value="libx265" ${draft.codec === 'libx265' ? 'selected' : ''}>libx265 (HEVC)</option>
+            <option value="libsvtav1" ${draft.codec === 'libsvtav1' ? 'selected' : ''}>libsvtav1 (AV1)</option>
+            <option value="libvpx-vp9" ${draft.codec === 'libvpx-vp9' ? 'selected' : ''}>libvpx-vp9 (VP9)</option>
+            <option value="copy" ${draft.codec === 'copy' ? 'selected' : ''}>copy (Zero Loss)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Rate Control</span><button type="button" class="i-btn" data-info="Rate Control" aria-label="Info about Rate Control">i</button></label>
+          <select data-mf="rcMode">
+            <option value="crf_cap" ${draft.rcMode === 'crf_cap' ? 'selected' : ''}>Constrained CRF</option>
+            <option value="crf_only" ${draft.rcMode === 'crf_only' ? 'selected' : ''}>Pure CRF Quality</option>
+            <option value="cbr" ${draft.rcMode === 'cbr' ? 'selected' : ''}>Target Bitrate</option>
+            <option value="lossless" ${draft.rcMode === 'lossless' ? 'selected' : ''}>Lossless (-crf 0)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Encoder Preset</span><button type="button" class="i-btn" data-info="Encoder Preset" aria-label="Info about Encoder Preset">i</button></label>
+          <select data-mf="preset">
+            <option value="ultrafast" ${draft.preset === 'ultrafast' ? 'selected' : ''}>ultrafast</option>
+            <option value="fast" ${draft.preset === 'fast' ? 'selected' : ''}>fast</option>
+            <option value="medium" ${draft.preset === 'medium' ? 'selected' : ''}>medium</option>
+            <option value="slow" ${draft.preset === 'slow' ? 'selected' : ''}>slow</option>
+            <option value="slower" ${draft.preset === 'slower' ? 'selected' : ''}>slower</option>
+            <option value="veryslow" ${draft.preset === 'veryslow' ? 'selected' : ''}>veryslow</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label class="lbl-row"><span>Quality Factor (-crf)</span><span class="lbl-right"><span class="field-val-pill">${touched ? 'CRF ' + draft.crf : '—'}</span><button type="button" class="i-btn" data-info="Quality Factor (-crf)">i</button></span></label>
+          <input type="range" min="12" max="34" value="${touched ? draft.crf : 12}" data-mf="crf">
+        </div>
+        <div class="field full">
+          <label class="lbl-row"><span>Max Bitrate (-maxrate)</span><span class="lbl-right"><span class="field-val-pill">${touched ? draft.maxrate + 'M (' + (draft.maxrate * 2) + 'M buf)' : '—'}</span><button type="button" class="i-btn" data-info="Max Bitrate">i</button></span></label>
+          <input type="range" min="2" max="50" value="${touched ? draft.maxrate : 2}" data-mf="maxrate">
+        </div>
+        <div class="field"><label class="lbl-row"><span>Frame Rate (-r FPS)</span><button type="button" class="i-btn" data-info="Frame Rate (-r FPS)" aria-label="Info about Frame Rate (-r FPS)">i</button></label>
+          <select data-mf="fps">
+            <option value="original" ${draft.fps === 'original' ? 'selected' : ''}>Keep Source FPS</option>
+            <option value="24" ${draft.fps === '24' ? 'selected' : ''}>24 fps (Cinema)</option>
+            <option value="25" ${draft.fps === '25' ? 'selected' : ''}>25 fps (PAL)</option>
+            <option value="30" ${draft.fps === '30' ? 'selected' : ''}>30 fps</option>
+            <option value="50" ${draft.fps === '50' ? 'selected' : ''}>50 fps</option>
+            <option value="60" ${draft.fps === '60' ? 'selected' : ''}>60 fps</option>
+            <option value="120" ${draft.fps === '120' ? 'selected' : ''}>120 fps</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Resolution / Aspect</span><button type="button" class="i-btn" data-info="Resolution / Aspect" aria-label="Info about Resolution / Aspect">i</button></label>
+          <select data-mf="scale">
+            <option value="original" ${draft.scale === 'original' ? 'selected' : ''}>Keep Original</option>
+            <option value="1080_v" ${draft.scale === '1080_v' ? 'selected' : ''}>1080×1920 (9:16 Reels)</option>
+            <option value="2160" ${draft.scale === '2160' ? 'selected' : ''}>4K (2160p)</option>
+            <option value="1440" ${draft.scale === '1440' ? 'selected' : ''}>1440p (QHD)</option>
+            <option value="1080" ${draft.scale === '1080' ? 'selected' : ''}>1080p (FHD)</option>
+            <option value="720" ${draft.scale === '720' ? 'selected' : ''}>720p (HD)</option>
+            <option value="480" ${draft.scale === '480' ? 'selected' : ''}>480p (Compact)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Orientation &amp; Flip</span><button type="button" class="i-btn" data-info="Orientation & Flip" aria-label="Info about Orientation & Flip">i</button></label>
+          <select data-mf="orient">
+            <option value="keep" ${draft.orient === 'keep' ? 'selected' : ''}>Keep Source</option>
+            <option value="90cw" ${draft.orient === '90cw' ? 'selected' : ''}>Rotate 90° CW</option>
+            <option value="90ccw" ${draft.orient === '90ccw' ? 'selected' : ''}>Rotate 90° CCW</option>
+            <option value="180" ${draft.orient === '180' ? 'selected' : ''}>Rotate 180°</option>
+            <option value="hflip" ${draft.orient === 'hflip' ? 'selected' : ''}>Flip Horizontal</option>
+            <option value="vflip" ${draft.orient === 'vflip' ? 'selected' : ''}>Flip Vertical</option>
+            <option value="auto" ${draft.orient === 'auto' ? 'selected' : ''}>Auto-Orient (Bake Matrix)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Frame Mode (GOP -g)</span><button type="button" class="i-btn" data-info="Frame Mode (GOP -g)" aria-label="Info about Frame Mode (GOP -g)">i</button></label>
+          <select data-mf="gop">
+            <option value="auto" ${draft.gop === 'auto' ? 'selected' : ''}>Inter-Frame (Auto)</option>
+            <option value="120" ${draft.gop === '120' ? 'selected' : ''}>Streaming 2s (-g 120)</option>
+            <option value="15" ${draft.gop === '15' ? 'selected' : ''}>Short-GOP Edit (-g 15)</option>
+            <option value="1" ${draft.gop === '1' ? 'selected' : ''}>Intra-Frame All-I (-g 1)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>B-Frames (-bf)</span><button type="button" class="i-btn" data-info="B-Frames (-bf)" aria-label="Info about B-Frames (-bf)">i</button></label>
+          <select data-mf="bframes">
+            <option value="0" ${String(draft.bframes) === '0' ? 'selected' : ''}>0 (Zero Lag Edit)</option>
+            <option value="2" ${String(draft.bframes) === '2' ? 'selected' : ''}>2 (Balanced)</option>
+            <option value="3" ${String(draft.bframes) === '3' ? 'selected' : ''}>3 (High Compress)</option>
+            <option value="4" ${String(draft.bframes) === '4' ? 'selected' : ''}>4 (Max Compress)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Pixel Fmt &amp; Color</span><button type="button" class="i-btn" data-info="Pixel Fmt & Color" aria-label="Info about Pixel Fmt & Color">i</button></label>
+          <select data-mf="pixfmt">
+            <option value="yuv420p" ${draft.pixfmt === 'yuv420p' ? 'selected' : ''}>yuv420p (8-bit Safe)</option>
+            <option value="yuv420p10le" ${draft.pixfmt === 'yuv420p10le' ? 'selected' : ''}>yuv420p10le (10-bit)</option>
+            <option value="yuv422p" ${draft.pixfmt === 'yuv422p' ? 'selected' : ''}>yuv422p (4:2:2 Pro)</option>
+            <option value="tonemap" ${draft.pixfmt === 'tonemap' ? 'selected' : ''}>HDR → SDR Tone Map</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Encoder Tune (-tune)</span><button type="button" class="i-btn" data-info="Encoder Tune (-tune)" aria-label="Info about Encoder Tune (-tune)">i</button></label>
+          <select data-mf="tune">
+            <option value="none" ${draft.tune === 'none' ? 'selected' : ''}>Default (Auto)</option>
+            <option value="film" ${draft.tune === 'film' ? 'selected' : ''}>Film (Live Action)</option>
+            <option value="grain" ${draft.tune === 'grain' ? 'selected' : ''}>Grain (Keep Texture)</option>
+            <option value="animation" ${draft.tune === 'animation' ? 'selected' : ''}>Animation / CGI</option>
+            <option value="fastdecode" ${draft.tune === 'fastdecode' ? 'selected' : ''}>Fast Decode</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Denoise / Sharpen (-vf)</span><button type="button" class="i-btn" data-info="Denoise / Sharpen" aria-label="Info about Denoise / Sharpen">i</button></label>
+          <select data-mf="vfilter">
+            <option value="none" ${draft.vfilter === 'none' ? 'selected' : ''}>None</option>
+            <option value="hqdn3d" ${draft.vfilter === 'hqdn3d' ? 'selected' : ''}>HQDN3D Denoise (Night)</option>
+            <option value="unsharp" ${draft.vfilter === 'unsharp' ? 'selected' : ''}>Unsharp Crisp</option>
+            <option value="yadif" ${draft.vfilter === 'yadif' ? 'selected' : ''}>Yadif Deinterlace</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Playback Speed (PTS)</span><button type="button" class="i-btn" data-info="Playback Speed" aria-label="Info about Playback Speed">i</button></label>
+          <select data-mf="speed">
+            <option value="1.0" ${draft.speed === '1.0' ? 'selected' : ''}>1.0x (Normal)</option>
+            <option value="0.5" ${draft.speed === '0.5' ? 'selected' : ''}>0.5x (Slow-Mo)</option>
+            <option value="1.25" ${draft.speed === '1.25' ? 'selected' : ''}>1.25x</option>
+            <option value="1.5" ${draft.speed === '1.5' ? 'selected' : ''}>1.5x</option>
+            <option value="2.0" ${draft.speed === '2.0' ? 'selected' : ''}>2.0x (Fast)</option>
+          </select>
+        </div>
+
+        <div class="adv-sec-lbl">Audio Track Controls (-c:a / -b:a / -ar / -ac / -af)</div>
+        <div class="field"><label class="lbl-row"><span>Audio Codec (-c:a)</span><button type="button" class="i-btn" data-info="Audio Codec (-c:a)" aria-label="Info about Audio Codec (-c:a)">i</button></label>
+          <select data-mf="audioCodec">
+            <option value="aac" ${draft.audioCodec === 'aac' ? 'selected' : ''}>AAC-LC</option>
+            <option value="libopus" ${draft.audioCodec === 'libopus' ? 'selected' : ''}>Opus (libopus)</option>
+            <option value="libmp3lame" ${draft.audioCodec === 'libmp3lame' ? 'selected' : ''}>MP3 (LAME)</option>
+            <option value="flac" ${draft.audioCodec === 'flac' ? 'selected' : ''}>Lossless FLAC</option>
+            <option value="copy" ${draft.audioCodec === 'copy' ? 'selected' : ''}>Copy Original</option>
+            <option value="none" ${draft.audioCodec === 'none' ? 'selected' : ''}>Mute / Strip (-an)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Audio Bitrate (-b:a)</span><button type="button" class="i-btn" data-info="Audio Bitrate (-b:a)" aria-label="Info about Audio Bitrate (-b:a)">i</button></label>
+          <select data-mf="audioBr" ${audioDisabled ? 'disabled' : ''}>
+            <option value="96k" ${draft.audioBr === '96k' ? 'selected' : ''}>96 kbps</option>
+            <option value="128k" ${draft.audioBr === '128k' ? 'selected' : ''}>128 kbps</option>
+            <option value="192k" ${draft.audioBr === '192k' ? 'selected' : ''}>192 kbps</option>
+            <option value="256k" ${draft.audioBr === '256k' ? 'selected' : ''}>256 kbps</option>
+            <option value="320k" ${draft.audioBr === '320k' ? 'selected' : ''}>320 kbps</option>
+            <option value="lossless" ${draft.audioBr === 'lossless' ? 'selected' : ''}>Lossless / Copy</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Sample Rate (-ar)</span><button type="button" class="i-btn" data-info="Sample Rate (-ar)" aria-label="Info about Sample Rate (-ar)">i</button></label>
+          <select data-mf="audioAr" ${audioDisabled ? 'disabled' : ''}>
+            <option value="keep" ${draft.audioAr === 'keep' ? 'selected' : ''}>Keep Source</option>
+            <option value="44100" ${draft.audioAr === '44100' ? 'selected' : ''}>44,100 Hz</option>
+            <option value="48000" ${draft.audioAr === '48000' ? 'selected' : ''}>48,000 Hz</option>
+            <option value="96000" ${draft.audioAr === '96000' ? 'selected' : ''}>96,000 Hz</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Channels (-ac)</span><button type="button" class="i-btn" data-info="Channels (-ac)" aria-label="Info about Channels (-ac)">i</button></label>
+          <select data-mf="audioCh" ${audioDisabled ? 'disabled' : ''}>
+            <option value="keep" ${draft.audioCh === 'keep' ? 'selected' : ''}>Keep Source</option>
+            <option value="mono" ${draft.audioCh === 'mono' ? 'selected' : ''}>Mono (1.0)</option>
+            <option value="stereo" ${draft.audioCh === 'stereo' ? 'selected' : ''}>Stereo (2.0)</option>
+            <option value="5.1" ${draft.audioCh === '5.1' ? 'selected' : ''}>Surround (5.1)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Volume Gain (-af)</span><button type="button" class="i-btn" data-info="Volume Gain (-af)" aria-label="Info about Volume Gain (-af)">i</button></label>
+          <select data-mf="audioGain" ${audioDisabled ? 'disabled' : ''}>
+            <option value="0dB" ${draft.audioGain === '0dB' ? 'selected' : ''}>0 dB (Original)</option>
+            <option value="+3dB" ${draft.audioGain === '+3dB' ? 'selected' : ''}>+3 dB Boost</option>
+            <option value="+6dB" ${draft.audioGain === '+6dB' ? 'selected' : ''}>+6 dB Loud</option>
+            <option value="-3dB" ${draft.audioGain === '-3dB' ? 'selected' : ''}>-3 dB</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Audio Normalization (-af)</span><button type="button" class="i-btn" data-info="Audio Normalization" aria-label="Info about Audio Normalization">i</button></label>
+          <select data-mf="audioNorm" ${audioDisabled ? 'disabled' : ''}>
+            <option value="none" ${draft.audioNorm === 'none' ? 'selected' : ''}>None (Transparent)</option>
+            <option value="loudnorm" ${draft.audioNorm === 'loudnorm' ? 'selected' : ''}>EBU R128 Loudnorm (-14 LUFS)</option>
+            <option value="peak" ${draft.audioNorm === 'peak' ? 'selected' : ''}>Peak Normalize (0 dBFS)</option>
+            <option value="bass" ${draft.audioNorm === 'bass' ? 'selected' : ''}>Bass Punch (+5dB)</option>
+          </select>
+        </div>
+
+        <div class="adv-sec-lbl">Trim Range, Subtitles &amp; Metadata</div>
+        <div class="field"><label class="lbl-row"><span>Trim Start (-ss)</span><button type="button" class="i-btn" data-info="Trim Start (-ss)" aria-label="Info about Trim Start (-ss)">i</button></label>
+          <input type="text" value="${draft.trimStart || '00:00:00'}" data-mf="trimStart" placeholder="00:00:00">
+        </div>
+        <div class="field"><label class="lbl-row"><span>Trim End (-to)</span><button type="button" class="i-btn" data-info="Trim End (-to)" aria-label="Info about Trim End (-to)">i</button></label>
+          <input type="text" value="${draft.trimEnd || 'End'}" data-mf="trimEnd" placeholder="End">
+        </div>
+        <div class="field"><label class="lbl-row"><span>Subtitles (-c:s / -sn)</span><button type="button" class="i-btn" data-info="Subtitles (-c:s / -sn)" aria-label="Info about Subtitles (-c:s / -sn)">i</button></label>
+          <select data-mf="subMode">
+            <option value="copy" ${draft.subMode === 'copy' ? 'selected' : ''}>Keep / Copy Soft Subs</option>
+            <option value="strip" ${draft.subMode === 'strip' ? 'selected' : ''}>Strip All (-sn)</option>
+            <option value="burn" ${draft.subMode === 'burn' ? 'selected' : ''}>Burn-In Hardsub (.srt/.ass)</option>
+            <option value="embed" ${draft.subMode === 'embed' ? 'selected' : ''}>Embed External .srt/.vtt</option>
+            <option value="extract" ${draft.subMode === 'extract' ? 'selected' : ''}>Extract Subtitles (.srt)</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl-row"><span>Metadata Privacy</span><button type="button" class="i-btn" data-info="Metadata Privacy" aria-label="Info about Metadata Privacy">i</button></label>
+          <select data-mf="meta">
+            <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All (-map_metadata -1)</option>
+            <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, Chapters &amp; Encoder)</option>
+            <option value="gps" ${draft.meta === 'gps' ? 'selected' : ''}>Strip GPS Only</option>
+            <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep Metadata</option>
+          </select>
+        </div>
+        <div class="field full"><label class="lbl-row"><span>Moov Faststart (-movflags)</span><button type="button" class="i-btn" data-info="Moov Faststart" aria-label="Info about Moov Faststart">i</button></label>
+          <select data-mf="faststart">
+            <option value="faststart" ${draft.faststart === 'faststart' ? 'selected' : ''}>+faststart (Instant Web / Reels Playback)</option>
+            <option value="standard" ${draft.faststart === 'standard' ? 'selected' : ''}>Standard Container Layout</option>
+          </select>
+        </div>
+      `;
+    }
+
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Step 1: Source Selection'));
+    document.getElementById('btn-more-probe').addEventListener('click', function() {
+      const panel = document.getElementById('deep-probe-panel');
+      const isHidden = panel.classList.toggle('hidden');
+      this.setAttribute('aria-expanded', String(!isHidden));
+      document.getElementById('lbl-more-probe').textContent = isHidden
+        ? 'More FFprobe Info (GOP, Chroma, Color, Audio, Subtitles, Tags)'
+        : 'Hide Deep FFprobe Info';
+      document.getElementById('ico-more-probe').textContent = isHidden ? '▾' : '▴';
+    });
+    document.getElementById('btn-open-format').addEventListener('click', () => {
+      state.modal.open = true;
+      state.modal.touched = state.hasPreset;
+      state.modal.draft = Object.assign({}, state.cfg);
+      if (!state.hasPreset) state.modal.draft.presetName = '';
+      document.getElementById('preset-modal').classList.remove('hidden');
+      renderModal();
+    });
+    document.getElementById('btn-modal-close').addEventListener('click', () => {
+      document.getElementById('preset-modal').classList.add('hidden');
+    });
+    document.getElementById('btn-modal-save').addEventListener('click', () => {
+      const idx = PRESETS.saved.length + 1;
+      const nm = 'Saved Video #' + idx;
+      const copy = Object.assign({}, state.modal.draft, { presetName: nm });
+      PRESETS.saved.push({ name: nm, meta: shortTag(copy), cfg: copy });
+      state.modal.draft.presetName = nm;
+      state.modal.libTab = 'saved';
+      renderModal();
+      showToast('Saved "' + nm + '"');
+    });
+    document.getElementById('btn-modal-apply').addEventListener('click', () => {
+      state.cfg = Object.assign({}, state.modal.draft);
+      state.hasPreset = true;
+      document.getElementById('preset-modal').classList.add('hidden');
+      renderMain();
+      showToast('Format applied: ' + state.cfg.presetName);
+    });
+    document.getElementById('sel-threads').addEventListener('change', function() {
+      state.threads = parseInt(this.value, 10) || 8;
+      renderMain();
+    });
+    document.getElementById('sel-cores').addEventListener('change', function() {
+      state.cores = this.value;
+      renderMain();
+    });
+    document.getElementById('btn-move-convert').addEventListener('click', () => showToast('Advancing to Output Destination →'));
+
+    document.addEventListener('click', (e) => {
+      const lt = e.target.closest('.lib-tab');
+      if (lt) { state.modal.libTab = lt.getAttribute('data-lib'); renderModal(); return; }
+      const pk = e.target.closest('[data-pick]');
+      if (pk) {
+        const entry = PRESETS[state.modal.libTab][parseInt(pk.getAttribute('data-pick'), 10)];
+        if (entry) {
+          state.modal.draft = Object.assign({}, entry.cfg);
+          state.modal.touched = true;
+          renderModal();
+        }
+      }
+    });
+
+    document.addEventListener('input', (e) => {
+      const t = e.target;
+      if (t.matches('[data-mf]')) {
+        const k = t.getAttribute('data-mf');
+        state.modal.draft[k] = (t.type === 'range' || t.type === 'number') ? parseInt(t.value, 10) : t.value;
+        state.modal.touched = true;
+        state.modal.draft.presetName = 'Custom Tuned';
+        renderModal();
+      }
+    });
+
+    renderMain();
+    const INFO_DICT = {
+      'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',
+      'Container': '• .mp4: Universal — best for Android, iOS, Reels & WhatsApp.\n• .mkv: Supports any codec, FLAC & soft subtitles.\n• .webm: Web-only (VP9/AV1 + Opus).\n• .mov: Apple/editing wrapper.\n★ Best choice: .mp4 for sharing; .mkv for 10-bit archives.',
+      'Video Codec (-c:v)': '• libx264 (H.264): Fastest, 99% device compatibility.\n• libx265 (HEVC): ~40% smaller than H.264, great for 10-bit.\n• libsvtav1 (AV1): Smallest files, slower CPU encode.\n• copy: Zero re-encode, instant lossless remux.\n★ Best choice: libx264 for daily sharing & editing; libx265 for archiving.',
+      'Rate Control': '• Constrained CRF: Keeps sharp quality while capping bitrate spikes (prevents social re-compression).\n• Pure CRF: Steady visual quality with no bitrate ceiling.\n• Target Bitrate: Aims for an exact average bitrate/file size.\n• Lossless (-crf 0): Bit-exact huge files.\n★ Best choice: Constrained CRF for Reels/social; Pure CRF for personal storage.',
+      'Encoder Preset': '• ultrafast / fast: Finishes quickest, larger file size.\n• medium: Balanced default.\n• slow / slower: Squeezes much better quality per MB.\n• veryslow: Minimal gain for 2x+ wait time.\n★ Best choice: slower (or medium on long 4K batches).',
+      'Quality Factor (-crf)': '• 12–16: Near-raw editing master (large files).\n• 17–19: Visually lossless sweet spot.\n• 20–24: Good quality, compact size.\n• 25–34: Heavy compression for tiny shares.\n★ Best choice: CRF 18 for H.264; CRF 20 for HEVC.',
+      'Max Bitrate': '• Caps peak bitrate spikes (-maxrate with 2x -bufsize) so apps like Instagram/WhatsApp do not crush your video.\n★ Best choice: 12M–14M for 1080p60 Reels; 3M–5M for chat shares.',
+      'Frame Rate (-r FPS)': '• Keep Source: Preserves original timing without judder.\n• 60 fps: Smooth car/action motion.\n• 30 fps / 24 fps: Smaller size or cinema look.\n★ Best choice: Keep Source (or 60 fps for Reels).',
+      'Resolution / Aspect': '• Keep Original: Zero scaling loss.\n• 1080x1920 (9:16): Native vertical Reels/Shorts.\n• 720p / 480p: Cuts file size sharply for fast sharing.\n★ Best choice: Keep Original or 1080x1920 for vertical edits.',
+      'Orientation & Flip': '• Keep Source: Leaves orientation untouched.\n• Rotate 90/180 or Flip: Physically rotates/mirrors pixels.\n• Auto-Orient: Bakes phone rotation tag into pixels so all players show it upright.\n★ Best choice: Keep Source (or Auto-Orient if sideways).',
+      'Frame Mode (GOP -g)': '• Inter-Frame (Auto / -g 120): Highest compression for sharing.\n• Short-GOP (-g 15): Smooth scrubbing with moderate size.\n• Intra-Frame All-I (-g 1): Every frame is a keyframe — zero lag in Alight Motion/CapCut, much larger files.\n★ Best choice: Auto for sharing; All-I (-g 1) before editing.',
+      'B-Frames (-bf)': '• 0: Zero decode lag in video editors.\n• 2–3: Better compression efficiency.\n• 4: Maximum compression (slightly slower decode).\n★ Best choice: 2 for sharing; 0 for editing.',
+      'Pixel Fmt & Color': '• yuv420p (8-bit): Plays on 99% of phones & apps.\n• yuv420p10le (10-bit): Keeps HDR/LOG gradients (use with HEVC, avoid with H.264 on MediaTek).\n• HDR -> SDR Tone Map: Fixes washed-out HDR colors for normal screens.\n★ Best choice: yuv420p for universal sharing.',
+      'Encoder Tune (-tune)': '• Default: General purpose.\n• Film: Live-action video detail.\n• Grain: Preserves night/paint grain texture.\n• Animation: Clean flat gradients/CGI.\n• Fast Decode: Easier playback on weak phones.\n★ Best choice: Default or Film (Grain for night car clips).',
+      'Denoise / Sharpen': '• None: Untouched pixels.\n• HQDN3D Denoise: Cleans dark/night ISO noise.\n• Unsharp Crisp: Subtle edge sharpening.\n• Yadif: Fixes old interlaced TV lines.\n★ Best choice: None (or HQDN3D on grainy night footage).',
+      'Playback Speed': '• 1.0x: Normal speed.\n• 0.5x: Smooth half-speed slow-mo.\n• 1.25x–2.0x: Speed-up / timelapse (adjusts audio pitch/tempo).\n★ Best choice: 1.0x unless making a speed-ramp.',
+      'Audio Codec (-c:a)': '• AAC-LC: Universal across all phones & social apps.\n• Opus: Best quality at low bitrates (128k–192k).\n• FLAC: 100% lossless audio.\n• Copy: Keeps original audio untouched.\n• Mute (-an): Strips audio completely.\n★ Best choice: AAC-LC for MP4; Opus or FLAC for MKV.',
+      'Audio Bitrate (-b:a)': '• 128k: Clean speech / small shares.\n• 192k: Transparent for most music & videos.\n• 256k–320k: Maximum lossy detail.\n★ Best choice: 192k (or 256k for music/exhaust edits).',
+      'Sample Rate (-ar)': '• Keep Source: Avoids unnecessary resampling.\n• 48,000 Hz: Standard for video & Reels.\n• 44,100 Hz: Standard for MP3/CD music.\n★ Best choice: Keep Source or 48,000 Hz.',
+      'Channels (-ac)': '• Keep Source: Preserves original layout.\n• Stereo (2.0): Standard left/right audio.\n• Mono (1.0): Halves bitrate for voice.\n★ Best choice: Stereo (2.0) or Keep Source.',
+      'Volume Gain (-af)': '• 0 dB: Original volume.\n• +3 dB / +6 dB: Louder boost (watch for clipping).\n• -3 dB: Quieter.\n★ Best choice: 0 dB (use Loudnorm instead of fixed gain).',
+      'Audio Normalization': '• None: Leaves dynamics untouched.\n• EBU R128 Loudnorm (-14 LUFS): Balances volume across clips without clipping.\n• Peak Normalize: Raises loudest peak to 0 dBFS.\n★ Best choice: EBU R128 Loudnorm for social edits.',
+      'Trim Start (-ss)': '• Enter HH:MM:SS (e.g. 00:00:05) to start cutting from that exact second.\n★ Best choice: Leave 00:00:00 to keep the start.',
+      'Trim End (-to)': '• Enter HH:MM:SS (e.g. 00:00:25) to stop at that timestamp, or End for full length.\n★ Best choice: Leave End for full clip.',
+      'Subtitles (-c:s / -sn)': '• Copy Soft Subs: Keeps selectable subtitle tracks.\n• Strip All (-sn): Removes all subtitle tracks.\n• Burn-In: Paints subtitles permanently onto video.\n• Embed / Extract: Adds or pulls out .srt/.vtt.\n★ Best choice: Strip All for Reels; Copy for movies.',
+      'Metadata Privacy': '• Forensic Scrub (+bitexact): Strips GPS, camera model, chapters & FFmpeg encoder signatures.\n• Wipe All (-map_metadata -1): Clears container tags.\n• Strip GPS Only: Keeps camera info, removes location.\n• Keep: Preserves all tags.\n★ Best choice: Forensic Scrub or Wipe All before posting online.',
+      'Moov Faststart': '• +faststart: Moves MP4 index to the front so videos start playing instantly before full download.\n• Standard: Writes index at the end.\n★ Best choice: Always keep +faststart ON for MP4.',
+      'Audio Format': '• .opus: Best quality-to-size ratio.\n• .flac: Zero-loss archive.\n• .mp3: Plays on literally everything.\n• .m4a (AAC): Best Apple/Android balance.\n• .wav: Uncompressed studio PCM.\n★ Best choice: .opus or .m4a for daily use; .flac for archiving.',
+      'Bit Depth (-sample_fmt)': '• Auto: Matches codec default.\n• 16-bit (s16): Standard CD quality.\n• 24-bit (s24) / 32-bit Float: Studio mastering headroom.\n★ Best choice: Auto (or 24-bit for FLAC masters).',
+      'Audio Filter (-af)': '• None: Untouched.\n• Loudnorm: Even -14 LUFS volume.\n• Bass Punch: +5dB low-end boost.\n• Trim Silence: Cuts dead silence at start/end.\n★ Best choice: Loudnorm for playlists.',
+      'ID3 & Cover Art': '• Forensic Scrub: Removes all tags + encoder info.\n• Wipe All: Clears title/artist/album tags.\n• Keep Cover Art Only: Keeps album art, wipes personal tags.\n★ Best choice: Wipe All or Keep Cover Art Only.',
+      'Image Format': '• .webp: ~30% smaller than JPG with sharp detail.\n• .jpg: Universal compatibility.\n• .png: Lossless + transparency.\n• .avif: Ultra-small next-gen format.\n★ Best choice: .webp for web/sharing; .png for graphics/thumbnails.',
+      'Max Width Scale': '• Keep Original: Full camera resolution.\n• 1920px / 1080px: Fast sharing & smaller size.\n★ Best choice: Keep Original for archive; 1920px for sharing.',
+      'Color & Chroma': '• sRGB 4:4:4: Sharpest text & car edges.\n• sRGB 4:2:0: Smaller photo size.\n• Lossless RGB24: Exact pixels for PNG.\n★ Best choice: sRGB 4:4:4.',
+      'Image Quality': '• 85% WebP or 92% JPG looks identical to original at a fraction of the size; 100% PNG is lossless.\n★ Best choice: 85% for WebP; 92% for JPG.',
+      'EXIF & GPS Privacy': '• Forensic Scrub: Wipes EXIF, GPS, XMP, ICC & thumbnails.\n• Wipe All: Removes all EXIF & GPS.\n• Strip GPS Only: Hides location, keeps lens/ISO.\n★ Best choice: Forensic Scrub or Wipe All before sharing.',
+      'Core Affinity': '• All 8 Cores: Fastest, OS-managed.\n• Perf + Prime (4-7): High speed, skips efficiency cores.\n• Efficiency (0-3): Coolest/slowest.\nNote: Android HyperOS may override pinning under thermal load.'
+    };
+
+    document.addEventListener('click', (e) => {
+      const ib = e.target.closest('[data-info]');
+      if (ib) {
+        e.stopPropagation();
+        const key = ib.getAttribute('data-info');
+        document.getElementById('info-pop-title').textContent = 'ⓘ ' + key;
+        document.getElementById('info-pop-body').textContent = INFO_DICT[key] || 'Technical FFmpeg parameter.';
+        document.getElementById('info-pop-modal').classList.remove('hidden');
+      }
+    });
+    document.getElementById('btn-info-pop-close').addEventListener('click', () => {
+      document.getElementById('info-pop-modal').classList.add('hidden');
+    });
+    document.getElementById('info-pop-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'info-pop-modal') document.getElementById('info-pop-modal').classList.add('hidden');
+    });
+    document.addEventListener('click', (e) => {
+      const ht = e.target.closest('[data-toggle-hints]');
+      if (ht) {
+        const hiddenNow = document.body.classList.toggle('hide-hints');
+        document.querySelectorAll('[data-toggle-hints]').forEach(b => {
+          b.textContent = hiddenNow ? 'ⓘ Hints: OFF' : 'ⓘ Hints: ON';
+          b.classList.toggle('is-off', hiddenNow);
+        });
+      }
+    });
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

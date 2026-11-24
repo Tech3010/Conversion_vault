@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Output Destination</title>
+  <style>
+    :root {
+      /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 84px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    /* Top App Bar (Clean — No Theme Toggle) */
+    .app-bar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .bar-left { display: flex; align-items: center; gap: 10px; }
+    .back-btn {
+      width: 34px; height: 34px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .back-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+    .page-title { font-size: 15px; font-weight: 700; line-height: 1.2; }
+    .page-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+    .sec-lbl {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); margin-bottom: -6px;
+    }
+
+    /* 3 Save Location Cards */
+    .loc-stack { display: flex; flex-direction: column; gap: 9px; }
+    .loc-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 13px 14px; cursor: pointer; text-align: left; color: var(--text);
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .loc-card:hover { border-color: var(--border-strong); background: var(--card); }
+    .loc-card.active {
+      border-color: var(--crimson);
+      background: linear-gradient(135deg, var(--crimson-soft) 0%, var(--surface) 75%);
+      box-shadow: inset 3px 0 0 var(--crimson);
+    }
+    .loc-left { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; }
+    .loc-ico {
+      width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
+      background: var(--card-elev); border: 1px solid var(--border-strong);
+      display: inline-flex; align-items: center; justify-content: center; color: var(--muted);
+    }
+    .loc-card.active .loc-ico { background: var(--crimson-soft); border-color: rgba(219, 10, 64, 0.5); color: var(--crimson); }
+    .loc-name { font-size: 13.5px; font-weight: 700; display: block; }
+    .loc-path { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 2px; display: block; word-break: break-all; }
+    .loc-check {
+      width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border-strong);
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-size: 11px; color: transparent;
+    }
+    .loc-card.active .loc-check { background: var(--crimson); border-color: var(--crimson); color: #ffffff; }
+
+    .btn-browse {
+      padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-browse:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    /* Organization & Conflict Card */
+    .opt-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 14px; display: flex; flex-direction: column; gap: 11px;
+    }
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .toggle-title { font-size: 13px; font-weight: 700; display: block; }
+    .toggle-sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); display: block; margin-top: 1px; }
+
+    .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; background: var(--card-elev); border: 1px solid var(--border-strong);
+      border-radius: 999px; cursor: pointer; transition: 0.2s;
+    }
+    .slider:before {
+      content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px;
+      background: var(--muted); border-radius: 50%; transition: 0.2s;
+    }
+    .switch input:checked + .slider { background: var(--crimson); border-color: var(--crimson); }
+    .switch input:checked + .slider:before { transform: translateX(18px); background: #ffffff; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .field label { font-size: 10.5px; font-weight: 700; color: var(--muted); font-family: var(--mono); text-transform: uppercase; }
+    select, input[type="text"] {
+      width: 100%; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--input); color: var(--text);
+      font-size: 12px; font-family: var(--mono);
+    }
+    input[type="text"]:focus { outline: none; border-color: var(--crimson); }
+    .sub-pills { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .sub-pill {
+      padding: 7px 9px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--muted); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer; text-align: left;
+      display: flex; flex-direction: column; gap: 1px;
+    }
+    .sub-pill:hover { border-color: var(--crimson); color: var(--text); }
+    .sub-pill.active { background: var(--crimson-soft); border-color: var(--crimson); color: var(--text); }
+    .sub-pill small { font-size: 9.5px; color: var(--muted); font-weight: 500; }
+    .sub-pill.active small { color: var(--gold-text); }
+    .run-input-row { display: flex; gap: 8px; align-items: center; }
+    .btn-reset-run {
+      padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--muted); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-reset-run:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    /* Live Folder Tree Preview */
+    .tree-card {
+      background: #05070b; border: 1px solid var(--border-strong); border-radius: var(--radius);
+      padding: 12px 14px; font-family: var(--mono); font-size: 11.5px; line-height: 1.65;
+    }
+    .tree-root {
+      display: inline-block; padding: 2px 7px; border-radius: 5px;
+      background: var(--gold-soft); color: var(--gold-text); font-weight: 800; margin-bottom: 4px;
+      word-break: break-all;
+    }
+    .tree-line { color: var(--muted); padding-left: 8px; display: flex; align-items: center; gap: 7px; }
+    .ext-pill {
+      font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+      background: var(--emerald-soft); color: var(--emerald);
+    }
+
+    /* Sticky Bottom Action Bar */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 540px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 40;
+    }
+    .btn-secondary {
+      background: var(--card); border: 1px solid var(--border-strong); color: var(--text);
+      padding: 9px 14px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    .btn-primary {
+      background: var(--crimson); border: 1px solid var(--crimson); color: #ffffff;
+      padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary:hover { background: var(--crimson-hover); }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top App Bar -->
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Performance">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div>
+          <div class="page-title">Output Destination</div>
+          <div class="page-sub">STEP 3B · CHOOSE SAVE LOCATION</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="sec-lbl">1. Save Location</div>
+      <div class="loc-stack" id="loc-stack">
+        <button type="button" class="loc-card active" data-mode="vault">
+          <div class="loc-left">
+            <span class="loc-ico">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+            </span>
+            <div style="min-width:0;">
+              <span class="loc-name">Vault Folder (Default)</span>
+              <span class="loc-path">/storage/emulated/0/ConversionVault/Vault_Core/</span>
+            </div>
+          </div>
+          <span class="loc-check">✓</span>
+        </button>
+
+        <button type="button" class="loc-card" data-mode="source">
+          <div class="loc-left">
+            <span class="loc-ico">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/>
+              </svg>
+            </span>
+            <div style="min-width:0;">
+              <span class="loc-name">Inside Source Directory</span>
+              <span class="loc-path">/Movies/AlightMotion/Converted/</span>
+            </div>
+          </div>
+          <span class="loc-check">✓</span>
+        </button>
+
+        <div class="loc-card" data-mode="custom" role="button" tabindex="0">
+          <div class="loc-left">
+            <span class="loc-ico">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+            </span>
+            <div style="min-width:0;">
+              <span class="loc-name">Custom Folder</span>
+              <span class="loc-path" id="lbl-custom-path">/storage/emulated/0/Documents/Exports/</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" id="btn-browse" class="btn-browse">Browse ↗</button>
+            <span class="loc-check">✓</span>
+          </div>
+        </div>
+        <input type="file" id="inp-folder" class="hidden" webkitdirectory directory>
+      </div>
+
+      <div class="sec-lbl">2. Subfolder &amp; Organization</div>
+      <section class="opt-card" aria-label="Subfolder and Organization">
+        <div class="field" style="padding-top:0; border-top:none;">
+          <label>Create Subfolder Style</label>
+          <div class="sub-pills" id="sub-mode-pills">
+            <button type="button" class="sub-pill active" data-submode="numbered">
+              <span>Conversion_01</span>
+              <small>Auto-numbered folder</small>
+            </button>
+            <button type="button" class="sub-pill" data-submode="date">
+              <span>Nov_23</span>
+              <small>Clean date folder</small>
+            </button>
+            <button type="button" class="sub-pill" data-submode="custom">
+              <span>Custom Name</span>
+              <small>Your own folder</small>
+            </button>
+            <button type="button" class="sub-pill" data-submode="none">
+              <span>None (Direct)</span>
+              <small>No extra subfolder</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="field hidden" id="run-name-wrap">
+          <label for="inp-run-name">Custom Subfolder Name</label>
+          <input type="text" id="inp-run-name" value="Night_GTR_Edit" placeholder="Enter folder name...">
+        </div>
+
+        <div class="toggle-row" style="padding-top:8px; border-top:1px solid var(--border);">
+          <div>
+            <span class="toggle-title">Separate by Media Type</span>
+            <span class="toggle-sub">Creates/reuses Videos/ · Audios/ · Images/</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chk-separate" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="field">
+          <label for="sel-conflict">If Same Filename Exists</label>
+          <select id="sel-conflict">
+            <option value="rename" selected>Auto-Rename (e.g. file_1.mp4) — Safe</option>
+            <option value="overwrite">Overwrite Existing File (-y)</option>
+            <option value="skip">Skip Existing File (-n)</option>
+          </select>
+        </div>
+      </section>
+
+      <div class="sec-lbl">3. Output Structure Preview</div>
+      <section class="tree-card" id="tree-preview" aria-label="Folder Structure Preview"></section>
+    </main>
+
+    <!-- Bottom Sticky Bar -->
+    <footer class="bottom-bar">
+      <button type="button" id="btn-foot-back" class="btn-secondary">← Performance</button>
+      <button type="button" id="btn-start-convert" class="btn-primary">
+        <span>Start Conversion</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      </button>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const state = {
+      mode: 'vault',
+      customPath: '/storage/emulated/0/Documents/Exports/',
+      subMode: 'numbered',
+      customSubName: 'Night_GTR_Edit',
+      separate: true,
+      conflict: 'rename'
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function getBasePath() {
+      if (state.mode === 'vault') return '/storage/emulated/0/ConversionVault/Vault_Core/';
+      if (state.mode === 'source') return '/Movies/AlightMotion/Converted/';
+      return state.customPath;
+    }
+
+    function getSubfolderName() {
+      if (state.subMode === 'numbered') return 'Conversion_01';
+      if (state.subMode === 'date') return 'Nov_23';
+      if (state.subMode === 'custom') {
+        return (state.customSubName || 'Custom_Run').trim().replace(/\/+$/, '') || 'Custom_Run';
+      }
+      return '';
+    }
+
+    function getRootPath() {
+      const base = getBasePath();
+      const sub = getSubfolderName();
+      return sub ? (base + sub + '/') : base;
+    }
+
+    function render() {
+      document.querySelectorAll('.loc-card').forEach(c => {
+        c.classList.toggle('active', c.getAttribute('data-mode') === state.mode);
+      });
+      document.querySelectorAll('.sub-pill').forEach(p => {
+        p.classList.toggle('active', p.getAttribute('data-submode') === state.subMode);
+      });
+      document.getElementById('lbl-custom-path').textContent = state.customPath;
+      document.getElementById('run-name-wrap').classList.toggle('hidden', state.subMode !== 'custom');
+
+      const base = getBasePath();
+      const sub = getSubfolderName();
+      const tree = document.getElementById('tree-preview');
+
+      if (sub && state.separate) {
+        tree.innerHTML = `
+          <div class="tree-root">📁 ${base}</div>
+          <div class="tree-line">└── 📁 <strong style="color:var(--text);">${sub}/</strong></div>
+          <div class="tree-line" style="padding-left:24px;">├── 📁 Videos/ <span class="ext-pill">.mp4 .mkv</span></div>
+          <div class="tree-line" style="padding-left:24px;">├── 📁 Audios/ <span class="ext-pill">.opus .flac</span></div>
+          <div class="tree-line" style="padding-left:24px;">└── 📁 Images/ <span class="ext-pill">.webp .avif</span></div>
+        `;
+      } else if (sub && !state.separate) {
+        tree.innerHTML = `
+          <div class="tree-root">📁 ${base}</div>
+          <div class="tree-line">└── 📁 <strong style="color:var(--text);">${sub}/</strong></div>
+          <div class="tree-line" style="padding-left:24px;">├── gtr_night_ramp_out.mp4 <span class="ext-pill">Video</span></div>
+          <div class="tree-line" style="padding-left:24px;">├── phonk_master_mix.opus <span class="ext-pill">Audio</span></div>
+          <div class="tree-line" style="padding-left:24px;">└── cover_thumb_4k.webp <span class="ext-pill">Image</span></div>
+        `;
+      } else if (!sub && state.separate) {
+        tree.innerHTML = `
+          <div class="tree-root">📁 ${base}</div>
+          <div class="tree-line">├── 📁 Videos/ <span class="ext-pill">.mp4 .mkv (reuses if exists)</span></div>
+          <div class="tree-line">├── 📁 Audios/ <span class="ext-pill">.opus .flac (reuses if exists)</span></div>
+          <div class="tree-line">└── 📁 Images/ <span class="ext-pill">.webp .avif (reuses if exists)</span></div>
+        `;
+      } else {
+        tree.innerHTML = `
+          <div class="tree-root">📁 ${base}</div>
+          <div class="tree-line">├── gtr_night_ramp_out.mp4 <span class="ext-pill">Video</span></div>
+          <div class="tree-line">├── phonk_master_mix.opus <span class="ext-pill">Audio</span></div>
+          <div class="tree-line">└── cover_thumb_4k.webp <span class="ext-pill">Image</span></div>
+        `;
+      }
+    }
+
+    document.getElementById('loc-stack').addEventListener('click', (e) => {
+      if (e.target.closest('#btn-browse')) return;
+      const card = e.target.closest('.loc-card');
+      if (!card) return;
+      state.mode = card.getAttribute('data-mode');
+      render();
+    });
+
+    document.getElementById('sub-mode-pills').addEventListener('click', (e) => {
+      const pill = e.target.closest('.sub-pill');
+      if (!pill) return;
+      state.subMode = pill.getAttribute('data-submode');
+      render();
+    });
+
+    document.getElementById('inp-run-name').addEventListener('input', function() {
+      state.customSubName = this.value;
+      render();
+    });
+
+    document.getElementById('btn-browse').addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.mode = 'custom';
+      render();
+      document.getElementById('inp-folder').click();
+    });
+
+    document.getElementById('inp-folder').addEventListener('change', function() {
+      if (this.files && this.files.length > 0 && this.files[0].webkitRelativePath) {
+        const top = this.files[0].webkitRelativePath.split('/')[0];
+        state.customPath = '/storage/emulated/0/' + top + '/';
+        state.mode = 'custom';
+        render();
+        showToast('Selected: ' + state.customPath);
+      }
+      this.value = '';
+    });
+
+    document.getElementById('chk-separate').addEventListener('change', function() {
+      state.separate = this.checked;
+      render();
+    });
+
+    document.getElementById('sel-conflict').addEventListener('change', function() {
+      state.conflict = this.value;
+    });
+
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Performance'));
+    document.getElementById('btn-foot-back').addEventListener('click', () => showToast('← Returns to Performance'));
+    document.getElementById('btn-start-convert').addEventListener('click', () => {
+      showToast('Starting Engine → Saving to ' + getRootPath());
+    });
+
+    render();
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

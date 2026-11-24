@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Presets Hub</title>
+  <style>
+    :root {
+      /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 78px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    /* Top App Bar (Clean — No Theme Toggle) */
+    .app-bar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .page-title { font-size: 15.5px; font-weight: 800; line-height: 1.2; display: flex; align-items: center; gap: 7px; }
+    .page-sub { font-size: 10.5px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+    .btn-new-preset {
+      padding: 7px 11px; border-radius: 7px; border: 1px solid var(--crimson);
+      background: var(--crimson); color: #ffffff; font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-new-preset:hover { background: var(--crimson-hover); }
+
+    .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+
+    /* Search & Import Bar */
+    .search-row { display: flex; gap: 8px; align-items: center; }
+    .search-inp {
+      flex: 1; padding: 8px 11px; border-radius: 8px;
+      border: 1px solid var(--border-strong); background: var(--input); color: var(--text);
+      font-size: 12.5px; font-family: var(--sans);
+    }
+    .search-inp:focus { outline: none; border-color: var(--crimson); }
+    .btn-import {
+      padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--text); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-import:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    /* Category Filter Pills */
+    .filter-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+    .f-chip {
+      padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--muted); font-family: var(--mono);
+      font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .f-chip.active { background: var(--crimson-soft); border-color: rgba(219, 10, 64, 0.55); color: var(--crimson); }
+
+    /* Template Cards (Alight Motion Preset Hub Style) */
+    .tpl-list { display: flex; flex-direction: column; gap: 11px; }
+    .tpl-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 13px; display: flex; flex-direction: column; gap: 10px;
+      transition: border-color 0.15s ease;
+    }
+    .tpl-card.is-saved { border-color: rgba(252, 209, 22, 0.45); box-shadow: inset 3px 0 0 var(--gold); }
+    .tpl-card.is-builtin { box-shadow: inset 3px 0 0 var(--crimson); }
+
+    .tpl-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .tpl-badges { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+    .cat-pill {
+      font-family: var(--mono); font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px;
+    }
+    .cp-video { background: var(--crimson-soft); color: var(--crimson); }
+    .cp-audio { background: var(--emerald-soft); color: var(--emerald); }
+    .cp-image { background: var(--gold-soft); color: var(--gold-text); }
+    .orig-pill {
+      font-family: var(--mono); font-size: 9.5px; font-weight: 700; padding: 2px 6px;
+      border-radius: 4px; background: var(--card-elev); border: 1px solid var(--border-strong); color: var(--muted);
+    }
+    .orig-pill.saved { color: var(--gold-text); border-color: rgba(252, 209, 22, 0.4); }
+
+    .tpl-name { font-size: 14px; font-weight: 800; color: var(--text); }
+    .tpl-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .tpl-specs {
+      font-family: var(--mono); font-size: 10.5px; color: var(--text);
+      background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+      padding: 6px 9px;
+    }
+
+    .mini-bars-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 12px; }
+    .mbar-col { display: flex; flex-direction: column; gap: 3px; }
+    .mbar-head { display: flex; justify-content: space-between; align-items: center; gap: 4px; white-space: nowrap; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+    .mbar-track { height: 5px; background: var(--input); border-radius: 999px; overflow: hidden; }
+    .mbar-fill { height: 100%; border-radius: 999px; }
+
+    .tpl-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
+    .btn-use {
+      flex: 1; padding: 7px 12px; border-radius: 7px; border: 1px solid var(--crimson);
+      background: var(--crimson); color: #ffffff; font-size: 11.5px; font-weight: 700; cursor: pointer;
+    }
+    .btn-use:hover { background: var(--crimson-hover); }
+    .btn-sec {
+      padding: 7px 10px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .btn-sec:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    /* Modal for Creating / Editing a Template */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 80;
+      background: rgba(5, 8, 15, 0.78);
+      display: flex; justify-content: center; align-items: flex-end; padding: 10px;
+    }
+    @media (min-width: 600px) { .modal-backdrop { align-items: center; } }
+    .modal-sheet {
+      width: 100%; max-width: 520px; max-height: 88vh;
+      background: var(--bg); border: 1px solid var(--border-strong); border-radius: 14px;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+    .modal-head {
+      padding: 14px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .modal-title { font-size: 15px; font-weight: 700; }
+    .modal-close {
+      width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); font-size: 16px; cursor: pointer;
+    }
+    .modal-body { padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 11px; }
+    .modal-foot {
+      padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .field input, .field select {
+      width: 100%; padding: 7px 9px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--input); color: var(--text); font-size: 12px;
+    }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .telemetry-box {
+      background: var(--card-elev); border: 1px solid var(--border-strong); border-radius: 8px;
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .scope-lbl {
+      font-family: var(--mono); font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted);
+    }
+    .adv-sec-lbl {
+      grid-column: 1 / -1;
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--gold-text); padding-bottom: 5px; margin-top: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .adv-sec-lbl:first-child { margin-top: 0; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { display: flex; justify-content: space-between; }
+    .field-val-pill { color: var(--gold-text); }
+    input[type="range"] { width: 100%; accent-color: var(--gold); cursor: pointer; }
+
+    /* Bottom Navigation Bar (4 Roots: Home · Queue & History · Presets · Settings) */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 540px; height: 64px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(4, 1fr); z-index: 40;
+    }
+    .nav-item {
+      border: none; background: transparent; color: var(--muted);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      font-size: 10px; font-weight: 700; cursor: pointer;
+    }
+    .nav-item.active { color: var(--crimson); }
+
+    .confirm-sheet {
+      width: 100%; max-width: 380px;
+      background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+    .confirm-title { font-size: 15px; font-weight: 800; color: var(--text); }
+    .confirm-desc { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+    .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .btn-danger-solid {
+      padding: 8px 14px; border-radius: 7px; border: 1px solid var(--crimson);
+      background: var(--crimson); color: #ffffff; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .btn-danger-solid:hover { background: var(--crimson-hover); }
+
+    .i-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px; border-radius: 50%;
+      border: 1px solid rgba(252, 209, 22, 0.5);
+      background: var(--gold-soft);
+      color: var(--gold-text);
+      font-family: var(--mono); font-size: 9.5px; font-weight: 800; line-height: 1;
+      cursor: pointer; flex-shrink: 0;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+    .i-btn:hover { background: var(--gold); color: #090d16; transform: scale(1.1); }
+    body.hide-hints .i-btn { display: none !important; }
+    .btn-hint-toggle {
+      padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card); color: var(--gold-text); font-family: var(--mono);
+      font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-hint-toggle.is-off { color: var(--muted); }
+    .mbar-col { min-width: 0; }
+    .mini-bars-grid { width: 100%; }
+    .mbar-right { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .lbl-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; width: 100%; }
+    .lbl-right { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .info-pop-backdrop {
+      position: fixed; inset: 0; z-index: 110;
+      background: rgba(5, 8, 15, 0.76);
+      display: flex; justify-content: center; align-items: center; padding: 16px;
+    }
+    .info-pop-card {
+      width: 100%; max-width: 380px; background: var(--surface);
+      border: 1px solid var(--gold); border-radius: 13px; padding: 15px;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .info-pop-title { font-size: 14px; font-weight: 800; color: var(--gold-text); display: flex; align-items: center; gap: 7px; }
+    .info-pop-body { font-size: 12.5px; color: var(--text); line-height: 1.55; white-space: pre-line; }
+    .info-pop-btn {
+      align-self: flex-end; padding: 7px 14px; border-radius: 7px;
+      border: 1px solid var(--crimson); background: var(--crimson);
+      color: #ffffff; font-family: var(--mono); font-size: 11px; font-weight: 800; cursor: pointer;
+    }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top App Bar -->
+    <header class="app-bar">
+      <div>
+        <div class="page-title">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>Presets</span>
+        </div>
+        <div class="page-sub">TEMPLATES · BUILT-IN &amp; SAVED PRESET HUB</div>
+      </div>
+      <button type="button" id="btn-new-preset" class="btn-new-preset">+ New Preset</button>
+    </header>
+
+    <main class="content">
+      <div class="search-row">
+        <input type="text" id="inp-search" class="search-inp" placeholder="Search presets: Reels, 10-bit, Opus, WebP...">
+      </div>
+
+      <div class="filter-row" id="cat-filters">
+        <button type="button" class="f-chip active" data-cat="all" id="chip-all">All (7)</button>
+        <button type="button" class="f-chip" data-cat="video">Videos</button>
+        <button type="button" class="f-chip" data-cat="audio">Audios</button>
+        <button type="button" class="f-chip" data-cat="image">Images</button>
+        <button type="button" class="f-chip" data-cat="saved">My Saved</button>
+        <button type="button" class="f-chip" data-cat="deleted" id="chip-del">Deleted (0)</button>
+      </div>
+
+      <div class="tpl-list" id="tpl-list"></div>
+    </main>
+
+    <!-- Bottom Navigation Bar (4 Roots) -->
+    <nav class="bottom-nav" aria-label="Primary Navigation">
+      <button type="button" class="nav-item" data-nav="home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Home</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="queue">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Queue</span>
+      </button>
+      <button type="button" class="nav-item active" data-nav="presets">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <span>Presets</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Quick New / Edit Preset Modal -->
+  <div class="modal-backdrop hidden" id="tpl-modal" role="dialog" aria-modal="true" aria-label="Create Preset Template">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <div class="modal-title" id="m-title">Create New Preset</div>
+        <div style="display:flex; align-items:center; gap:6px;"><button type="button" class="btn-hint-toggle" data-toggle-hints="1">ⓘ Hints: ON</button><button type="button" id="btn-m-close" class="modal-close">×</button></div>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 10px; background:var(--card-elev); border:1px dashed var(--border-strong); border-radius:8px;">
+          <div style="min-width:0;">
+            <div style="font-size:12px; font-weight:700;">Have a .json Preset File?</div>
+            <div style="font-family:var(--mono); font-size:10px; color:var(--muted);">Import from /ConversionVault/Presets/ or storage</div>
+          </div>
+          <button type="button" id="btn-import" class="btn-import">Import .json ↗</button>
+          <input type="file" id="inp-import-json" class="hidden" accept=".json,application/json">
+        </div>
+        <div class="field"><label for="m-name">Preset Name</label><input type="text" id="m-name" placeholder="e.g. Night Car Reels 60fps"></div>
+        <div class="grid-2">
+          <div class="field"><label for="m-cat">Media Type</label>
+            <select id="m-cat"><option value="video">Video</option><option value="audio">Audio</option><option value="image">Image</option></select>
+          </div>
+          <div class="field"><label for="m-desc">Short Note</label><input type="text" id="m-desc" placeholder="Optional description"></div>
+        </div>
+
+        <div class="telemetry-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <span class="scope-lbl" style="display:inline-flex; align-items:center; gap:5px;">Live Preset Status <button type="button" class="i-btn" data-info="Preset Status Bars" aria-label="Info about Status Bars">i</button></span>
+            <span class="page-sub" id="m-live-tag" style="margin-top:0;"></span>
+          </div>
+          <div class="mini-bars-grid" id="m-status-bars"></div>
+        </div>
+
+        <div id="m-dynamic-fields" class="grid-2"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" id="btn-m-save" class="btn-use" style="flex:none; padding:8px 18px;">Save Template</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal (Never Direct-Delete) -->
+  <div class="modal-backdrop hidden" id="confirm-modal" role="dialog" aria-modal="true" aria-label="Confirm Preset Deletion">
+    <div class="confirm-sheet">
+      <div class="confirm-title" id="confirm-title">Delete Preset?</div>
+      <div class="confirm-desc" id="confirm-desc">This preset will be moved to Deleted Presets so you can restore it anytime.</div>
+      <div class="confirm-actions">
+        <button type="button" id="btn-confirm-cancel" class="btn-sec">Cancel</button>
+        <button type="button" id="btn-confirm-yes" class="btn-danger-solid">Yes, Move to Deleted</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bright Info Explanation Popover -->
+  <div class="info-pop-backdrop hidden" id="info-pop-modal" role="dialog" aria-modal="true" aria-label="Setting Explanation">
+    <div class="info-pop-card">
+      <div class="info-pop-title" id="info-pop-title">ⓘ Info</div>
+      <div class="info-pop-body" id="info-pop-body"></div>
+      <button type="button" id="btn-info-pop-close" class="info-pop-btn">Got it</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const state = {
+      filter: 'all',
+      query: '',
+      deleted: [],
+      pendingDelete: null,
+      templates: [
+        {
+          id: 1, cat: 'video', origin: 'saved', name: 'My Daily Car Edit',
+          desc: 'Sharp 9:16 60fps export with loudness-normalized audio & Forensic Scrub.',
+          specs: '.mp4 · libx264 · 1080×1920 60fps · CRF 17 · AAC 256k · Forensic',
+          qual: 93, comp: 58, speed: 44, compat: 98, edit: 72, batt: 50
+        },
+        {
+          id: 2, cat: 'video', origin: 'builtin', name: '60fps Reels HQ',
+          desc: 'Instagram Reels compliant bitrate cap with +faststart & EXIF wipe.',
+          specs: '.mp4 · libx264 · 60fps · CRF 18 · 12M cap · AAC 192k',
+          qual: 90, comp: 62, speed: 48, compat: 99, edit: 68, batt: 54
+        },
+        {
+          id: 3, cat: 'video', origin: 'builtin', name: 'H.264 All-I Edit',
+          desc: 'Intra-frame (-g 1) for zero-lag timeline scrubbing in Alight Motion.',
+          specs: '.mp4 · libx264 · Intra -g 1 · CRF 15 · AAC 320k',
+          qual: 97, comp: 28, speed: 82, compat: 96, edit: 99, batt: 82
+        },
+        {
+          id: 4, cat: 'video', origin: 'builtin', name: 'HEVC 10-Bit Archive',
+          desc: 'Space-saving 10-bit master archive with lossless FLAC audio.',
+          specs: '.mkv · libx265 · yuv420p10le · CRF 19 · FLAC · Soft Subs',
+          qual: 94, comp: 78, speed: 34, compat: 62, edit: 44, batt: 41
+        },
+        {
+          id: 5, cat: 'audio', origin: 'builtin', name: 'Opus 192k Transparent',
+          desc: 'Ultra-efficient 48kHz stereo music & exhaust audio.',
+          specs: '.opus · libopus · 192 kbps · 48kHz · Stereo · Wipe Tags',
+          qual: 94, comp: 84, speed: 95, compat: 86, edit: 84, batt: 96
+        },
+        {
+          id: 6, cat: 'audio', origin: 'builtin', name: 'Loudnorm AAC (-14 LUFS)',
+          desc: 'Broadcast-balanced volume across mixed clips.',
+          specs: '.m4a · AAC-LC · 192 kbps · EBU R128 Loudnorm',
+          qual: 88, comp: 76, speed: 94, compat: 99, edit: 82, batt: 96
+        },
+        {
+          id: 7, cat: 'image', origin: 'builtin', name: 'WebP Crisp 85%',
+          desc: 'Tiny web-ready photos with EXIF & GPS stripped.',
+          specs: '.webp · Q85 · Auto-Orient · 4:4:4 · Wipe EXIF',
+          qual: 86, comp: 82, speed: 92, compat: 94, edit: 88, batt: 95
+        }
+      ]
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function render() {
+      document.getElementById('chip-all').textContent = 'All (' + state.templates.length + ')';
+      document.getElementById('chip-del').textContent = 'Deleted (' + state.deleted.length + ')';
+      document.querySelectorAll('.f-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-cat') === state.filter));
+      const q = state.query.trim().toLowerCase();
+      const isDelView = state.filter === 'deleted';
+      const sourceArr = isDelView ? state.deleted : state.templates;
+      const list = sourceArr.filter(t => {
+        if (!isDelView) {
+          if (state.filter === 'saved' && t.origin !== 'saved') return false;
+          if (['video', 'audio', 'image'].includes(state.filter) && t.cat !== state.filter) return false;
+        }
+        if (q && !(t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q) || t.specs.toLowerCase().includes(q))) return false;
+        return true;
+      });
+
+      const wrap = document.getElementById('tpl-list');
+      if (list.length === 0) {
+        wrap.innerHTML = `<div style="padding:24px; text-align:center; color:var(--muted); border:1px dashed var(--border-strong); border-radius:12px;">${isDelView ? 'Deleted Presets folder is empty.' : 'No presets match your filter.'}</div>`;
+        return;
+      }
+
+      wrap.innerHTML = list.map(t => {
+        const catCls = t.cat === 'video' ? 'cp-video' : (t.cat === 'audio' ? 'cp-audio' : 'cp-image');
+        const catLbl = t.cat.toUpperCase();
+        return `
+          <article class="tpl-card ${t.origin === 'saved' ? 'is-saved' : 'is-builtin'}">
+            <div class="tpl-top">
+              <div>
+                <div class="tpl-badges">
+                  <span class="cat-pill ${catCls}">${catLbl}</span>
+                  <span class="orig-pill ${t.origin === 'saved' ? 'saved' : ''}">${t.origin === 'saved' ? 'SAVED' : 'BUILT-IN'}</span>
+                </div>
+                <div class="tpl-name">${t.name}</div>
+                <div class="tpl-desc">${t.desc}</div>
+              </div>
+            </div>
+            <div class="tpl-specs">${t.specs}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:-4px;"><span class="scope-lbl">Preset Status</span><button type="button" class="i-btn" data-info="Preset Status Bars" aria-label="Info about Status Bars">i</button></div>
+            <div class="mini-bars-grid">
+              <div class="mbar-col"><div class="mbar-head"><span>Quality Preserved</span><span>${t.qual}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${t.qual}%; background:var(--emerald);"></div></div></div>
+              <div class="mbar-col"><div class="mbar-head"><span>Size Compressed</span><span>${t.comp}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${t.comp}%; background:var(--gold);"></div></div></div>
+              <div class="mbar-col"><div class="mbar-head"><span>Processing Speed</span><span>${t.speed}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${t.speed}%; background:var(--crimson);"></div></div></div>
+              <div class="mbar-col"><div class="mbar-head"><span>Compatibility</span><span>${t.compat || 90}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${t.compat || 90}%; background:#38bdf8;"></div></div></div>
+              <div class="mbar-col"><div class="mbar-head"><span>Raw Fidelity</span><span>${t.edit || 75}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${t.edit || 75}%; background:#a855f7;"></div></div></div>
+              <div class="mbar-col"><div class="mbar-head"><span>Battery Efficiency</span><span>${t.batt || 80}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${t.batt || 80}%; background:#22c55e;"></div></div></div>
+            </div>
+            <div class="tpl-actions">
+              ${isDelView ? `
+                <button type="button" class="btn-use" data-act="restore" data-id="${t.id}">Restore Preset ↺</button>
+                <button type="button" class="btn-sec" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-act="perm-del" data-id="${t.id}">Delete Forever</button>
+              ` : `
+                <button type="button" class="btn-use" data-act="use" data-id="${t.id}">Use Preset ↗</button>
+                <button type="button" class="btn-sec" data-act="dup" data-id="${t.id}">Duplicate</button>
+                <button type="button" class="btn-sec" data-act="share" data-id="${t.id}">Export JSON</button>
+                <button type="button" class="btn-sec" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);" data-act="del" data-id="${t.id}">Delete</button>
+              `}
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('inp-search').addEventListener('input', function() {
+      state.query = this.value;
+      render();
+    });
+
+    document.getElementById('btn-import').addEventListener('click', () => document.getElementById('inp-import-json').click());
+    document.getElementById('inp-import-json').addEventListener('change', function() {
+      if (this.files && this.files.length > 0) {
+        const fname = this.files[0].name.replace(/\.json$/i, '');
+        state.templates.unshift({
+          id: Date.now(), cat: 'video', origin: 'saved', name: fname,
+          desc: 'Imported from ' + this.files[0].name,
+          specs: '.mp4 · libx264 · Imported .json preset',
+          qual: 88, comp: 66, speed: 60
+        });
+        document.getElementById('tpl-modal').classList.add('hidden');
+        state.filter = 'all';
+        render();
+        showToast('Imported "' + fname + '" into Presets Hub');
+      }
+      this.value = '';
+    });
+    const DEF_CFG = {
+      video: {
+        container: 'mp4', codec: 'libx264', rcMode: 'crf_cap', crf: 18, maxrate: 12,
+        preset: 'slower', gop: 'auto', bframes: 2, fps: '60', scale: 'original', orient: 'keep', pixfmt: 'yuv420p',
+        audioCodec: 'aac', audioBr: '192k', audioAr: '48000', audioCh: 'stereo', audioNorm: 'none',
+        subMode: 'strip', meta: 'deep', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart'
+      },
+      audio: {
+        fmt: 'opus', br: '192k', ar: '48000', bitDepth: 'auto', channels: 'stereo', af: 'none', meta: 'wipe'
+      },
+      image: {
+        fmt: 'webp', qual: 85, scale: 'original', orient: 'auto', colorSpace: 'srgb_444', meta: 'wipe'
+      }
+    };
+
+    let editingId = null;
+    const modalCfg = {
+      cat: 'video',
+      draft: Object.assign({}, DEF_CFG.video)
+    };
+
+    function computeModalBars(cat, cfg) {
+      if (cat === 'video') {
+        if (cfg.codec === 'copy') return { qual: 100, comp: 50, speed: 99, compat: 95, edit: 72, batt: 99 };
+        const qual = cfg.rcMode === 'lossless' ? 100 : Math.max(35, Math.min(99, Math.round(100 - (cfg.crf - 14) * 2.5 + (cfg.pixfmt === 'yuv420p10le' ? 3 : 0))));
+        const codecComp = cfg.codec === 'libsvtav1' ? 20 : (cfg.codec === 'libx265' ? 14 : (cfg.codec === 'libvpx-vp9' ? 10 : 0));
+        const comp = Math.max(15, Math.min(98, Math.round(52 + (cfg.crf - 18) * 2.3 + codecComp + (cfg.gop === '1' ? -30 : 0))));
+        const preMap = { ultrafast: 95, fast: 78, medium: 60, slow: 44, slower: 30, veryslow: 16 };
+        const speed = Math.max(10, Math.min(98, (preMap[cfg.preset] || 50) - (cfg.codec === 'libx265' ? 14 : (cfg.codec === 'libsvtav1' ? 20 : 0))));
+        let compat = cfg.codec === 'libx264' ? 98 : (cfg.codec === 'libx265' ? 74 : (cfg.codec === 'libvpx-vp9' ? 78 : 48));
+        if (cfg.pixfmt === 'yuv420p10le') compat -= 18;
+        compat = Math.max(25, Math.min(99, compat));
+        const edit = cfg.gop === '1' ? 99 : (cfg.gop === '15' ? 84 : (cfg.codec === 'libx264' ? 68 : 46));
+        const batt = Math.max(18, Math.min(98, Math.round(speed * 0.85 + 12)));
+        return { qual, comp, speed, compat, edit, batt };
+      }
+      if (cat === 'audio') {
+        const isLossless = cfg.fmt === 'flac' || cfg.fmt === 'wav';
+        const brNum = parseInt(cfg.br, 10) || 192;
+        const qual = isLossless ? 100 : Math.min(97, Math.round(62 + (brNum / 320) * 35 + (cfg.fmt === 'opus' ? 6 : 0)));
+        const comp = cfg.fmt === 'wav' ? 10 : (cfg.fmt === 'flac' ? 52 : Math.max(55, Math.min(96, Math.round(100 - (brNum / 320) * 35))));
+        const compat = cfg.fmt === 'mp3' || cfg.fmt === 'm4a' || cfg.fmt === 'wav' ? 99 : (cfg.fmt === 'flac' ? 92 : 86);
+        const edit = isLossless ? 99 : 82;
+        return { qual, comp, speed: 94, compat, edit, batt: 96 };
+      }
+      const qual = cfg.fmt === 'png' ? 100 : Math.max(30, Math.min(99, cfg.qual));
+      const comp = cfg.fmt === 'png' ? 30 : Math.max(40, Math.min(98, Math.round(108 - cfg.qual * 0.4 + (cfg.fmt === 'avif' ? 14 : (cfg.fmt === 'webp' ? 8 : 0)))));
+      const speed = cfg.fmt === 'avif' ? 42 : 92;
+      const compat = cfg.fmt === 'jpg' || cfg.fmt === 'png' ? 99 : (cfg.fmt === 'webp' ? 94 : 72);
+      const edit = cfg.fmt === 'png' ? 99 : 88;
+      const batt = cfg.fmt === 'avif' ? 68 : 95;
+      return { qual, comp, speed, compat, edit, batt };
+    }
+
+    function buildAutoSpec(cat, cfg) {
+      if (cat === 'video') {
+        if (cfg.codec === 'copy') return `.${cfg.container} · Stream Copy · Aud:${cfg.audioCodec} · Sub:${cfg.subMode}`;
+        const fpsStr = cfg.fps === 'original' ? 'SrcFPS' : cfg.fps + 'fps';
+        const audStr = cfg.audioCodec === 'none' ? 'Muted' : cfg.audioCodec.replace('lib', '').toUpperCase() + ' ' + cfg.audioBr;
+        const oriStr = cfg.orient !== 'keep' ? ' · Rot:' + cfg.orient : '';
+        return `.${cfg.container} · ${cfg.codec.replace('lib', '')} · ${fpsStr} · CRF ${cfg.crf} · ${audStr}${oriStr} · Sub:${cfg.subMode}`;
+      }
+      if (cat === 'audio') {
+        const loss = ['flac', 'wav'].includes(cfg.fmt);
+        return `.${cfg.fmt} · ${loss ? ('Lossless ' + cfg.bitDepth) : cfg.br} · ${cfg.ar === 'keep' ? 'SrcHz' : cfg.ar + 'Hz'} · ${cfg.channels}`;
+      }
+      const ori = cfg.orient !== 'keep' ? ' · ' + cfg.orient : '';
+      return `.${cfg.fmt} · ${cfg.fmt === 'png' ? 'Lossless' : 'Q' + cfg.qual}${cfg.scale !== 'original' ? ' · ' + cfg.scale + 'px' : ''}${ori}`;
+    }
+
+    function renderModalFields() {
+      const cat = modalCfg.cat;
+      const draft = modalCfg.draft;
+      const bars = computeModalBars(cat, draft);
+
+      document.getElementById('m-live-tag').textContent = buildAutoSpec(cat, draft);
+      document.getElementById('m-status-bars').innerHTML = `
+        <div class="mbar-col"><div class="mbar-head"><span>Quality Preserved</span><span>${bars.qual}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.qual}%; background:var(--emerald);"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Size Compressed</span><span>${bars.comp}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.comp}%; background:var(--gold);"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Processing Speed</span><span>${bars.speed}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.speed}%; background:var(--crimson);"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Compatibility</span><span>${bars.compat}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.compat}%; background:#38bdf8;"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Raw Fidelity</span><span>${bars.edit}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.edit}%; background:#a855f7;"></div></div></div>
+        <div class="mbar-col"><div class="mbar-head"><span>Battery Efficiency</span><span>${bars.batt}%</span></div><div class="mbar-track"><div class="mbar-fill" style="width:${bars.batt}%; background:#22c55e;"></div></div></div>
+      `;
+
+      const wrap = document.getElementById('m-dynamic-fields');
+      if (cat === 'video') {
+        const audioDisabled = draft.audioCodec === 'none';
+        wrap.innerHTML = `
+          <div class="adv-sec-lbl">Video Stream, FPS &amp; Orientation</div>
+          <div class="field"><label class="lbl-row"><span>Container</span><button type="button" class="i-btn" data-info="Container" aria-label="Info about Container">i</button></label>
+            <select data-mc="container">
+              <option value="mp4" ${draft.container === 'mp4' ? 'selected' : ''}>.mp4 (Universal)</option>
+              <option value="mkv" ${draft.container === 'mkv' ? 'selected' : ''}>.mkv (Matroska)</option>
+              <option value="webm" ${draft.container === 'webm' ? 'selected' : ''}>.webm (WebM)</option>
+              <option value="mov" ${draft.container === 'mov' ? 'selected' : ''}>.mov (QuickTime)</option>
+              <option value="ts" ${draft.container === 'ts' ? 'selected' : ''}>.ts (Transport)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Video Codec (-c:v)</span><button type="button" class="i-btn" data-info="Video Codec (-c:v)" aria-label="Info about Video Codec (-c:v)">i</button></label>
+            <select data-mc="codec">
+              <option value="libx264" ${draft.codec === 'libx264' ? 'selected' : ''}>libx264 (H.264)</option>
+              <option value="libx265" ${draft.codec === 'libx265' ? 'selected' : ''}>libx265 (HEVC)</option>
+              <option value="libsvtav1" ${draft.codec === 'libsvtav1' ? 'selected' : ''}>libsvtav1 (AV1)</option>
+              <option value="libvpx-vp9" ${draft.codec === 'libvpx-vp9' ? 'selected' : ''}>libvpx-vp9 (VP9)</option>
+              <option value="copy" ${draft.codec === 'copy' ? 'selected' : ''}>copy (Zero Loss)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Rate Control</span><button type="button" class="i-btn" data-info="Rate Control" aria-label="Info about Rate Control">i</button></label>
+            <select data-mc="rcMode">
+              <option value="crf_cap" ${draft.rcMode === 'crf_cap' ? 'selected' : ''}>Constrained CRF</option>
+              <option value="crf_only" ${draft.rcMode === 'crf_only' ? 'selected' : ''}>Pure CRF Quality</option>
+              <option value="cbr" ${draft.rcMode === 'cbr' ? 'selected' : ''}>Target Bitrate</option>
+              <option value="lossless" ${draft.rcMode === 'lossless' ? 'selected' : ''}>Lossless (-crf 0)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Encoder Preset</span><button type="button" class="i-btn" data-info="Encoder Preset" aria-label="Info about Encoder Preset">i</button></label>
+            <select data-mc="preset">
+              <option value="ultrafast" ${draft.preset === 'ultrafast' ? 'selected' : ''}>ultrafast</option>
+              <option value="fast" ${draft.preset === 'fast' ? 'selected' : ''}>fast</option>
+              <option value="medium" ${draft.preset === 'medium' ? 'selected' : ''}>medium</option>
+              <option value="slow" ${draft.preset === 'slow' ? 'selected' : ''}>slow</option>
+              <option value="slower" ${draft.preset === 'slower' ? 'selected' : ''}>slower</option>
+              <option value="veryslow" ${draft.preset === 'veryslow' ? 'selected' : ''}>veryslow</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label class="lbl-row"><span>Quality Factor (-crf)</span><span class="lbl-right"><span class="field-val-pill">CRF ${draft.crf}</span><button type="button" class="i-btn" data-info="Quality Factor (-crf)">i</button></span></label>
+            <input type="range" min="12" max="34" value="${draft.crf}" data-mc="crf">
+          </div>
+          <div class="field full">
+            <label class="lbl-row"><span>Max Bitrate (-maxrate)</span><span class="lbl-right"><span class="field-val-pill">${draft.maxrate}M (${draft.maxrate * 2}M buf)</span><button type="button" class="i-btn" data-info="Max Bitrate">i</button></span></label>
+            <input type="range" min="2" max="50" value="${draft.maxrate}" data-mc="maxrate">
+          </div>
+          <div class="field"><label class="lbl-row"><span>Frame Rate (-r FPS)</span><button type="button" class="i-btn" data-info="Frame Rate (-r FPS)" aria-label="Info about Frame Rate (-r FPS)">i</button></label>
+            <select data-mc="fps">
+              <option value="original" ${draft.fps === 'original' ? 'selected' : ''}>Keep Source FPS</option>
+              <option value="24" ${draft.fps === '24' ? 'selected' : ''}>24 fps (Cinema)</option>
+              <option value="25" ${draft.fps === '25' ? 'selected' : ''}>25 fps (PAL)</option>
+              <option value="30" ${draft.fps === '30' ? 'selected' : ''}>30 fps</option>
+              <option value="50" ${draft.fps === '50' ? 'selected' : ''}>50 fps</option>
+              <option value="60" ${draft.fps === '60' ? 'selected' : ''}>60 fps</option>
+              <option value="120" ${draft.fps === '120' ? 'selected' : ''}>120 fps</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Resolution / Aspect</span><button type="button" class="i-btn" data-info="Resolution / Aspect" aria-label="Info about Resolution / Aspect">i</button></label>
+            <select data-mc="scale">
+              <option value="original" ${draft.scale === 'original' ? 'selected' : ''}>Keep Original</option>
+              <option value="1080_v" ${draft.scale === '1080_v' ? 'selected' : ''}>1080×1920 (9:16 Reels)</option>
+              <option value="2160" ${draft.scale === '2160' ? 'selected' : ''}>4K (2160p)</option>
+              <option value="1440" ${draft.scale === '1440' ? 'selected' : ''}>1440p (QHD)</option>
+              <option value="1080" ${draft.scale === '1080' ? 'selected' : ''}>1080p Full HD</option>
+              <option value="720" ${draft.scale === '720' ? 'selected' : ''}>720p HD</option>
+              <option value="480" ${draft.scale === '480' ? 'selected' : ''}>480p Compact</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Orientation &amp; Flip</span><button type="button" class="i-btn" data-info="Orientation & Flip" aria-label="Info about Orientation & Flip">i</button></label>
+            <select data-mc="orient">
+              <option value="keep" ${draft.orient === 'keep' ? 'selected' : ''}>Keep Source</option>
+              <option value="90cw" ${draft.orient === '90cw' ? 'selected' : ''}>Rotate 90° CW</option>
+              <option value="90ccw" ${draft.orient === '90ccw' ? 'selected' : ''}>Rotate 90° CCW</option>
+              <option value="180" ${draft.orient === '180' ? 'selected' : ''}>Rotate 180°</option>
+              <option value="hflip" ${draft.orient === 'hflip' ? 'selected' : ''}>Flip Horizontal</option>
+              <option value="vflip" ${draft.orient === 'vflip' ? 'selected' : ''}>Flip Vertical</option>
+              <option value="auto" ${draft.orient === 'auto' ? 'selected' : ''}>Auto-Orient (Bake Matrix)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Frame Mode (GOP -g)</span><button type="button" class="i-btn" data-info="Frame Mode (GOP -g)" aria-label="Info about Frame Mode (GOP -g)">i</button></label>
+            <select data-mc="gop">
+              <option value="auto" ${draft.gop === 'auto' ? 'selected' : ''}>Inter-Frame (Auto)</option>
+              <option value="120" ${draft.gop === '120' ? 'selected' : ''}>Streaming 2s (-g 120)</option>
+              <option value="15" ${draft.gop === '15' ? 'selected' : ''}>Short-GOP Edit (-g 15)</option>
+              <option value="1" ${draft.gop === '1' ? 'selected' : ''}>Intra-Frame All-I (-g 1)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>B-Frames (-bf)</span><button type="button" class="i-btn" data-info="B-Frames (-bf)" aria-label="Info about B-Frames (-bf)">i</button></label>
+            <select data-mc="bframes">
+              <option value="0" ${String(draft.bframes) === '0' ? 'selected' : ''}>0 (Zero Lag Edit)</option>
+              <option value="2" ${String(draft.bframes) === '2' ? 'selected' : ''}>2 (Balanced)</option>
+              <option value="3" ${String(draft.bframes) === '3' ? 'selected' : ''}>3 (High Compress)</option>
+              <option value="4" ${String(draft.bframes) === '4' ? 'selected' : ''}>4 (Max Compress)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Pixel Fmt &amp; Color</span><button type="button" class="i-btn" data-info="Pixel Fmt & Color" aria-label="Info about Pixel Fmt & Color">i</button></label>
+            <select data-mc="pixfmt">
+              <option value="yuv420p" ${draft.pixfmt === 'yuv420p' ? 'selected' : ''}>yuv420p (8-bit Safe)</option>
+              <option value="yuv420p10le" ${draft.pixfmt === 'yuv420p10le' ? 'selected' : ''}>yuv420p10le (10-bit)</option>
+              <option value="yuv422p" ${draft.pixfmt === 'yuv422p' ? 'selected' : ''}>yuv422p (4:2:2 Pro)</option>
+              <option value="tonemap" ${draft.pixfmt === 'tonemap' ? 'selected' : ''}>HDR → SDR Tone Map</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Encoder Tune (-tune)</span><button type="button" class="i-btn" data-info="Encoder Tune (-tune)" aria-label="Info about Encoder Tune (-tune)">i</button></label>
+            <select data-mc="tune">
+              <option value="none" ${draft.tune === 'none' ? 'selected' : ''}>Default (Auto)</option>
+              <option value="film" ${draft.tune === 'film' ? 'selected' : ''}>Film (Live Action)</option>
+              <option value="grain" ${draft.tune === 'grain' ? 'selected' : ''}>Grain (Keep Texture)</option>
+              <option value="animation" ${draft.tune === 'animation' ? 'selected' : ''}>Animation / CGI</option>
+              <option value="fastdecode" ${draft.tune === 'fastdecode' ? 'selected' : ''}>Fast Decode</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Denoise / Sharpen (-vf)</span><button type="button" class="i-btn" data-info="Denoise / Sharpen" aria-label="Info about Denoise / Sharpen">i</button></label>
+            <select data-mc="vfilter">
+              <option value="none" ${draft.vfilter === 'none' ? 'selected' : ''}>None</option>
+              <option value="hqdn3d" ${draft.vfilter === 'hqdn3d' ? 'selected' : ''}>HQDN3D Denoise (Night)</option>
+              <option value="unsharp" ${draft.vfilter === 'unsharp' ? 'selected' : ''}>Unsharp Crisp</option>
+              <option value="yadif" ${draft.vfilter === 'yadif' ? 'selected' : ''}>Yadif Deinterlace</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Playback Speed (PTS)</span><button type="button" class="i-btn" data-info="Playback Speed" aria-label="Info about Playback Speed">i</button></label>
+            <select data-mc="speed">
+              <option value="1.0" ${draft.speed === '1.0' ? 'selected' : ''}>1.0x (Normal)</option>
+              <option value="0.5" ${draft.speed === '0.5' ? 'selected' : ''}>0.5x (Slow-Mo)</option>
+              <option value="1.25" ${draft.speed === '1.25' ? 'selected' : ''}>1.25x</option>
+              <option value="1.5" ${draft.speed === '1.5' ? 'selected' : ''}>1.5x</option>
+              <option value="2.0" ${draft.speed === '2.0' ? 'selected' : ''}>2.0x (Fast)</option>
+            </select>
+          </div>
+
+          <div class="adv-sec-lbl">Audio Track Controls (-c:a / -b:a / -ar / -ac / -af)</div>
+          <div class="field"><label class="lbl-row"><span>Audio Codec (-c:a)</span><button type="button" class="i-btn" data-info="Audio Codec (-c:a)" aria-label="Info about Audio Codec (-c:a)">i</button></label>
+            <select data-mc="audioCodec">
+              <option value="aac" ${draft.audioCodec === 'aac' ? 'selected' : ''}>AAC-LC</option>
+              <option value="libopus" ${draft.audioCodec === 'libopus' ? 'selected' : ''}>Opus (libopus)</option>
+              <option value="libmp3lame" ${draft.audioCodec === 'libmp3lame' ? 'selected' : ''}>MP3 (LAME)</option>
+              <option value="flac" ${draft.audioCodec === 'flac' ? 'selected' : ''}>Lossless FLAC</option>
+              <option value="copy" ${draft.audioCodec === 'copy' ? 'selected' : ''}>Copy Original</option>
+              <option value="none" ${draft.audioCodec === 'none' ? 'selected' : ''}>Mute / Strip (-an)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Audio Bitrate (-b:a)</span><button type="button" class="i-btn" data-info="Audio Bitrate (-b:a)" aria-label="Info about Audio Bitrate (-b:a)">i</button></label>
+            <select data-mc="audioBr" ${audioDisabled ? 'disabled' : ''}>
+              <option value="96k" ${draft.audioBr === '96k' ? 'selected' : ''}>96 kbps</option>
+              <option value="128k" ${draft.audioBr === '128k' ? 'selected' : ''}>128 kbps</option>
+              <option value="192k" ${draft.audioBr === '192k' ? 'selected' : ''}>192 kbps</option>
+              <option value="256k" ${draft.audioBr === '256k' ? 'selected' : ''}>256 kbps</option>
+              <option value="320k" ${draft.audioBr === '320k' ? 'selected' : ''}>320 kbps</option>
+              <option value="lossless" ${draft.audioBr === 'lossless' ? 'selected' : ''}>Lossless / Copy</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Sample Rate (-ar)</span><button type="button" class="i-btn" data-info="Sample Rate (-ar)" aria-label="Info about Sample Rate (-ar)">i</button></label>
+            <select data-mc="audioAr" ${audioDisabled ? 'disabled' : ''}>
+              <option value="keep" ${draft.audioAr === 'keep' ? 'selected' : ''}>Keep Source</option>
+              <option value="44100" ${draft.audioAr === '44100' ? 'selected' : ''}>44,100 Hz</option>
+              <option value="48000" ${draft.audioAr === '48000' ? 'selected' : ''}>48,000 Hz</option>
+              <option value="96000" ${draft.audioAr === '96000' ? 'selected' : ''}>96,000 Hz</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Channels (-ac)</span><button type="button" class="i-btn" data-info="Channels (-ac)" aria-label="Info about Channels (-ac)">i</button></label>
+            <select data-mc="audioCh" ${audioDisabled ? 'disabled' : ''}>
+              <option value="keep" ${draft.audioCh === 'keep' ? 'selected' : ''}>Keep Source</option>
+              <option value="mono" ${draft.audioCh === 'mono' ? 'selected' : ''}>Mono (1.0)</option>
+              <option value="stereo" ${draft.audioCh === 'stereo' ? 'selected' : ''}>Stereo (2.0)</option>
+              <option value="5.1" ${draft.audioCh === '5.1' ? 'selected' : ''}>Surround (5.1)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Volume Gain (-af)</span><button type="button" class="i-btn" data-info="Volume Gain (-af)" aria-label="Info about Volume Gain (-af)">i</button></label>
+            <select data-mc="audioGain" ${audioDisabled ? 'disabled' : ''}>
+              <option value="0dB" ${draft.audioGain === '0dB' ? 'selected' : ''}>0 dB (Original)</option>
+              <option value="+3dB" ${draft.audioGain === '+3dB' ? 'selected' : ''}>+3 dB Boost</option>
+              <option value="+6dB" ${draft.audioGain === '+6dB' ? 'selected' : ''}>+6 dB Loud</option>
+              <option value="-3dB" ${draft.audioGain === '-3dB' ? 'selected' : ''}>-3 dB</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Audio Normalization (-af)</span><button type="button" class="i-btn" data-info="Audio Normalization" aria-label="Info about Audio Normalization">i</button></label>
+            <select data-mc="audioNorm" ${audioDisabled ? 'disabled' : ''}>
+              <option value="none" ${draft.audioNorm === 'none' ? 'selected' : ''}>None (Transparent)</option>
+              <option value="loudnorm" ${draft.audioNorm === 'loudnorm' ? 'selected' : ''}>EBU R128 Loudnorm (-14 LUFS)</option>
+              <option value="peak" ${draft.audioNorm === 'peak' ? 'selected' : ''}>Peak Normalize (0 dBFS)</option>
+              <option value="bass" ${draft.audioNorm === 'bass' ? 'selected' : ''}>Bass Punch (+5dB)</option>
+            </select>
+          </div>
+
+          <div class="adv-sec-lbl">Trim Range, Subtitles &amp; Metadata</div>
+          <div class="field"><label class="lbl-row"><span>Trim Start (-ss)</span><button type="button" class="i-btn" data-info="Trim Start (-ss)" aria-label="Info about Trim Start (-ss)">i</button></label>
+            <input type="text" value="${draft.trimStart || '00:00:00'}" data-mc="trimStart" placeholder="00:00:00">
+          </div>
+          <div class="field"><label class="lbl-row"><span>Trim End (-to)</span><button type="button" class="i-btn" data-info="Trim End (-to)" aria-label="Info about Trim End (-to)">i</button></label>
+            <input type="text" value="${draft.trimEnd || 'End'}" data-mc="trimEnd" placeholder="End">
+          </div>
+          <div class="field"><label class="lbl-row"><span>Subtitles (-c:s / -sn)</span><button type="button" class="i-btn" data-info="Subtitles (-c:s / -sn)" aria-label="Info about Subtitles (-c:s / -sn)">i</button></label>
+            <select data-mc="subMode">
+              <option value="copy" ${draft.subMode === 'copy' ? 'selected' : ''}>Keep / Copy Soft Subs</option>
+              <option value="strip" ${draft.subMode === 'strip' ? 'selected' : ''}>Strip All (-sn)</option>
+              <option value="burn" ${draft.subMode === 'burn' ? 'selected' : ''}>Burn-In Hardsub (.srt/.ass)</option>
+              <option value="embed" ${draft.subMode === 'embed' ? 'selected' : ''}>Embed External .srt/.vtt</option>
+              <option value="extract" ${draft.subMode === 'extract' ? 'selected' : ''}>Extract Subtitles (.srt)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Metadata Privacy</span><button type="button" class="i-btn" data-info="Metadata Privacy" aria-label="Info about Metadata Privacy">i</button></label>
+            <select data-mc="meta">
+              <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, Chapters &amp; Encoder)</option>
+              <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All (-map_metadata -1)</option>
+              <option value="gps" ${draft.meta === 'gps' ? 'selected' : ''}>Strip GPS Only</option>
+              <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep Metadata</option>
+            </select>
+          </div>
+          <div class="field full"><label class="lbl-row"><span>Moov Faststart (-movflags)</span><button type="button" class="i-btn" data-info="Moov Faststart" aria-label="Info about Moov Faststart">i</button></label>
+            <select data-mc="faststart">
+              <option value="faststart" ${draft.faststart === 'faststart' ? 'selected' : ''}>+faststart (Instant Web / Reels Playback)</option>
+              <option value="standard" ${draft.faststart === 'standard' ? 'selected' : ''}>Standard Container Layout</option>
+            </select>
+          </div>
+        `;
+      } else if (cat === 'audio') {
+        wrap.innerHTML = `
+          <div class="adv-sec-lbl">Audio Codec, Bitrate &amp; Channels</div>
+          <div class="field"><label class="lbl-row"><span>Audio Format</span><button type="button" class="i-btn" data-info="Audio Format" aria-label="Info about Audio Format">i</button></label>
+            <select data-mc="fmt">
+              <option value="opus" ${draft.fmt === 'opus' ? 'selected' : ''}>.opus (libopus)</option>
+              <option value="flac" ${draft.fmt === 'flac' ? 'selected' : ''}>.flac (Lossless)</option>
+              <option value="mp3" ${draft.fmt === 'mp3' ? 'selected' : ''}>.mp3 (LAME)</option>
+              <option value="m4a" ${draft.fmt === 'm4a' ? 'selected' : ''}>.m4a (AAC)</option>
+              <option value="wav" ${draft.fmt === 'wav' ? 'selected' : ''}>.wav (PCM)</option>
+              <option value="ogg" ${draft.fmt === 'ogg' ? 'selected' : ''}>.ogg (Vorbis)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Bitrate (-b:a)</span><button type="button" class="i-btn" data-info="Audio Bitrate (-b:a)" aria-label="Info about Audio Bitrate (-b:a)">i</button></label>
+            <select data-mc="br">
+              <option value="96k" ${draft.br === '96k' ? 'selected' : ''}>96 kbps</option>
+              <option value="128k" ${draft.br === '128k' ? 'selected' : ''}>128 kbps</option>
+              <option value="192k" ${draft.br === '192k' ? 'selected' : ''}>192 kbps</option>
+              <option value="256k" ${draft.br === '256k' ? 'selected' : ''}>256 kbps</option>
+              <option value="320k" ${draft.br === '320k' ? 'selected' : ''}>320 kbps</option>
+              <option value="lossless" ${draft.br === 'lossless' ? 'selected' : ''}>Lossless</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Sample Rate (-ar)</span><button type="button" class="i-btn" data-info="Sample Rate (-ar)" aria-label="Info about Sample Rate (-ar)">i</button></label>
+            <select data-mc="ar">
+              <option value="keep" ${draft.ar === 'keep' ? 'selected' : ''}>Keep Source</option>
+              <option value="44100" ${draft.ar === '44100' ? 'selected' : ''}>44,100 Hz</option>
+              <option value="48000" ${draft.ar === '48000' ? 'selected' : ''}>48,000 Hz</option>
+              <option value="96000" ${draft.ar === '96000' ? 'selected' : ''}>96,000 Hz</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Bit Depth (-sample_fmt)</span><button type="button" class="i-btn" data-info="Bit Depth (-sample_fmt)" aria-label="Info about Bit Depth (-sample_fmt)">i</button></label>
+            <select data-mc="bitDepth">
+              <option value="auto" ${draft.bitDepth === 'auto' ? 'selected' : ''}>Auto</option>
+              <option value="s16" ${draft.bitDepth === 's16' ? 'selected' : ''}>16-bit (CD Standard)</option>
+              <option value="s24" ${draft.bitDepth === 's24' ? 'selected' : ''}>24-bit (Studio)</option>
+              <option value="flt" ${draft.bitDepth === 'flt' ? 'selected' : ''}>32-bit Float</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Channels (-ac)</span><button type="button" class="i-btn" data-info="Channels (-ac)" aria-label="Info about Channels (-ac)">i</button></label>
+            <select data-mc="channels">
+              <option value="keep" ${draft.channels === 'keep' ? 'selected' : ''}>Keep Source</option>
+              <option value="mono" ${draft.channels === 'mono' ? 'selected' : ''}>Mono (1.0)</option>
+              <option value="stereo" ${draft.channels === 'stereo' ? 'selected' : ''}>Stereo (2.0)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Audio Filter (-af)</span><button type="button" class="i-btn" data-info="Audio Filter (-af)" aria-label="Info about Audio Filter (-af)">i</button></label>
+            <select data-mc="af">
+              <option value="none" ${draft.af === 'none' ? 'selected' : ''}>None</option>
+              <option value="loudnorm" ${draft.af === 'loudnorm' ? 'selected' : ''}>EBU R128 Loudnorm</option>
+              <option value="peak" ${draft.af === 'peak' ? 'selected' : ''}>Peak Normalize</option>
+              <option value="bass" ${draft.af === 'bass' ? 'selected' : ''}>Bass Punch (+5dB)</option>
+              <option value="silenceremove" ${draft.af === 'silenceremove' ? 'selected' : ''}>Trim Leading/Trailing Silence</option>
+            </select>
+          </div>
+          <div class="field full"><label class="lbl-row"><span>ID3 &amp; Cover Art Metadata</span><button type="button" class="i-btn" data-info="ID3 & Cover Art" aria-label="Info about ID3 & Cover Art">i</button></label>
+            <select data-mc="meta">
+              <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, Chapters &amp; Encoder)</option>
+              <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All Tags (-map_metadata -1)</option>
+              <option value="cover" ${draft.meta === 'cover' ? 'selected' : ''}>Keep Cover Art Only</option>
+              <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep All ID3 / Tags</option>
+            </select>
+          </div>
+        `;
+      } else {
+        wrap.innerHTML = `
+          <div class="adv-sec-lbl">Image Format, Scale &amp; Orientation</div>
+          <div class="field"><label class="lbl-row"><span>Image Format</span><button type="button" class="i-btn" data-info="Image Format" aria-label="Info about Image Format">i</button></label>
+            <select data-mc="fmt">
+              <option value="webp" ${draft.fmt === 'webp' ? 'selected' : ''}>.webp (Modern)</option>
+              <option value="jpg" ${draft.fmt === 'jpg' ? 'selected' : ''}>.jpg (Universal)</option>
+              <option value="png" ${draft.fmt === 'png' ? 'selected' : ''}>.png (Lossless)</option>
+              <option value="avif" ${draft.fmt === 'avif' ? 'selected' : ''}>.avif (Ultra Small)</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Max Width Scale</span><button type="button" class="i-btn" data-info="Max Width Scale" aria-label="Info about Max Width Scale">i</button></label>
+            <select data-mc="scale">
+              <option value="original" ${draft.scale === 'original' ? 'selected' : ''}>Keep Original</option>
+              <option value="3840" ${draft.scale === '3840' ? 'selected' : ''}>3840 px (4K)</option>
+              <option value="1920" ${draft.scale === '1920' ? 'selected' : ''}>1920 px</option>
+              <option value="1080" ${draft.scale === '1080' ? 'selected' : ''}>1080 px</option>
+              <option value="720" ${draft.scale === '720' ? 'selected' : ''}>720 px</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Orientation &amp; Flip</span><button type="button" class="i-btn" data-info="Orientation & Flip" aria-label="Info about Orientation & Flip">i</button></label>
+            <select data-mc="orient">
+              <option value="auto" ${draft.orient === 'auto' ? 'selected' : ''}>Auto-Orient (Bake EXIF)</option>
+              <option value="keep" ${draft.orient === 'keep' ? 'selected' : ''}>Keep Original</option>
+              <option value="90cw" ${draft.orient === '90cw' ? 'selected' : ''}>Rotate 90° CW</option>
+              <option value="90ccw" ${draft.orient === '90ccw' ? 'selected' : ''}>Rotate 90° CCW</option>
+              <option value="180" ${draft.orient === '180' ? 'selected' : ''}>Rotate 180°</option>
+              <option value="hflip" ${draft.orient === 'hflip' ? 'selected' : ''}>Flip Horizontal</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Color &amp; Chroma</span><button type="button" class="i-btn" data-info="Color & Chroma" aria-label="Info about Color & Chroma">i</button></label>
+            <select data-mc="colorSpace">
+              <option value="srgb_444" ${draft.colorSpace === 'srgb_444' ? 'selected' : ''}>sRGB (4:4:4 Sharp)</option>
+              <option value="srgb_420" ${draft.colorSpace === 'srgb_420' ? 'selected' : ''}>sRGB (4:2:0 Small)</option>
+              <option value="lossless_rgb" ${draft.colorSpace === 'lossless_rgb' ? 'selected' : ''}>Lossless RGB24</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label class="lbl-row"><span>Image Quality</span><span class="lbl-right"><span class="field-val-pill">${draft.qual}%</span><button type="button" class="i-btn" data-info="Image Quality">i</button></span></label>
+            <input type="range" min="15" max="100" value="${draft.qual}" data-mc="qual">
+          </div>
+          <div class="field full"><label class="lbl-row"><span>EXIF &amp; GPS Privacy</span><button type="button" class="i-btn" data-info="EXIF & GPS Privacy" aria-label="Info about EXIF & GPS Privacy">i</button></label>
+            <select data-mc="meta">
+              <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, XMP, ICC &amp; Thumb)</option>
+              <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All EXIF &amp; GPS</option>
+              <option value="gps" ${draft.meta === 'gps' ? 'selected' : ''}>Strip GPS Only</option>
+              <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep EXIF</option>
+            </select>
+          </div>
+        `;
+      }
+    }
+
+    document.getElementById('btn-new-preset').addEventListener('click', () => {
+      editingId = null;
+      document.getElementById('m-title').textContent = 'Create New Preset';
+      document.getElementById('m-name').value = '';
+      document.getElementById('m-desc').value = '';
+      modalCfg.cat = 'video';
+      document.getElementById('m-cat').value = 'video';
+      modalCfg.draft = Object.assign({}, DEF_CFG.video);
+      renderModalFields();
+      document.getElementById('tpl-modal').classList.remove('hidden');
+    });
+    document.getElementById('m-cat').addEventListener('change', function() {
+      modalCfg.cat = this.value;
+      modalCfg.draft = Object.assign({}, DEF_CFG[modalCfg.cat]);
+      renderModalFields();
+    });
+    document.getElementById('m-dynamic-fields').addEventListener('input', (e) => {
+      const t = e.target;
+      if (t.matches('[data-mc]')) {
+        const k = t.getAttribute('data-mc');
+        modalCfg.draft[k] = t.type === 'range' ? parseInt(t.value, 10) : t.value;
+        renderModalFields();
+      }
+    });
+    document.getElementById('btn-m-close').addEventListener('click', () => document.getElementById('tpl-modal').classList.add('hidden'));
+    document.getElementById('btn-m-save').addEventListener('click', () => {
+      const nm = document.getElementById('m-name').value.trim() || ('Custom Preset #' + (state.templates.length + 1));
+      const cat = modalCfg.cat;
+      const specs = buildAutoSpec(cat, modalCfg.draft);
+      const bars = computeModalBars(cat, modalCfg.draft);
+      const desc = document.getElementById('m-desc').value.trim() || 'User-created preset template.';
+      state.templates.unshift({ id: Date.now(), cat, origin: 'saved', name: nm, desc, specs, qual: bars.qual, comp: bars.comp, speed: bars.speed, compat: bars.compat, edit: bars.edit, batt: bars.batt });
+      document.getElementById('tpl-modal').classList.add('hidden');
+      state.filter = 'all';
+      render();
+      showToast('Saved "' + nm + '" to Presets Hub');
+    });
+
+    document.addEventListener('click', (e) => {
+      const fc = e.target.closest('.f-chip');
+      if (fc) { state.filter = fc.getAttribute('data-cat'); render(); return; }
+
+      const actEl = e.target.closest('[data-act]');
+      if (actEl) {
+        const act = actEl.getAttribute('data-act');
+        const id = parseInt(actEl.getAttribute('data-id'), 10);
+        const t = state.templates.find(x => x.id === id) || state.deleted.find(x => x.id === id);
+        if (!t) return;
+        if (act === 'use') showToast('Pick files to apply "' + t.name + '" →');
+        else if (act === 'dup') {
+          state.templates.unshift(Object.assign({}, t, { id: Date.now(), origin: 'saved', name: t.name + ' (Copy)' }));
+          render();
+          showToast('Duplicated as editable Saved Preset');
+        } else if (act === 'share') {
+          showToast('Saved to /ConversionVault/Presets/' + t.name.replace(/\s+/g, '_') + '.json');
+        } else if (act === 'del') {
+          state.pendingDelete = { mode: 'soft', id: t.id, name: t.name };
+          document.getElementById('confirm-title').textContent = 'Move Preset to Deleted?';
+          document.getElementById('confirm-desc').textContent =
+            'Move "' + t.name + '" (' + (t.origin === 'saved' ? 'Saved' : 'Built-In') + ') to Deleted Presets? You can restore it anytime.';
+          document.getElementById('btn-confirm-yes').textContent = 'Yes, Move to Deleted';
+          document.getElementById('confirm-modal').classList.remove('hidden');
+        } else if (act === 'restore') {
+          state.deleted = state.deleted.filter(x => x.id !== id);
+          state.templates.unshift(t);
+          render();
+          showToast('Restored "' + t.name + '"');
+        } else if (act === 'perm-del') {
+          state.pendingDelete = { mode: 'perm', id: t.id, name: t.name };
+          document.getElementById('confirm-title').textContent = 'Delete Preset Permanently?';
+          document.getElementById('confirm-desc').textContent =
+            'Permanently erase "' + t.name + '"? This cannot be undone.';
+          document.getElementById('btn-confirm-yes').textContent = 'Yes, Delete Forever';
+          document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+        return;
+      }
+
+      const nav = e.target.closest('[data-nav]');
+      if (nav) {
+        const target = nav.getAttribute('data-nav');
+        if (target !== 'presets') showToast('Navigating to ' + target.charAt(0).toUpperCase() + target.slice(1) + ' →');
+      }
+    });
+
+    document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
+      state.pendingDelete = null;
+      document.getElementById('confirm-modal').classList.add('hidden');
+    });
+    document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+      const p = state.pendingDelete;
+      if (!p) return;
+      if (p.mode === 'soft') {
+        const item = state.templates.find(x => x.id === p.id);
+        if (item) {
+          state.templates = state.templates.filter(x => x.id !== p.id);
+          state.deleted.unshift(item);
+          showToast('Moved "' + p.name + '" to Deleted Presets');
+        }
+      } else {
+        state.deleted = state.deleted.filter(x => x.id !== p.id);
+        showToast('Permanently deleted "' + p.name + '"');
+      }
+      state.pendingDelete = null;
+      document.getElementById('confirm-modal').classList.add('hidden');
+      render();
+    });
+
+    render();
+    const INFO_DICT = {
+      'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',
+      'Container': '• .mp4: Universal — best for Android, iOS, Reels & WhatsApp.\n• .mkv: Supports any codec, FLAC & soft subtitles.\n• .webm: Web-only (VP9/AV1 + Opus).\n• .mov: Apple/editing wrapper.\n★ Best choice: .mp4 for sharing; .mkv for 10-bit archives.',
+      'Video Codec (-c:v)': '• libx264 (H.264): Fastest, 99% device compatibility.\n• libx265 (HEVC): ~40% smaller than H.264, great for 10-bit.\n• libsvtav1 (AV1): Smallest files, slower CPU encode.\n• copy: Zero re-encode, instant lossless remux.\n★ Best choice: libx264 for daily sharing & editing; libx265 for archiving.',
+      'Rate Control': '• Constrained CRF: Keeps sharp quality while capping bitrate spikes (prevents social re-compression).\n• Pure CRF: Steady visual quality with no bitrate ceiling.\n• Target Bitrate: Aims for an exact average bitrate/file size.\n• Lossless (-crf 0): Bit-exact huge files.\n★ Best choice: Constrained CRF for Reels/social; Pure CRF for personal storage.',
+      'Encoder Preset': '• ultrafast / fast: Finishes quickest, larger file size.\n• medium: Balanced default.\n• slow / slower: Squeezes much better quality per MB.\n• veryslow: Minimal gain for 2x+ wait time.\n★ Best choice: slower (or medium on long 4K batches).',
+      'Quality Factor (-crf)': '• 12–16: Near-raw editing master (large files).\n• 17–19: Visually lossless sweet spot.\n• 20–24: Good quality, compact size.\n• 25–34: Heavy compression for tiny shares.\n★ Best choice: CRF 18 for H.264; CRF 20 for HEVC.',
+      'Max Bitrate': '• Caps peak bitrate spikes (-maxrate with 2x -bufsize) so apps like Instagram/WhatsApp do not crush your video.\n★ Best choice: 12M–14M for 1080p60 Reels; 3M–5M for chat shares.',
+      'Frame Rate (-r FPS)': '• Keep Source: Preserves original timing without judder.\n• 60 fps: Smooth car/action motion.\n• 30 fps / 24 fps: Smaller size or cinema look.\n★ Best choice: Keep Source (or 60 fps for Reels).',
+      'Resolution / Aspect': '• Keep Original: Zero scaling loss.\n• 1080x1920 (9:16): Native vertical Reels/Shorts.\n• 720p / 480p: Cuts file size sharply for fast sharing.\n★ Best choice: Keep Original or 1080x1920 for vertical edits.',
+      'Orientation & Flip': '• Keep Source: Leaves orientation untouched.\n• Rotate 90/180 or Flip: Physically rotates/mirrors pixels.\n• Auto-Orient: Bakes phone rotation tag into pixels so all players show it upright.\n★ Best choice: Keep Source (or Auto-Orient if sideways).',
+      'Frame Mode (GOP -g)': '• Inter-Frame (Auto / -g 120): Highest compression for sharing.\n• Short-GOP (-g 15): Smooth scrubbing with moderate size.\n• Intra-Frame All-I (-g 1): Every frame is a keyframe — zero lag in Alight Motion/CapCut, much larger files.\n★ Best choice: Auto for sharing; All-I (-g 1) before editing.',
+      'B-Frames (-bf)': '• 0: Zero decode lag in video editors.\n• 2–3: Better compression efficiency.\n• 4: Maximum compression (slightly slower decode).\n★ Best choice: 2 for sharing; 0 for editing.',
+      'Pixel Fmt & Color': '• yuv420p (8-bit): Plays on 99% of phones & apps.\n• yuv420p10le (10-bit): Keeps HDR/LOG gradients (use with HEVC, avoid with H.264 on MediaTek).\n• HDR -> SDR Tone Map: Fixes washed-out HDR colors for normal screens.\n★ Best choice: yuv420p for universal sharing.',
+      'Encoder Tune (-tune)': '• Default: General purpose.\n• Film: Live-action video detail.\n• Grain: Preserves night/paint grain texture.\n• Animation: Clean flat gradients/CGI.\n• Fast Decode: Easier playback on weak phones.\n★ Best choice: Default or Film (Grain for night car clips).',
+      'Denoise / Sharpen': '• None: Untouched pixels.\n• HQDN3D Denoise: Cleans dark/night ISO noise.\n• Unsharp Crisp: Subtle edge sharpening.\n• Yadif: Fixes old interlaced TV lines.\n★ Best choice: None (or HQDN3D on grainy night footage).',
+      'Playback Speed': '• 1.0x: Normal speed.\n• 0.5x: Smooth half-speed slow-mo.\n• 1.25x–2.0x: Speed-up / timelapse (adjusts audio pitch/tempo).\n★ Best choice: 1.0x unless making a speed-ramp.',
+      'Audio Codec (-c:a)': '• AAC-LC: Universal across all phones & social apps.\n• Opus: Best quality at low bitrates (128k–192k).\n• FLAC: 100% lossless audio.\n• Copy: Keeps original audio untouched.\n• Mute (-an): Strips audio completely.\n★ Best choice: AAC-LC for MP4; Opus or FLAC for MKV.',
+      'Audio Bitrate (-b:a)': '• 128k: Clean speech / small shares.\n• 192k: Transparent for most music & videos.\n• 256k–320k: Maximum lossy detail.\n★ Best choice: 192k (or 256k for music/exhaust edits).',
+      'Sample Rate (-ar)': '• Keep Source: Avoids unnecessary resampling.\n• 48,000 Hz: Standard for video & Reels.\n• 44,100 Hz: Standard for MP3/CD music.\n★ Best choice: Keep Source or 48,000 Hz.',
+      'Channels (-ac)': '• Keep Source: Preserves original layout.\n• Stereo (2.0): Standard left/right audio.\n• Mono (1.0): Halves bitrate for voice.\n★ Best choice: Stereo (2.0) or Keep Source.',
+      'Volume Gain (-af)': '• 0 dB: Original volume.\n• +3 dB / +6 dB: Louder boost (watch for clipping).\n• -3 dB: Quieter.\n★ Best choice: 0 dB (use Loudnorm instead of fixed gain).',
+      'Audio Normalization': '• None: Leaves dynamics untouched.\n• EBU R128 Loudnorm (-14 LUFS): Balances volume across clips without clipping.\n• Peak Normalize: Raises loudest peak to 0 dBFS.\n★ Best choice: EBU R128 Loudnorm for social edits.',
+      'Trim Start (-ss)': '• Enter HH:MM:SS (e.g. 00:00:05) to start cutting from that exact second.\n★ Best choice: Leave 00:00:00 to keep the start.',
+      'Trim End (-to)': '• Enter HH:MM:SS (e.g. 00:00:25) to stop at that timestamp, or End for full length.\n★ Best choice: Leave End for full clip.',
+      'Subtitles (-c:s / -sn)': '• Copy Soft Subs: Keeps selectable subtitle tracks.\n• Strip All (-sn): Removes all subtitle tracks.\n• Burn-In: Paints subtitles permanently onto video.\n• Embed / Extract: Adds or pulls out .srt/.vtt.\n★ Best choice: Strip All for Reels; Copy for movies.',
+      'Metadata Privacy': '• Forensic Scrub (+bitexact): Strips GPS, camera model, chapters & FFmpeg encoder signatures.\n• Wipe All (-map_metadata -1): Clears container tags.\n• Strip GPS Only: Keeps camera info, removes location.\n• Keep: Preserves all tags.\n★ Best choice: Forensic Scrub or Wipe All before posting online.',
+      'Moov Faststart': '• +faststart: Moves MP4 index to the front so videos start playing instantly before full download.\n• Standard: Writes index at the end.\n★ Best choice: Always keep +faststart ON for MP4.',
+      'Audio Format': '• .opus: Best quality-to-size ratio.\n• .flac: Zero-loss archive.\n• .mp3: Plays on literally everything.\n• .m4a (AAC): Best Apple/Android balance.\n• .wav: Uncompressed studio PCM.\n★ Best choice: .opus or .m4a for daily use; .flac for archiving.',
+      'Bit Depth (-sample_fmt)': '• Auto: Matches codec default.\n• 16-bit (s16): Standard CD quality.\n• 24-bit (s24) / 32-bit Float: Studio mastering headroom.\n★ Best choice: Auto (or 24-bit for FLAC masters).',
+      'Audio Filter (-af)': '• None: Untouched.\n• Loudnorm: Even -14 LUFS volume.\n• Bass Punch: +5dB low-end boost.\n• Trim Silence: Cuts dead silence at start/end.\n★ Best choice: Loudnorm for playlists.',
+      'ID3 & Cover Art': '• Forensic Scrub: Removes all tags + encoder info.\n• Wipe All: Clears title/artist/album tags.\n• Keep Cover Art Only: Keeps album art, wipes personal tags.\n★ Best choice: Wipe All or Keep Cover Art Only.',
+      'Image Format': '• .webp: ~30% smaller than JPG with sharp detail.\n• .jpg: Universal compatibility.\n• .png: Lossless + transparency.\n• .avif: Ultra-small next-gen format.\n★ Best choice: .webp for web/sharing; .png for graphics/thumbnails.',
+      'Max Width Scale': '• Keep Original: Full camera resolution.\n• 1920px / 1080px: Fast sharing & smaller size.\n★ Best choice: Keep Original for archive; 1920px for sharing.',
+      'Color & Chroma': '• sRGB 4:4:4: Sharpest text & car edges.\n• sRGB 4:2:0: Smaller photo size.\n• Lossless RGB24: Exact pixels for PNG.\n★ Best choice: sRGB 4:4:4.',
+      'Image Quality': '• 85% WebP or 92% JPG looks identical to original at a fraction of the size; 100% PNG is lossless.\n★ Best choice: 85% for WebP; 92% for JPG.',
+      'EXIF & GPS Privacy': '• Forensic Scrub: Wipes EXIF, GPS, XMP, ICC & thumbnails.\n• Wipe All: Removes all EXIF & GPS.\n• Strip GPS Only: Hides location, keeps lens/ISO.\n★ Best choice: Forensic Scrub or Wipe All before sharing.',
+      'Core Affinity': '• All 8 Cores: Fastest, OS-managed.\n• Perf + Prime (4-7): High speed, skips efficiency cores.\n• Efficiency (0-3): Coolest/slowest.\nNote: Android HyperOS may override pinning under thermal load.'
+    };
+
+    document.addEventListener('click', (e) => {
+      const ib = e.target.closest('[data-info]');
+      if (ib) {
+        e.stopPropagation();
+        const key = ib.getAttribute('data-info');
+        document.getElementById('info-pop-title').textContent = 'ⓘ ' + key;
+        document.getElementById('info-pop-body').textContent = INFO_DICT[key] || 'Technical FFmpeg parameter.';
+        document.getElementById('info-pop-modal').classList.remove('hidden');
+      }
+    });
+    document.getElementById('btn-info-pop-close').addEventListener('click', () => {
+      document.getElementById('info-pop-modal').classList.add('hidden');
+    });
+    document.getElementById('info-pop-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'info-pop-modal') document.getElementById('info-pop-modal').classList.add('hidden');
+    });
+    document.addEventListener('click', (e) => {
+      const ht = e.target.closest('[data-toggle-hints]');
+      if (ht) {
+        const hiddenNow = document.body.classList.toggle('hide-hints');
+        document.querySelectorAll('[data-toggle-hints]').forEach(b => {
+          b.textContent = hiddenNow ? 'ⓘ Hints: OFF' : 'ⓘ Hints: ON';
+          b.classList.toggle('is-off', hiddenNow);
+        });
+      }
+    });
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

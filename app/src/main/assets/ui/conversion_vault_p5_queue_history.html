@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Queue &amp; History</title>
+  <style>
+    :root {
+      /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 78px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    /* Top App Bar (Clean — No Theme Toggle) */
+    .app-bar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .page-title { font-size: 15.5px; font-weight: 800; line-height: 1.2; }
+    .page-sub { font-size: 10.5px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+    .btn-clear-hdr {
+      padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--muted); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .btn-clear-hdr:hover { border-color: var(--crimson); color: var(--crimson); }
+
+    .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+    /* Segmented Root Tabs (Active Queue vs History) */
+    .seg-tabs {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px;
+    }
+    .seg-tab {
+      padding: 8px 6px; border: none; border-radius: 7px; background: transparent;
+      color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer;
+      display: inline-flex; justify-content: center; align-items: center; gap: 6px;
+    }
+    .seg-tab.active { background: var(--crimson); color: #ffffff; }
+    .seg-cnt {
+      font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius: 999px;
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    /* Filter Chips (History) */
+    .filter-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+    .f-chip {
+      padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--muted); font-family: var(--mono);
+      font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .f-chip.active { background: var(--gold-soft); border-color: rgba(252, 209, 22, 0.55); color: var(--gold-text); }
+
+    /* Job & History Cards */
+    .card-list { display: flex; flex-direction: column; gap: 10px; }
+    .job-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; transition: border-color 0.15s ease;
+    }
+    .job-card.is-run { border-color: rgba(219, 10, 64, 0.7); box-shadow: inset 3px 0 0 var(--crimson); }
+    .job-card.is-done { box-shadow: inset 3px 0 0 var(--emerald); }
+    .job-card.is-fail { box-shadow: inset 3px 0 0 var(--gold); }
+
+    .job-main { padding: 12px 13px; display: flex; flex-direction: column; gap: 8px; }
+    .job-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .job-title { font-family: var(--mono); font-size: 12.5px; font-weight: 700; word-break: break-all; }
+    .job-sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
+    .status-pill {
+      font-family: var(--mono); font-size: 10px; font-weight: 800; padding: 3px 7px;
+      border-radius: 5px; white-space: nowrap;
+    }
+    .sp-run { background: var(--crimson-soft); color: var(--crimson); }
+    .sp-wait { background: var(--card-elev); border: 1px solid var(--border-strong); color: var(--muted); }
+    .sp-done { background: var(--emerald-soft); color: var(--emerald); }
+    .sp-fail { background: var(--gold-soft); color: var(--gold-text); }
+
+    .prog-track { width: 100%; height: 6px; background: var(--input); border-radius: 999px; overflow: hidden; }
+    .prog-fill { height: 100%; background: linear-gradient(90deg, var(--crimson), var(--gold)); border-radius: 999px; transition: width 0.2s ease; }
+
+    .job-metrics {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+    }
+    .c-emerald { color: var(--emerald); font-weight: 700; }
+    .c-gold { color: var(--gold-text); font-weight: 700; }
+
+    .job-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
+    .btn-sm {
+      padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 10.5px; font-weight: 700; cursor: pointer;
+    }
+    .btn-sm:hover { border-color: var(--crimson); color: var(--crimson); }
+    .btn-sm.primary { background: var(--crimson); border-color: var(--crimson); color: #ffffff; }
+    .btn-sm.primary:hover { background: var(--crimson-hover); }
+
+    /* Expandable History Drawer */
+    .hist-drawer {
+      background: #05070b; border-top: 1px dashed var(--border-strong); padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 8px;
+      font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+    }
+    .cmd-box {
+      background: var(--input); border: 1px solid var(--border); border-radius: 6px;
+      padding: 7px 9px; color: var(--gold-text); word-break: break-all; line-height: 1.45;
+    }
+
+    .empty-box {
+      background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius);
+      padding: 26px 16px; text-align: center; color: var(--muted); font-size: 12.5px;
+    }
+
+    /* Bottom Navigation Bar (3 Roots: Home · Queue & History · Settings) */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 540px; height: 64px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(4, 1fr); z-index: 40;
+    }
+    .nav-item {
+      border: none; background: transparent; color: var(--muted);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      font-size: 10.5px; font-weight: 700; cursor: pointer;
+    }
+    .nav-item.active { color: var(--crimson); }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 90;
+      background: rgba(5, 8, 15, 0.78);
+      display: flex; justify-content: center; align-items: center; padding: 16px;
+    }
+    .confirm-sheet {
+      width: 100%; max-width: 380px;
+      background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+    .confirm-title { font-size: 15px; font-weight: 800; color: var(--text); }
+    .confirm-desc { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+    .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .btn-danger-solid {
+      padding: 8px 14px; border-radius: 7px; border: 1px solid var(--crimson);
+      background: var(--crimson); color: #ffffff; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .btn-danger-solid:hover { background: var(--crimson-hover); }
+
+    .sub-filter-row { display: flex; gap: 5px; overflow-x: auto; padding-left: 2px; }
+    .sf-chip {
+      padding: 4px 9px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--card); color: var(--muted); font-family: var(--mono);
+      font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .sf-chip.active { border-color: var(--crimson); background: var(--crimson-soft); color: var(--crimson); }
+    .mod-tag {
+      font-family: var(--mono); font-size: 9.5px; font-weight: 700; padding: 2px 6px;
+      border-radius: 4px; background: var(--card-elev); border: 1px solid var(--border-strong); color: var(--gold-text);
+      display: inline-block; margin-bottom: 3px;
+    }
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top App Bar -->
+    <header class="app-bar">
+      <div>
+        <div class="page-title">Queue &amp; History</div>
+        <div class="page-sub">ACTIVE ENGINE RUNS &amp; COMPLETED EXPORTS</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- 2-Tab Switcher -->
+      <div class="seg-tabs" role="tablist">
+        <button type="button" class="seg-tab active" data-view="queue">
+          <span>Active Queue</span>
+          <span class="seg-cnt" id="cnt-queue">2</span>
+        </button>
+        <button type="button" class="seg-tab" data-view="history">
+          <span>History</span>
+          <span class="seg-cnt" id="cnt-hist">5</span>
+        </button>
+      </div>
+
+      <!-- ACTIVE QUEUE VIEW -->
+      <section id="view-queue" class="card-list" aria-label="Active Queue"></section>
+
+      <!-- HISTORY VIEW -->
+      <section id="view-history" class="hidden" style="display:flex; flex-direction:column; gap:10px;" aria-label="Conversion History">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div class="filter-row" id="hist-filters" style="flex:1;">
+            <button type="button" class="f-chip active" data-filter="all">All</button>
+            <button type="button" class="f-chip" data-filter="vault_core">Vault Core</button>
+            <button type="button" class="f-chip" data-filter="metadata">Metadata Modifier</button>
+            <button type="button" class="f-chip" data-filter="compressor">Target Compressor</button>
+            <button type="button" class="f-chip" data-filter="audio_tool">Audio Extract &amp; Mute</button>
+            <button type="button" class="f-chip" data-filter="trim_gif">Trim &amp; GIF</button>
+            <button type="button" class="f-chip" data-filter="thumb">Thumbnail Capturer</button>
+            <button type="button" class="f-chip" data-filter="cancelled">Cancelled</button>
+          </div>
+          <button type="button" id="btn-clear-hist" class="btn-clear-hdr">Clear</button>
+        </div>
+        <div class="sub-filter-row hidden" id="vault-subfilters">
+          <button type="button" class="sf-chip active" data-subfilter="all">All Vault Core</button>
+          <button type="button" class="sf-chip" data-subfilter="video">Videos</button>
+          <button type="button" class="sf-chip" data-subfilter="audio">Audios</button>
+          <button type="button" class="sf-chip" data-subfilter="image">Images</button>
+        </div>
+        <div class="card-list" id="hist-list"></div>
+      </section>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav" aria-label="Primary Navigation">
+      <button type="button" class="nav-item " data-nav="home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Home</span>
+      </button>
+      <button type="button" class="nav-item active" data-nav="queue">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Queue</span>
+      </button>
+      <button type="button" class="nav-item " data-nav="presets">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <span>Presets</span>
+      </button>
+      <button type="button" class="nav-item " data-nav="settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Clear History Confirmation Modal -->
+  <div class="modal-backdrop hidden" id="confirm-modal" role="dialog" aria-modal="true" aria-label="Confirm Clear History">
+    <div class="confirm-sheet">
+      <div class="confirm-title" id="confirm-title">Clear Conversion History?</div>
+      <div class="confirm-desc" id="confirm-desc">This will permanently remove all conversion logs from History. Your converted files on device storage will not be deleted.</div>
+      <div class="confirm-actions">
+        <button type="button" id="btn-confirm-cancel" class="btn-sm">Cancel</button>
+        <button type="button" id="btn-confirm-yes" class="btn-danger-solid">Yes, Clear History</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const state = {
+      view: 'queue',
+      filter: 'all',
+      subFilter: 'all',
+      pendingConfirm: null,
+      queue: [
+        {
+          id: 101,
+          title: 'Batch · Conversion_02 (4 Videos)',
+          sub: '60fps Reels HQ · Encoding porsche_tunnel_4k.mov',
+          dest: '/ConversionVault/Conversion_02/Videos/',
+          status: 'running',
+          paused: false,
+          pct: 64,
+          speed: '44 fps · ETA 00:34'
+        },
+        {
+          id: 102,
+          title: 'phonk_master_mix.wav',
+          sub: 'Opus 192k · 48kHz · EBU R128',
+          dest: '/ConversionVault/Audios/phonk_master_mix.opus',
+          status: 'queued',
+          paused: false,
+          pct: 0,
+          speed: 'Waiting in queue'
+        }
+      ],
+      history: [
+        {
+          id: 1, mod: 'vault_core', modLabel: 'Vault Core', cat: 'video', status: 'done', open: false,
+          title: 'gtr_night_ramp_reels.mp4', when: 'Today, 23:10', preset: '60fps Reels HQ · H.264 · 60fps',
+          delta: '64.2 → 26.8 MB (-58%)', dur: '00:41', dest: '/ConversionVault/Vault_Core/Videos/gtr_night_ramp_reels.mp4',
+          cmd: 'ffmpeg -y -threads 8 -i gtr_night_ramp.mp4 -c:v libx264 -crf 18 -maxrate 12M -r 60 -c:a aac -b:a 192k -sn -map_metadata -1 -movflags +faststart out.mp4'
+        },
+        {
+          id: 2, mod: 'vault_core', modLabel: 'Vault Core', cat: 'video', status: 'done', open: false,
+          title: 'Batch · Conversion_01 (8 Files)', when: 'Today, 22:05', preset: 'Mixed Presets (4 Vid · 2 Aud · 2 Img)',
+          delta: '340.2 → 132.8 MB (-61%)', dur: '02:04', dest: '/ConversionVault/Vault_Core/Conversion_01/',
+          cmd: 'Batch 8/8 complete · 0 errors · Peak 41°C'
+        },
+        {
+          id: 3, mod: 'metadata', modLabel: 'Metadata Modifier', cat: 'video', status: 'done', open: false,
+          title: 'clean_gtr_night_ramp.mp4', when: 'Today, 20:15', preset: 'Forensic Scrub (+bitexact)',
+          delta: '64.2 → 64.1 MB (Tags Wiped)', dur: '<1s', dest: '/ConversionVault/Metadata_Modifier/clean_gtr_night_ramp.mp4',
+          cmd: 'ffmpeg -y -i gtr_night_ramp.mp4 -c copy -map_metadata -1 -map_chapters -1 -fflags +bitexact clean_gtr_night_ramp.mp4'
+        },
+        {
+          id: 4, mod: 'compressor', modLabel: 'Target Compressor', cat: 'video', status: 'done', open: false,
+          title: '36mb_porsche_tunnel_4k.mov', when: 'Yesterday, 21:30', preset: 'Target Size Cap: 36 MB (HEVC 1080p)',
+          delta: '142.8 → 35.4 MB (-75%)', dur: '00:52', dest: '/ConversionVault/Target_Compressor/36mb_porsche_tunnel_4k.mov',
+          cmd: 'ffmpeg -y -i porsche_tunnel_4k.mov -c:v libx265 -b:v 11400k -vf scale=-2:1080 -c:a aac -b:a 128k 36mb_porsche_tunnel_4k.mov'
+        },
+        {
+          id: 5, mod: 'audio_tool', modLabel: 'Audio Extract & Mute', cat: 'audio', status: 'done', open: false,
+          title: 'gtr_night_ramp.opus', when: 'Yesterday, 19:42', preset: 'Opus 192k · 48kHz · Loudnorm',
+          delta: '64.2 → 1.9 MB (Extracted)', dur: '00:02', dest: '/ConversionVault/Audio_Extract_Mute/gtr_night_ramp.opus',
+          cmd: 'ffmpeg -y -i gtr_night_ramp.mp4 -vn -b:a 192k -ar 48000 -af loudnorm gtr_night_ramp.opus'
+        },
+        {
+          id: 6, mod: 'trim_gif', modLabel: 'Trim & GIF', cat: 'video', status: 'done', open: false,
+          title: 'cut_gtr_night_ramp.mp4', when: 'Nov 22, 18:05', preset: 'Fast Lossless Trim (00:04 → 00:12)',
+          delta: '64.2 → 17.1 MB (8.0s Cut)', dur: '<1s', dest: '/ConversionVault/Trim_GIF/cut_gtr_night_ramp.mp4',
+          cmd: 'ffmpeg -y -ss 00:00:04.0 -to 00:00:12.0 -i gtr_night_ramp.mp4 -c copy cut_gtr_night_ramp.mp4'
+        },
+        {
+          id: 7, mod: 'thumb', modLabel: 'Thumbnail Capturer', cat: 'image', status: 'done', open: false,
+          title: 'gtr_night_ramp_thumb.png', when: 'Nov 22, 17:50', preset: 'Lossless PNG @ 00:00:14.200',
+          delta: '1.8 MB (1080×1920 PNG)', dur: '<1s', dest: '/ConversionVault/Thumbnail_Capturer/gtr_night_ramp_thumb.png',
+          cmd: 'ffmpeg -y -ss 00:00:14.200 -i gtr_night_ramp.mp4 -frames:v 1 gtr_night_ramp_thumb.png'
+        },
+        {
+          id: 8, mod: 'vault_core', modLabel: 'Vault Core', cat: 'video', status: 'cancelled', open: false,
+          title: 'drift_slowmo_raw.mkv', when: 'Nov 20, 21:08', preset: 'HEVC 10-Bit Archive · CRF 19',
+          delta: 'Cancelled at 32%', dur: '00:19', dest: 'Not saved (Cancelled by user)',
+          cmd: 'ffmpeg -y -threads 8 -i drift_slowmo_raw.mp4 -c:v libx265 -crf 19 -pix_fmt yuv420p10le ...'
+        }
+      ]
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function render() {
+      document.querySelectorAll('.seg-tab').forEach(b => b.classList.toggle('active', b.getAttribute('data-view') === state.view));
+      document.getElementById('view-queue').classList.toggle('hidden', state.view !== 'queue');
+      document.getElementById('view-history').classList.toggle('hidden', state.view !== 'history');
+      document.getElementById('cnt-queue').textContent = String(state.queue.length);
+      document.getElementById('cnt-hist').textContent = String(state.history.length);
+      document.getElementById('btn-clear-hist').classList.toggle('hidden', state.history.length === 0);
+
+      // Render Active Queue
+      const qWrap = document.getElementById('view-queue');
+      if (state.queue.length === 0) {
+        qWrap.innerHTML = '<div class="empty-box">No active conversions running right now.</div>';
+      } else {
+        qWrap.innerHTML = state.queue.map(q => {
+          const isRun = q.status === 'running';
+          return `
+            <div class="job-card ${isRun ? 'is-run' : ''}">
+              <div class="job-main">
+                <div class="job-top">
+                  <div style="min-width:0;">
+                    <div class="job-title">${q.title}</div>
+                    <div class="job-sub">${q.sub}</div>
+                  </div>
+                  <span class="status-pill ${isRun ? 'sp-run' : 'sp-wait'}">${isRun ? (q.paused ? 'PAUSED' : q.pct + '%') : 'QUEUED'}</span>
+                </div>
+                ${isRun ? `<div class="prog-track"><div class="prog-fill" style="width:${q.pct}%;"></div></div>` : ''}
+                <div class="job-metrics">
+                  <span>${q.speed}</span>
+                  <span>→ ${q.dest}</span>
+                </div>
+                <div class="job-actions">
+                  ${isRun ? `
+                    <button type="button" class="btn-sm primary" data-qact="open" data-id="${q.id}">View Engine ↗</button>
+                    <button type="button" class="btn-sm" data-qact="pause" data-id="${q.id}">${q.paused ? '▶ Resume' : '⏸ Pause'}</button>
+                    <button type="button" class="btn-sm" data-qact="cancel" data-id="${q.id}">■ Cancel</button>
+                  ` : `
+                    <button type="button" class="btn-sm" data-qact="remove" data-id="${q.id}">× Remove</button>
+                  `}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Render History
+      document.querySelectorAll('.f-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-filter') === state.filter));
+      const subBar = document.getElementById('vault-subfilters');
+      subBar.classList.toggle('hidden', state.filter !== 'vault_core');
+      document.querySelectorAll('.sf-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-subfilter') === state.subFilter));
+
+      const items = state.history.filter(h => {
+        if (state.filter === 'all') return true;
+        if (state.filter === 'cancelled') return h.status === 'cancelled';
+        if (state.filter === 'vault_core') {
+          if (h.mod !== 'vault_core') return false;
+          return state.subFilter === 'all' ? true : h.cat === state.subFilter;
+        }
+        return h.mod === state.filter;
+      });
+      const hWrap = document.getElementById('hist-list');
+      if (items.length === 0) {
+        hWrap.innerHTML = '<div class="empty-box">No conversion history matches this filter.</div>';
+      } else {
+        hWrap.innerHTML = items.map(h => `
+          <div class="job-card ${h.status === 'done' ? 'is-done' : 'is-fail'}">
+            <div class="job-main">
+              <div class="job-top">
+                <div style="min-width:0;">
+                  <span class="mod-tag">${h.modLabel || "Vault Core"}</span><div class="job-title">${h.title}</div>
+                  <div class="job-sub">${h.preset} · ${h.when}</div>
+                </div>
+                <span class="status-pill ${h.status === 'done' ? 'sp-done' : 'sp-fail'}">${h.status === 'done' ? 'DONE' : 'CANCELLED'}</span>
+              </div>
+              <div class="job-metrics">
+                <span class="${h.status === 'done' ? 'c-emerald' : 'c-gold'}">${h.delta}</span>
+                <span>Time: ${h.dur}</span>
+              </div>
+              <div class="job-actions">
+                ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="folder" data-id="${h.id}">File Manager ↗</button>` : ''}
+                <button type="button" class="btn-sm" data-hact="rerun" data-id="${h.id}">${h.status === 'done' ? 'Edit &amp; Re-run ↻' : 'Re-queue Now ↻'}</button>
+                <button type="button" class="btn-sm" data-hact="toggle" data-id="${h.id}">${h.open ? 'Hide Details ▴' : 'Details ▾'}</button>
+              </div>
+            </div>
+            ${h.open ? `
+              <div class="hist-drawer">
+                <div><strong>Saved To:</strong> ${h.dest}</div>
+                <div class="cmd-box">${h.cmd}</div>
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                  <button type="button" class="btn-sm" data-hact="delete" data-id="${h.id}">Remove Log</button>
+                  ${h.status === 'done' ? `<button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-hact="delfile" data-id="${h.id}">Delete File</button>` : ''}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+      }
+    }
+
+    // Live gentle progress tick for running queue item
+    setInterval(() => {
+      const r = state.queue.find(q => q.status === 'running' && !q.paused);
+      if (r) {
+        r.pct = r.pct >= 99 ? 12 : r.pct + 1;
+        render();
+      }
+    }, 900);
+
+    document.addEventListener('click', (e) => {
+      const st = e.target.closest('.seg-tab');
+      if (st) { state.view = st.getAttribute('data-view'); render(); return; }
+
+      const fc = e.target.closest('.f-chip');
+      if (fc) { state.filter = fc.getAttribute('data-filter'); state.subFilter = 'all'; render(); return; }
+      const sfc = e.target.closest('.sf-chip');
+      if (sfc) { state.subFilter = sfc.getAttribute('data-subfilter'); render(); return; }
+
+      const qa = e.target.closest('[data-qact]');
+      if (qa) {
+        const act = qa.getAttribute('data-qact');
+        const id = parseInt(qa.getAttribute('data-id'), 10);
+        const job = state.queue.find(q => q.id === id);
+        if (!job) return;
+        if (act === 'open') showToast('Opening Live Engine Telemetry →');
+        else if (act === 'pause') { job.paused = !job.paused; render(); }
+        else if (act === 'cancel' || act === 'remove') {
+          state.queue = state.queue.filter(q => q.id !== id);
+          state.history.unshift({
+            id: Date.now(),
+            cat: job.title.toLowerCase().includes('.wav') || job.title.toLowerCase().includes('opus') ? 'audio' : 'video',
+            status: 'cancelled',
+            open: false,
+            title: job.title,
+            when: 'Just now',
+            preset: job.sub,
+            delta: act === 'cancel' ? ('Cancelled at ' + job.pct + '%') : 'Removed from queue',
+            dur: '—',
+            dest: 'Not saved (Cancelled)',
+            cmd: 'Cancelled by user before completion'
+          });
+          showToast('Moved to History (Cancelled)');
+          render();
+        }
+        return;
+      }
+
+      const ha = e.target.closest('[data-hact]');
+      if (ha) {
+        const act = ha.getAttribute('data-hact');
+        const id = parseInt(ha.getAttribute('data-id'), 10);
+        const item = state.history.find(h => h.id === id);
+        if (!item) return;
+        if (act === 'toggle') { item.open = !item.open; render(); }
+        else if (act === 'folder') showToast('Opening ' + item.dest + ' in File Manager →');
+        else if (act === 'rerun') {
+          if (item.status === 'done') {
+            showToast('Opening Format Selection with "' + item.preset + '" loaded →');
+          } else {
+            state.queue.push({
+              id: Date.now(),
+              title: item.title,
+              sub: item.preset + ' · Re-queued from stopped',
+              dest: '/ConversionVault/Videos/' + item.title,
+              status: 'queued',
+              paused: false,
+              pct: 0,
+              speed: 'Waiting in queue'
+            });
+            state.view = 'queue';
+            render();
+            showToast('Re-queued "' + item.title + '" into Active Queue');
+          }
+        }
+        else if (act === 'delete') {
+          state.history = state.history.filter(h => h.id !== id);
+          showToast('Log removed');
+          render();
+        } else if (act === 'delfile') {
+          state.pendingConfirm = { type: 'delfile', id: item.id, title: item.title };
+          document.getElementById('confirm-title').textContent = 'Delete Output File?';
+          document.getElementById('confirm-desc').textContent =
+            'This will permanently delete "' + item.title + '" from device storage (' + item.dest + ') and remove this log entry.';
+          document.getElementById('btn-confirm-yes').textContent = 'Yes, Delete File';
+          document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+        return;
+      }
+
+      const nav = e.target.closest('[data-nav]');
+      if (nav) {
+        const target = nav.getAttribute('data-nav');
+        if (target === 'home') showToast('Navigating to Home →');
+        else if (target === 'settings') showToast('Navigating to Settings →');
+      }
+    });
+
+    document.getElementById('btn-clear-hist').addEventListener('click', () => {
+      state.pendingConfirm = { type: 'clear' };
+      document.getElementById('confirm-title').textContent = 'Clear Conversion History?';
+      document.getElementById('confirm-desc').textContent =
+        'This will permanently remove all ' + state.history.length + ' conversion log(s) from History. Your converted files on storage will not be deleted.';
+      document.getElementById('btn-confirm-yes').textContent = 'Yes, Clear History';
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    });
+    document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
+      state.pendingConfirm = null;
+      document.getElementById('confirm-modal').classList.add('hidden');
+    });
+    document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+      if (state.pendingConfirm && state.pendingConfirm.type === 'delfile') {
+        const delId = state.pendingConfirm.id;
+        const delName = state.pendingConfirm.title;
+        state.history = state.history.filter(h => h.id !== delId);
+        showToast('Deleted file: ' + delName);
+      } else {
+        state.history = [];
+        showToast('History cleared');
+      }
+      state.pendingConfirm = null;
+      document.getElementById('confirm-modal').classList.add('hidden');
+      render();
+    });
+
+    render();
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

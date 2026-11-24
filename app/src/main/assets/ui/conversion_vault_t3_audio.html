@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Audio Extract &amp; Mute</title>
+  <style>
+    :root {
+      --bg:#090d16; --surface:#0f1624; --card:#131c2e; --card-elev:#172236; --input:#0a0f1a;
+      --border:#1e293b; --border-strong:#334155; --text:#f8fafc; --muted:#94a3b8; --subtle:#64748b;
+      --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14); --crimson-hover:#be0837;
+      --gold:#fcd116; --gold-soft:rgba(252,209,22,0.13); --gold-text:#fcd116;
+      --emerald:#10b981; --emerald-soft:rgba(16,185,129,0.14);
+      --radius:12px; --radius-sm:8px;
+      --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13.5px;line-height:1.45;min-height:100vh;display:flex;justify-content:center;}
+    .app-frame{width:100%;max-width:540px;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);padding-bottom:84px;}
+    @media(min-width:600px){.app-frame{border-left:1px solid var(--border);border-right:1px solid var(--border);}}
+    .app-bar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .bar-left{display:flex;align-items:center;gap:10px;}
+    .back-btn{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+    .back-btn:hover{border-color:var(--crimson);color:var(--crimson);}
+    .page-title{font-size:15px;font-weight:700;line-height:1.2;}
+    .page-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
+    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--emerald-soft);color:var(--emerald);border:1px solid rgba(16,185,129,0.35);}
+    .content{padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1;}
+    .card-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:11px;}
+    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);}
+    .file-pick{background:var(--card-elev);border:1px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .fname{font-family:var(--mono);font-size:12.5px;font-weight:700;word-break:break-all;}
+    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;}
+    .btn-sm{padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .btn-sm:hover{border-color:var(--crimson);color:var(--crimson);}
+    .mode-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+    .mode-btn{padding:10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;}
+    .mode-btn.active{border-color:var(--emerald);background:var(--emerald-soft);color:var(--text);}
+    .mode-btn strong{font-size:12.5px;}
+    .mode-btn small{font-family:var(--mono);font-size:10px;color:var(--muted);}
+    .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+    .field{display:flex;flex-direction:column;gap:4px;}
+    .field label{font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--muted);}
+    .field select{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--border-strong);background:var(--input);color:var(--text);font-size:12px;}
+    .cmd-wrap{background:#05070b;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;}
+    .cmd-box{font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.45;word-break:break-all;}
+    .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:540px;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:40;}
+    .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;}
+    .btn-primary:hover{background:var(--crimson-hover);}
+    .dest-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+    .dest-pill{padding:7px 6px;border-radius:7px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;text-align:center;}
+    .dest-pill.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
+    .dest-path-bar{background:var(--input);border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-family:var(--mono);font-size:10.5px;color:var(--emerald);word-break:break-all;}
+    .hidden{display:none !important;}
+    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast.show{opacity:1;}
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Home">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <div>
+          <div class="page-title">Audio Extract &amp; Mute</div>
+          <div class="page-sub">QUICK TOOL · STRIP AUDIO OR EXTRACT TRACK</div>
+        </div>
+      </div>
+      <span class="badge">AUDIO</span>
+    </header>
+
+    <main class="content">
+      <section class="card-box">
+        <div class="sec-lbl">1. Source Video</div>
+        <div class="file-pick">
+          <div style="min-width:0;">
+            <div class="fname" id="lbl-fname">gtr_night_ramp.mp4</div>
+            <div class="fmeta" id="lbl-fmeta">64.2 MB · Audio: AAC-LC 192k · 48 kHz</div>
+          </div>
+          <button type="button" id="btn-pick" class="btn-sm">Change File</button>
+          <input type="file" id="inp-file" class="hidden" accept="video/*">
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl">2. Operation Mode</div>
+        <div class="mode-grid" id="mode-grid">
+          <button type="button" class="mode-btn active" data-mode="extract">
+            <strong>Extract Audio Track</strong>
+            <small>Pulls audio out (-vn)</small>
+          </button>
+          <button type="button" class="mode-btn" data-mode="mute">
+            <strong>Mute Video (Zero Loss)</strong>
+            <small>Strips audio (-c:v copy -an)</small>
+          </button>
+        </div>
+
+        <div id="extract-opts" class="grid-2">
+          <div class="field"><label for="sel-fmt">Output Format</label>
+            <select id="sel-fmt">
+              <option value="opus">.opus (Transparent)</option>
+              <option value="flac">.flac (Lossless)</option>
+              <option value="mp3">.mp3 (320k LAME)</option>
+              <option value="m4a">.m4a (Copy AAC / Re-enc)</option>
+              <option value="wav">.wav (PCM 16-bit)</option>
+            </select>
+          </div>
+          <div class="field"><label for="sel-br">Bitrate</label>
+            <select id="sel-br"><option value="128k">128 kbps</option><option value="192k" selected>192 kbps</option><option value="320k">320 kbps</option></select>
+          </div>
+          <div class="field"><label for="sel-ar">Sample Rate</label>
+            <select id="sel-ar"><option value="48000" selected>48,000 Hz</option><option value="44100">44,100 Hz</option></select>
+          </div>
+          <div class="field"><label for="sel-norm">Normalization</label>
+            <select id="sel-norm"><option value="none">None</option><option value="loudnorm">EBU R128 Loudnorm</option></select>
+          </div>
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl">3. Generated FFmpeg Command</div>
+        <div class="cmd-wrap"><div class="cmd-box" id="cmd-box"></div></div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="btn-copy" class="btn-sm" style="flex:1;">Copy Command</button>
+          <button type="button" id="btn-sh" class="btn-sm" style="flex:1;">Export .sh (/SH_Scripts/)</button>
+        </div>
+      </section>
+      <section class="card-box" aria-label="Output Location">
+        <div class="sec-lbl"><span>Save Location</span></div>
+        <div class="dest-pills" id="dest-pills">
+          <button type="button" class="dest-pill active" data-dest="vault">Vault Folder</button>
+          <button type="button" class="dest-pill" data-dest="source">Source Folder</button>
+          <button type="button" class="dest-pill" data-dest="custom">Custom ↗</button>
+        </div>
+        <div class="dest-path-bar" id="lbl-dest-path">/storage/emulated/0/ConversionVault/Audio_Extract_Mute/gtr_night_ramp.opus</div>
+      </section>
+    </main>
+
+    <footer class="bottom-bar">
+      <button type="button" id="btn-fm" class="btn-sm" style="padding:10px 12px;">File Manager ↗</button>
+      <button type="button" id="btn-run" class="btn-primary">Run Audio Tool ▶</button>
+    </footer>
+  </div>
+  <div class="toast" id="toast">Ready</div>
+  <script>
+    const state = { fname: 'gtr_night_ramp.mp4', mode: 'extract', fmt: 'opus', br: '192k', ar: '48000', norm: 'none' };
+    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+    function render() {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode') === state.mode));
+      document.getElementById('extract-opts').classList.toggle('hidden', state.mode !== 'extract');
+      const base = state.fname.replace(/\.[^.]+$/, '');
+      let cmd = '';
+      if (state.mode === 'mute') {
+        cmd = `ffmpeg -y -i "${state.fname}" -c:v copy -an -movflags +faststart "muted_${state.fname}"`;
+      } else {
+        const af = state.norm === 'loudnorm' ? ' -af loudnorm' : '';
+        const br = (state.fmt === 'flac' || state.fmt === 'wav') ? '' : ` -b:a ${state.br}`;
+        cmd = `ffmpeg -y -i "${state.fname}" -vn${br} -ar ${state.ar}${af} -map_metadata -1 "${base}.${state.fmt}"`;
+      }
+      document.getElementById('cmd-box').textContent = '$ ' + cmd;
+    }
+    document.getElementById('mode-grid').addEventListener('click', (e) => {
+      const b = e.target.closest('.mode-btn');
+      if (b) { state.mode = b.getAttribute('data-mode'); render(); }
+    });
+    document.getElementById('sel-fmt').addEventListener('change', function() { state.fmt = this.value; render(); });
+    document.getElementById('sel-br').addEventListener('change', function() { state.br = this.value; render(); });
+    document.getElementById('sel-ar').addEventListener('change', function() { state.ar = this.value; render(); });
+    document.getElementById('sel-norm').addEventListener('change', function() { state.norm = this.value; render(); });
+    document.getElementById('btn-pick').addEventListener('click', () => document.getElementById('inp-file').click());
+    document.getElementById('inp-file').addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        state.fname = this.files[0].name;
+        document.getElementById('lbl-fname').textContent = state.fname;
+        document.getElementById('lbl-fmeta').textContent = (this.files[0].size / (1024 * 1024)).toFixed(1) + ' MB · Loaded';
+        render();
+      }
+    });
+    document.getElementById('btn-copy').addEventListener('click', () => showToast('Copied FFmpeg command'));
+    document.getElementById('btn-sh').addEventListener('click', () => showToast('Saved to /ConversionVault/SH_Scripts/audio_tool.sh'));
+    document.getElementById('btn-fm').addEventListener('click', () => showToast('Opening /ConversionVault/ in File Manager →'));
+    document.getElementById('btn-run').addEventListener('click', () => showToast(state.mode === 'mute' ? 'Muted video saved ✓' : 'Extracted .' + state.fmt + ' audio ✓'));
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+    render();
+    let destMode = 'vault';
+    function updateDestPath() {
+      const base = destMode === 'vault' ? '/storage/emulated/0/ConversionVault/Audio_Extract_Mute/' : (destMode === 'source' ? '/Movies/AlightMotion/Converted/' : '/storage/emulated/0/Documents/Exports/');
+      document.getElementById('lbl-dest-path').textContent = base + 'gtr_night_ramp.opus';
+    }
+    document.getElementById('dest-pills').addEventListener('click', (e) => {
+      const p = e.target.closest('.dest-pill');
+      if (!p) return;
+      destMode = p.getAttribute('data-dest');
+      document.querySelectorAll('.dest-pill').forEach(x => x.classList.toggle('active', x.getAttribute('data-dest') === destMode));
+      updateDestPath();
+      if (destMode === 'custom') showToast('Pick custom output folder →');
+    });
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Settings</title>
+  <style>
+    :root, [data-theme="dark"] {
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+    }
+
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --card: #f1f5f9;
+      --card-elev: #e2e8f0;
+      --input: #ffffff;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --muted: #475569;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.10);
+      --crimson-hover: #be0837;
+      --gold: #eab308;
+      --gold-soft: rgba(234, 179, 8, 0.14);
+      --gold-text: #a16207;
+      --emerald: #059669;
+      --emerald-soft: rgba(5, 150, 105, 0.12);
+    }
+
+    :root {
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      transition: background 0.18s ease, color 0.18s ease;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 78px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    /* Top App Bar */
+    .app-bar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .page-title { font-size: 15.5px; font-weight: 800; line-height: 1.2; display:flex; align-items:center; gap:8px; }
+    .page-sub { font-size: 10.5px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+
+    .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+    .sec-lbl {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); margin-bottom: -6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .sec-lbl svg { color: var(--crimson); flex-shrink: 0; }
+
+    .set-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 13px 14px; display: flex; flex-direction: column; gap: 11px;
+    }
+
+    /* Theme Picker (Dark vs Light Red Bull) */
+    .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .theme-opt {
+      padding: 10px; border-radius: 9px; border: 1px solid var(--border-strong);
+      background: var(--card); color: var(--text); cursor: pointer; text-align: left;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .theme-opt.active { border-color: var(--crimson); box-shadow: inset 0 0 0 1px var(--crimson); }
+    .swatch-row { display: flex; gap: 4px; align-items: center; }
+    .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(128, 128, 128, 0.35); }
+    .theme-name { font-size: 12.5px; font-weight: 700; display: block; }
+    .theme-desc { font-family: var(--mono); font-size: 10px; color: var(--muted); display: block; }
+
+    /* Form Rows & Toggles */
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field.border-top { padding-top: 9px; border-top: 1px solid var(--border); }
+    .field label { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    select, input[type="text"] {
+      width: 100%; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid var(--border-strong); background: var(--input); color: var(--text);
+      font-size: 12px; font-family: var(--sans);
+    }
+    .path-stack { display: flex; flex-direction: column; gap: 7px; }
+    .path-pill {
+      width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--input); font-family: var(--mono); font-size: 11.5px; color: var(--text);
+      word-break: break-all; line-height: 1.4;
+    }
+    .path-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .path-actions .btn-sm { justify-content: center; }
+    .btn-sm {
+      padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn-sm:hover { border-color: var(--crimson); color: var(--crimson); }
+
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .toggle-row.border-top { padding-top: 9px; border-top: 1px solid var(--border); }
+    .toggle-title { font-size: 13px; font-weight: 700; display: block; }
+    .toggle-sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); display: block; margin-top: 1px; }
+
+    .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; background: var(--card-elev); border: 1px solid var(--border-strong);
+      border-radius: 999px; cursor: pointer; transition: 0.2s;
+    }
+    .slider:before {
+      content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px;
+      background: var(--muted); border-radius: 50%; transition: 0.2s;
+    }
+    .switch input:checked + .slider { background: var(--crimson); border-color: var(--crimson); }
+    .switch input:checked + .slider:before { transform: translateX(18px); background: #ffffff; }
+
+    /* Hardware Profile Box */
+    .hw-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    .hw-cell { background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; }
+    .hw-k { font-family: var(--mono); font-size: 9.5px; color: var(--muted); text-transform: uppercase; display: block; }
+    .hw-v { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text); margin-top: 2px; display: block; }
+    .c-emerald { color: var(--emerald); }
+    .cap-list { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .cap-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px;
+    }
+    .cap-l { min-width: 0; }
+    .cap-name { font-size: 11.5px; font-weight: 700; display: block; }
+    .cap-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); display: block; margin-top: 1px; }
+    .cap-badge {
+      font-family: var(--mono); font-size: 10px; font-weight: 800; padding: 2px 7px;
+      border-radius: 5px; white-space: nowrap;
+    }
+    .cb-ok { background: var(--emerald-soft); color: var(--emerald); }
+    .cb-warn { background: var(--gold-soft); color: var(--gold-text); }
+    .cb-no { background: var(--crimson-soft); color: var(--crimson); }
+
+    /* FFmpeg Encyclopedia */
+    .encyc-head-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .encyc-cnt { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--gold-text); }
+    .encyc-list { display: flex; flex-direction: column; gap: 7px; max-height: 320px; overflow-y: auto; }
+    .encyc-item {
+      background: var(--card); border: 1px solid var(--border); border-radius: 7px;
+      padding: 8px 10px; display: flex; flex-direction: column; gap: 3px;
+    }
+    .encyc-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .encyc-flag { font-family: var(--mono); font-size: 11.5px; font-weight: 800; color: var(--crimson); }
+    .encyc-cat {
+      font-family: var(--mono); font-size: 9px; font-weight: 800; padding: 1px 5px;
+      border-radius: 4px; background: var(--surface); border: 1px solid var(--border-strong); color: var(--muted);
+    }
+    .encyc-desc { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
+    .about-foot {
+      text-align: center; font-family: var(--mono); font-size: 10.5px; color: var(--subtle);
+      padding: 6px 0 10px;
+    }
+
+    /* Bottom Navigation Bar (3 Roots: Home · Queue & History · Settings) */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 540px; height: 64px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(4, 1fr); z-index: 40;
+    }
+    .nav-item {
+      border: none; background: transparent; color: var(--muted);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      font-size: 10.5px; font-weight: 700; cursor: pointer;
+    }
+    .nav-item.active { color: var(--crimson); }
+
+    .toast {
+      position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top App Bar -->
+    <header class="app-bar">
+      <div>
+        <div class="page-title">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>Settings</span>
+        </div>
+        <div class="page-sub">THEME · OUTPUT DEFAULTS · HARDWARE · FFMPEG GUIDE</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- 1. APPEARANCE (Sole Theme Switcher) -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+        <span>1. Appearance</span>
+      </div>
+      <section class="set-card" aria-label="Appearance Theme">
+        <div class="theme-grid" id="theme-grid">
+          <button type="button" class="theme-opt active" data-set-theme="dark">
+            <div class="swatch-row">
+              <span class="swatch" style="background:#090d16;"></span>
+              <span class="swatch" style="background:#db0a40;"></span>
+              <span class="swatch" style="background:#fcd116;"></span>
+            </div>
+            <div>
+              <span class="theme-name">Red Bull Dark</span>
+              <span class="theme-desc">Deep Navy · Crimson · Gold</span>
+            </div>
+          </button>
+          <button type="button" class="theme-opt" data-set-theme="light">
+            <div class="swatch-row">
+              <span class="swatch" style="background:#ffffff;"></span>
+              <span class="swatch" style="background:#db0a40;"></span>
+              <span class="swatch" style="background:#eab308;"></span>
+            </div>
+            <div>
+              <span class="theme-name">Red Bull Light</span>
+              <span class="theme-desc">Crisp White · Crimson · Gold</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <!-- 2. OUTPUT & STORAGE DEFAULTS -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>2. Output &amp; Storage Defaults</span>
+      </div>
+      <section class="set-card" aria-label="Output Defaults">
+        <div class="field">
+          <label>Default Vault Folder</label>
+          <div class="path-stack">
+            <div class="path-pill" id="lbl-vault-path">/storage/emulated/0/ConversionVault/</div>
+            <div class="path-actions">
+              <button type="button" id="btn-pick-vault" class="btn-sm">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <span>Change Folder</span>
+              </button>
+              <button type="button" id="btn-open-vault-fm" class="btn-sm" style="border-color:var(--gold); color:var(--gold-text);">File Manager ↗</button>
+            </div>
+          </div>
+        </div>
+        <div class="field border-top">
+          <label for="sel-def-sub">Default Batch Subfolder Style</label>
+          <select id="sel-def-sub">
+            <option value="numbered" selected>Conversion_01 (Auto-Numbered)</option>
+            <option value="date">Nov_23 (Clean Date)</option>
+            <option value="none">None (Direct in Root)</option>
+          </select>
+        </div>
+        <div class="field border-top">
+          <label for="sel-def-suffix">Default Filename Suffix (All Modules)</label>
+          <select id="sel-def-suffix">
+            <option value="none" selected>Keep Original Name (Auto _1, _2 if file exists)</option>
+            <option value="_vault">Append _vault (e.g. clip_vault.mp4)</option>
+            <option value="_converted">Append _converted</option>
+          </select>
+        </div>
+        <div class="toggle-row border-top">
+          <div>
+            <span class="toggle-title">Separate Videos / Audios / Images</span>
+            <span class="toggle-sub">Auto-sort exports by media type</span>
+          </div>
+          <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+        </div>
+        <div class="field border-top">
+          <label for="sel-src-policy">Original Source File Policy</label>
+          <select id="sel-src-policy">
+            <option value="keep" selected>Keep Original Source File (Safe Default)</option>
+            <option value="ask">Ask After Every Conversion</option>
+            <option value="trash">Move Source to Trash After Verified Export</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- 3. ENGINE & HARDWARE PROFILE -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/></svg>
+        <span>3. Device Hardware &amp; Engine</span>
+      </div>
+      <section class="set-card" aria-label="Device Hardware Profile">
+        <div class="hw-grid">
+          <div class="hw-cell"><span class="hw-k">Device Model</span><span class="hw-v">POCO X7 Pro</span></div>
+          <div class="hw-cell"><span class="hw-k">SoC &amp; Cores</span><span class="hw-v">D8400-U · 8x A725</span></div>
+          <div class="hw-cell"><span class="hw-k">CPU Clusters</span><span class="hw-v">1×3.25 + 3×3.0 + 4×2.1G</span></div>
+          <div class="hw-cell"><span class="hw-k">RAM &amp; Storage</span><span class="hw-v">LPDDR5X · UFS 4.0</span></div>
+          <div class="hw-cell"><span class="hw-k">ABI &amp; Page Size</span><span class="hw-v c-emerald">arm64-v8a · 16KB ✓</span></div>
+          <div class="hw-cell"><span class="hw-k">Max HW Decode</span><span class="hw-v">4K 60fps · 1080p 120fps</span></div>
+        </div>
+
+        <div class="cap-list">
+          <span class="hw-k" style="margin-bottom:1px;">Best Supported Formats for This Device</span>
+          <div class="cap-row">
+            <div class="cap-l">
+              <span class="cap-name">MP4 · H.264 (yuv420p 8-bit)</span>
+              <span class="cap-sub">Best compatibility · Reels &amp; Alight Motion</span>
+            </div>
+            <span class="cap-badge cb-ok">BEST OVERALL</span>
+          </div>
+          <div class="cap-row">
+            <div class="cap-l">
+              <span class="cap-name">MKV · HEVC 10-bit (yuv420p10le)</span>
+              <span class="cap-sub">HDR / Archive · Full HW Decode</span>
+            </div>
+            <span class="cap-badge cb-ok">10-BIT SAFE</span>
+          </div>
+          <div class="cap-row">
+            <div class="cap-l">
+              <span class="cap-name">MP4 / MKV · AV1 (libsvtav1)</span>
+              <span class="cap-sub">Smallest size · HW Decode ✓ · CPU Encode</span>
+            </div>
+            <span class="cap-badge cb-warn">SLOWER CPU</span>
+          </div>
+          <div class="cap-row">
+            <div class="cap-l">
+              <span class="cap-name">H.264 10-bit (Hi10P)</span>
+              <span class="cap-sub">No MediaCodec HW decode on Dimensity</span>
+            </div>
+            <span class="cap-badge cb-no">AVOID</span>
+          </div>
+          <div class="cap-row">
+            <div class="cap-l">
+              <span class="cap-name">Opus 192k · FLAC 24-bit</span>
+              <span class="cap-sub">Best audio efficiency &amp; lossless</span>
+            </div>
+            <span class="cap-badge cb-ok">~130x RT</span>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <div>
+            <span class="toggle-title">Sample &amp; Playback Tester</span>
+            <span class="toggle-sub">Generate test files (0 MB bloat) to check device playback</span>
+          </div>
+          <button type="button" id="btn-open-tester" class="btn-sm" style="border-color:var(--crimson); color:var(--crimson);">Open Tester ↗</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <span class="toggle-sub" id="lbl-bench">Calibrated: ~44 fps (1080p60 x264)</span>
+          <button type="button" id="btn-rebench" class="btn-sm">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <span>Re-benchmark</span>
+          </button>
+        </div>
+        <div class="field border-top">
+          <label for="sel-def-threads">Default CPU Threads (-threads)</label>
+          <select id="sel-def-threads">
+            <option value="8" selected>Auto · 8 Threads (Fastest)</option>
+            <option value="6">6 Threads (Balanced Thermals)</option>
+            <option value="4">4 Threads (Coolest Battery)</option>
+          </select>
+        </div>
+        <div class="field border-top">
+          <label for="sel-hw-pref">Encoder Engine Preference</label>
+          <select id="sel-hw-pref">
+            <option value="sw_hq" selected>Software x264/x265 (Max Quality)</option>
+            <option value="hw_fast">MediaCodec Hardware (Fastest / Coolest)</option>
+          </select>
+        </div>
+        <div class="field border-top">
+          <label for="sel-loglevel">FFmpeg Console Log Level (-loglevel)</label>
+          <select id="sel-loglevel">
+            <option value="info" selected>info (Standard Frame Telemetry)</option>
+            <option value="warning">warning (Errors &amp; Warnings Only)</option>
+            <option value="verbose">verbose (Deep Debug)</option>
+          </select>
+        </div>
+        <div class="toggle-row border-top">
+          <div>
+            <span class="toggle-title">Thermal Guard (&gt;45°C Throttle)</span>
+            <span class="toggle-sub">Auto-step down threads if battery heats up</span>
+          </div>
+          <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row border-top">
+          <div>
+            <span class="toggle-title">Keep Screen Awake During Run</span>
+            <span class="toggle-sub">Prevents HyperOS from sleeping FFmpeg</span>
+          </div>
+          <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+        </div>
+      </section>
+
+      <!-- 4. SAVED PRESETS MANAGER -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        <span>4. Saved Presets</span>
+      </div>
+      <section class="set-card" aria-label="Saved Presets Manager">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div>
+            <span class="toggle-title">Custom Preset Library</span>
+            <span class="toggle-sub">1 saved preset · Synced across Single &amp; Batch</span>
+          </div>
+          <span class="cap-badge cb-warn">1 SAVED</span>
+        </div>
+        <div class="cap-row">
+          <div class="cap-l">
+            <span class="cap-name">My Daily Car Edit</span>
+            <span class="cap-sub">MP4 · 1080×1920 60fps · CRF 17 · AAC 256k · Forensic</span>
+          </div>
+          <button type="button" id="btn-manage-presets" class="btn-sm">Edit</button>
+        </div>
+        <div style="display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <button type="button" id="btn-import-presets" class="btn-sm" style="flex:1; justify-content:center;">Import JSON</button>
+          <button type="button" id="btn-export-presets" class="btn-sm" style="flex:1; justify-content:center;">Export JSON</button>
+        </div>
+      </section>
+
+      <!-- 5. PRIVACY & CACHE -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>5. Privacy &amp; Cache</span>
+      </div>
+      <section class="set-card" aria-label="Privacy and Cache">
+        <div class="field">
+          <label for="sel-def-meta">Default Metadata Policy</label>
+          <select id="sel-def-meta">
+            <option value="forensic">Forensic Scrub (+bitexact, Chapters, Encoder &amp; Tags)</option>
+            <option value="wipe" selected>Wipe All Tags (-map_metadata -1)</option>
+            <option value="gps">Strip GPS Coordinates Only</option>
+            <option value="keep">Keep Original Metadata</option>
+          </select>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <div>
+            <span class="toggle-title">Probe &amp; Temp Cache</span>
+            <span class="toggle-sub" id="lbl-cache">12.4 MB cached FFprobe thumbnails</span>
+          </div>
+          <button type="button" id="btn-clear-cache" class="btn-sm">Clear Cache</button>
+        </div>
+        <div class="field border-top">
+          <label for="sel-sample-ttl">Auto-Delete Saved Samples After</label>
+          <select id="sel-sample-ttl">
+            <option value="5">5 Days (Keep Storage Lean)</option>
+            <option value="7">7 Days</option>
+            <option value="15" selected>15 Days (Default)</option>
+            <option value="30">30 Days</option>
+            <option value="never">Never Auto-Delete</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- 6. FFMPEG PARAMETER ENCYCLOPEDIA (28 Flags) -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>6. FFmpeg Parameter Encyclopedia</span>
+      </div>
+      <section class="set-card" aria-label="FFmpeg Encyclopedia">
+        <div class="encyc-head-row">
+          <input type="text" id="inp-encyc-search" placeholder="Search 45 flags: -crf, -g, bitexact, transpose, sub, loudnorm...">
+          <span class="encyc-cnt" id="encyc-cnt">45</span>
+        </div>
+        <div class="encyc-list" id="encyc-list"></div>
+      </section>
+
+      <div class="about-foot">
+        Conversion Vault v1.0 · FFmpeg 6.1 Full-GPL (16KB) · 100% Offline
+      </div>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav" aria-label="Primary Navigation">
+      <button type="button" class="nav-item " data-nav="home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Home</span>
+      </button>
+      <button type="button" class="nav-item " data-nav="queue">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Queue</span>
+      </button>
+      <button type="button" class="nav-item " data-nav="presets">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <span>Presets</span>
+      </button>
+      <button type="button" class="nav-item active" data-nav="settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const ENCYC = [
+      { cat: 'VIDEO', flag: '-c:v (Video Codec)', desc: 'Selects video encoder: libx264 (H.264), libx265 (HEVC), libsvtav1 (AV1), libvpx-vp9, or copy (zero loss).' },
+      { cat: 'VIDEO', flag: '-crf (Constant Rate Factor)', desc: 'Balances visual quality vs. size (0–51). CRF 18 is visually lossless for H.264; 0 is true lossless.' },
+      { cat: 'VIDEO', flag: '-preset (Encoder Speed)', desc: 'Compression efficiency vs. speed (ultrafast to veryslow). Slower presets make smaller files at the same CRF.' },
+      { cat: 'VIDEO', flag: '-tune (Encoder Tuning)', desc: 'Optimizes encoder for film, grain (preserves night/paint texture), animation, fastdecode, or zerolatency.' },
+      { cat: 'VIDEO', flag: '-profile:v & -level', desc: 'Sets H.264/HEVC decoder profile (Baseline, Main, High, Main 10) and level (e.g., L4.2 for 1080p60).' },
+      { cat: 'VIDEO', flag: '-maxrate & -bufsize', desc: 'Caps bitrate spikes for Reels/WhatsApp (e.g., 12M maxrate with 24M bufsize) to avoid re-compression.' },
+      { cat: 'VIDEO', flag: '-b:v (Target Bitrate)', desc: 'Sets average video bitrate (e.g., 8M) instead of CRF. Used for strict MB file-size caps.' },
+      { cat: 'VIDEO', flag: '-g (GOP / Keyframe Interval)', desc: 'Frames between keyframes. -g 1 creates All-I intra-frame video for instant editor scrubbing; -g 120 suits 60fps streaming.' },
+      { cat: 'VIDEO', flag: '-bf (Max B-Frames)', desc: 'Bidirectional predicted frames (0–4). 0 removes decode lag in editors; 2–3 improves compression.' },
+      { cat: 'VIDEO', flag: '-refs (Reference Frames)', desc: 'Number of past frames used for motion prediction (1–16). Higher = better compression, more RAM.' },
+      { cat: 'VIDEO', flag: '-r (Output Frame Rate)', desc: 'Converts video FPS (e.g., -r 30 or -r 60) to enforce constant frame rate (CFR).' },
+      { cat: 'VIDEO', flag: '-vf scale=W:H', desc: 'Resizes video resolution (e.g., scale=1080:-2 keeps aspect ratio with even height for yuv420p).' },
+      { cat: 'VIDEO', flag: '-vf crop=W:H:X:Y', desc: 'Crops video to exact aspect ratio (e.g., 9:16 vertical Reels or 1:1 square).' },
+      { cat: 'VIDEO', flag: '-vf pad=W:H:X:Y', desc: 'Adds clean padding/letterbox bars to fit a target aspect ratio without stretching.' },
+      { cat: 'VIDEO', flag: '-vf transpose / hflip / vflip', desc: 'Rotates video 90° CW (transpose=1), 90° CCW (transpose=2), 180°, or mirrors horizontally/vertically.' },
+      { cat: 'VIDEO', flag: '-vf hqdn3d (Denoise)', desc: '3D spatial/temporal denoiser that cleans grain in dark or high-ISO night footage.' },
+      { cat: 'VIDEO', flag: '-vf unsharp (Sharpen)', desc: 'Applies crisp edge sharpening after downscaling or soft lens footage.' },
+      { cat: 'VIDEO', flag: '-vf yadif (Deinterlace)', desc: 'Converts old interlaced footage (1080i/480i) into smooth progressive frames.' },
+      { cat: 'VIDEO', flag: '-vf setpts (Playback Speed)', desc: 'Changes video playback speed (0.5*PTS = 2x faster; 2.0*PTS = 0.5x slow-motion).' },
+      { cat: 'VIDEO', flag: '-vf palettegen & paletteuse', desc: 'Generates a custom 256-color palette for crisp, banding-free GIF exports.' },
+      { cat: 'VIDEO', flag: '-frames:v 1', desc: 'Extracts a single exact frame as a lossless PNG, WebP, or JPG thumbnail.' },
+      { cat: 'COLOR', flag: '-pix_fmt yuv420p / yuv420p10le', desc: '8-bit yuv420p plays everywhere; 10-bit yuv420p10le preserves HDR/LOG gradients.' },
+      { cat: 'COLOR', flag: '-vf zscale / tonemap', desc: 'Maps 10-bit HDR (HLG/PQ BT.2020) down to standard SDR BT.709 without washed-out colors.' },
+      { cat: 'COLOR', flag: '-color_primaries / -colorspace', desc: 'Tags output color metadata (bt709 or bt2020) for accurate contrast and saturation.' },
+      { cat: 'COLOR', flag: '-color_range tv / pc', desc: 'Tags Limited (16–235 TV) vs. Full (0–255 PC) luminance range.' },
+      { cat: 'AUDIO', flag: '-c:a (Audio Codec)', desc: 'Audio encoder: aac, libopus, libmp3lame, flac (lossless), ac3, copy, or -an to mute.' },
+      { cat: 'AUDIO', flag: '-b:a (Audio Bitrate)', desc: 'Audio bitrate (96k, 128k, 192k, 320k). Ignored for lossless FLAC/PCM.' },
+      { cat: 'AUDIO', flag: '-ar (Sample Rate)', desc: 'Sampling frequency: 44100 Hz (CD), 48000 Hz (video standard), or 96000 Hz (studio).' },
+      { cat: 'AUDIO', flag: '-ac (Audio Channels)', desc: 'Channel count: 1 (Mono), 2 (Stereo), or 6 (5.1 Surround).' },
+      { cat: 'AUDIO', flag: '-sample_fmt (Bit Depth)', desc: 'PCM/FLAC precision: s16 (16-bit), s24 (24-bit), or fltp (32-bit float).' },
+      { cat: 'AUDIO', flag: '-af loudnorm', desc: 'EBU R128 loudness normalization (-14 LUFS) for consistent volume across clips.' },
+      { cat: 'AUDIO', flag: '-af volume=+3dB', desc: 'Adjusts audio gain in decibels (+3dB, +6dB, or -3dB).' },
+      { cat: 'AUDIO', flag: '-af atempo', desc: 'Changes audio tempo without shifting pitch (paired with video setpts speed).' },
+      { cat: 'AUDIO', flag: '-af silenceremove', desc: 'Automatically trims dead silence from the start and end of audio files.' },
+      { cat: 'SUBS', flag: '-c:s copy / mov_text', desc: 'Copies soft subtitle tracks or converts SRT subtitles into MP4-compatible mov_text.' },
+      { cat: 'SUBS', flag: '-sn / -vn / -an', desc: 'Strips Subtitles (-sn), Video (-vn for audio extract), or Audio (-an to mute video).' },
+      { cat: 'SUBS', flag: '-vf subtitles=file.srt', desc: 'Burns external .srt or .ass subtitle files permanently onto video frames.' },
+      { cat: 'PRIVACY', flag: '-map_metadata -1', desc: 'Wipes GPS coordinates, camera model, creation time, and EXIF/ID3 tags.' },
+      { cat: 'PRIVACY', flag: '-map_chapters -1', desc: 'Removes embedded chapter markers and timeline bookmarks.' },
+      { cat: 'PRIVACY', flag: '-fflags +bitexact', desc: 'Forensic Scrub: suppresses FFmpeg/Lavf encoder signatures and stream fingerprints.' },
+      { cat: 'MUXER', flag: '-movflags +faststart', desc: 'Moves MP4 moov atom to the front so web/Reels videos start playing immediately.' },
+      { cat: 'MUXER', flag: '-ss & -to (Trim Range)', desc: 'Seeks to start time (-ss) and stops at end time (-to) for fast lossless cuts.' },
+      { cat: 'MUXER', flag: '-f lavfi (testsrc2 / sine)', desc: 'Generates synthetic test video, patterns, and audio tones with 0 MB APK bloat.' },
+      { cat: 'ENGINE', flag: '-threads N', desc: 'Limits FFmpeg worker threads (4, 6, or 8) to balance speed vs. battery thermals.' },
+      { cat: 'ENGINE', flag: 'taskset -c (Core Affinity)', desc: 'OS-level CPU pinning (best-effort; Android HyperOS cpuset may override under load).' }
+    ];
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function renderEncyc(query) {
+      const q = (query || '').trim().toLowerCase();
+      const filtered = ENCYC.filter(e => e.flag.toLowerCase().includes(q) || e.desc.toLowerCase().includes(q) || e.cat.toLowerCase().includes(q));
+      document.getElementById('encyc-cnt').textContent = filtered.length + '/' + ENCYC.length;
+      const wrap = document.getElementById('encyc-list');
+      if (filtered.length === 0) {
+        wrap.innerHTML = '<div style="font-size:12px; color:var(--muted); text-align:center; padding:12px;">No matching FFmpeg flags found.</div>';
+        return;
+      }
+      wrap.innerHTML = filtered.map(e => `
+        <div class="encyc-item">
+          <div class="encyc-top">
+            <span class="encyc-flag">${e.flag}</span>
+            <span class="encyc-cat">${e.cat}</span>
+          </div>
+          <div class="encyc-desc">${e.desc}</div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('theme-grid').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-set-theme]');
+      if (!btn) return;
+      const mode = btn.getAttribute('data-set-theme');
+      document.documentElement.setAttribute('data-theme', mode);
+      document.querySelectorAll('.theme-opt').forEach(b => b.classList.toggle('active', b === btn));
+      showToast('Switched to Red Bull ' + (mode === 'dark' ? 'Dark' : 'Light') + ' Mode');
+    });
+
+    document.getElementById('inp-encyc-search').addEventListener('input', function() {
+      renderEncyc(this.value);
+    });
+
+    document.getElementById('btn-pick-vault').addEventListener('click', () => showToast('Opening Android Folder Picker →'));
+    document.getElementById('btn-open-vault-fm').addEventListener('click', () => showToast('Opening /storage/emulated/0/ConversionVault/ in File Manager →'));
+    document.getElementById('btn-open-tester').addEventListener('click', () => showToast('Opening Sample & Playback Tester →'));
+    document.getElementById('btn-rebench').addEventListener('click', () => {
+      document.getElementById('lbl-bench').textContent = 'Calibrated: ~45.2 fps (1080p60 x264)';
+      showToast('0.3s synthetic FFmpeg benchmark complete');
+    });
+    document.getElementById('btn-manage-presets').addEventListener('click', () => showToast('Opening Saved Preset Editor →'));
+    document.getElementById('btn-import-presets').addEventListener('click', () => showToast('Select .json preset file to import →'));
+    document.getElementById('btn-export-presets').addEventListener('click', () => showToast('Exported conversion_vault_presets.json'));
+    document.getElementById('btn-clear-cache').addEventListener('click', () => {
+      document.getElementById('lbl-cache').textContent = '0.0 MB cached (Clean)';
+      showToast('Temp & FFprobe cache cleared');
+    });
+
+    document.addEventListener('click', (e) => {
+      const nav = e.target.closest('[data-nav]');
+      if (nav) {
+        const target = nav.getAttribute('data-nav');
+        if (target === 'home') showToast('Navigating to Home →');
+        else if (target === 'queue') showToast('Navigating to Queue & History →');
+      }
+    });
+
+    renderEncyc('');
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

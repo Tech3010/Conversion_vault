@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Sample &amp; Playback Tester</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--sans);
+      font-size: 13.5px; line-height: 1.45; min-height: 100vh; display: flex; justify-content: center;
+    }
+    .app-frame {
+      width: 100%; max-width: 540px; min-height: 100vh; display: flex; flex-direction: column;
+      background: var(--bg); position: relative; padding-bottom: 32px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    .app-bar {
+      position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .bar-left { display: flex; align-items: center; gap: 10px; }
+    .back-btn {
+      width: 34px; height: 34px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .back-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+    .page-title { font-size: 15px; font-weight: 700; line-height: 1.2; }
+    .page-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+    .zero-badge {
+      font-family: var(--mono); font-size: 10px; font-weight: 800; padding: 3px 8px;
+      border-radius: 6px; background: var(--gold-soft); color: var(--gold-text);
+      border: 1px solid rgba(252, 209, 22, 0.35);
+    }
+
+    .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+    .type-tabs {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px;
+    }
+    .t-tab {
+      padding: 8px 6px; border: none; border-radius: 7px; background: transparent;
+      color: var(--muted); font-size: 11.5px; font-weight: 700; cursor: pointer;
+    }
+    .t-tab.active { background: var(--crimson); color: #ffffff; }
+
+    .card-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 13px 14px; display: flex; flex-direction: column; gap: 11px;
+    }
+    .sec-lbl {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--gold-text); padding-bottom: 5px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--muted);
+      display: flex; justify-content: space-between;
+    }
+    .field-val { color: var(--gold-text); }
+    select {
+      width: 100%; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid var(--border-strong); background: var(--input); color: var(--text);
+      font-size: 12px; font-family: var(--sans);
+    }
+    input[type="range"] { width: 100%; accent-color: var(--gold); cursor: pointer; }
+
+    .btn-gen-main {
+      width: 100%; padding: 11px 16px; border-radius: var(--radius-sm);
+      border: 1px solid var(--crimson); background: var(--crimson); color: #ffffff;
+      font-size: 13px; font-weight: 800; cursor: pointer;
+      display: inline-flex; justify-content: center; align-items: center; gap: 7px;
+    }
+    .btn-gen-main:hover { background: var(--crimson-hover); }
+
+    .cmd-wrap {
+      background: #05070b; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .cmd-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .cmd-lbl { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .btn-copy {
+      padding: 4px 9px; border-radius: 5px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 10px; font-weight: 700; cursor: pointer;
+    }
+    .btn-copy:hover { border-color: var(--gold); color: var(--gold-text); }
+    .cmd-box { font-family: var(--mono); font-size: 10.5px; color: var(--gold-text); line-height: 1.5; word-break: break-all; }
+
+    .result-box {
+      border-radius: var(--radius); padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+      border: 1px solid var(--border-strong); background: var(--card-elev);
+    }
+    .result-box.res-ok { border-color: rgba(16, 185, 129, 0.55); background: var(--emerald-soft); }
+    .result-box.res-no { border-color: rgba(219, 10, 64, 0.65); background: var(--crimson-soft); }
+    .res-title { font-size: 13.5px; font-weight: 800; }
+    .res-desc { font-size: 12px; color: var(--text); line-height: 1.45; }
+
+    .sample-row {
+      background: var(--card); border: 1px solid var(--border); border-radius: 9px;
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .sample-name { font-family: var(--mono); font-size: 12px; font-weight: 700; display: block; word-break: break-all; }
+    .sample-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); display: block; margin-top: 2px; }
+    .sample-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .btn-sm {
+      padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-sm:hover { border-color: var(--gold); color: var(--gold-text); }
+    .btn-sm.pri { background: var(--crimson-soft); border-color: rgba(219, 10, 64, 0.5); color: var(--crimson); }
+
+    /* Pop-up Modals */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 90;
+      background: rgba(5, 8, 15, 0.78);
+      display: flex; justify-content: center; align-items: center; padding: 16px;
+    }
+    .pop-sheet {
+      width: 100%; max-width: 400px;
+      background: var(--surface); border: 1px solid var(--emerald); border-radius: 14px;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+    .pop-sheet.warn { border-color: var(--crimson); }
+    .pop-title { font-size: 15px; font-weight: 800; color: var(--emerald); }
+    .pop-sheet.warn .pop-title { color: var(--crimson); }
+    .pop-desc { font-size: 12.5px; color: var(--text); line-height: 1.45; }
+    .pop-file {
+      background: var(--input); border: 1px solid var(--border-strong); border-radius: 8px;
+      padding: 8px 10px; font-family: var(--mono); font-size: 11px; color: var(--gold-text); word-break: break-all;
+    }
+    .pop-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pop-btn-pri {
+      flex: 1; padding: 9px 12px; border-radius: 7px; border: 1px solid var(--crimson);
+      background: var(--crimson); color: #ffffff; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .pop-btn-sec {
+      flex: 1; padding: 9px 12px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div>
+          <div class="page-title">Sample &amp; Playback Tester</div>
+          <div class="page-sub">SYNTHETIC FFMPEG GENERATOR · 0 MB BLOAT</div>
+        </div>
+      </div>
+      <span class="zero-badge">LAVFI ENGINE</span>
+    </header>
+
+    <main class="content">
+      <div class="type-tabs" role="tablist">
+        <button type="button" class="t-tab active" data-type="video">Video Sample</button>
+        <button type="button" class="t-tab" data-type="audio">Audio Sample</button>
+        <button type="button" class="t-tab" data-type="image">Image Sample</button>
+      </div>
+
+      <section class="card-box" aria-label="Test Sample Configuration">
+        <div class="sec-lbl"><span>Configure Synthetic Test File</span></div>
+        <div class="grid-2" id="ctrl-grid"></div>
+
+        <!-- Generate Sample Button ABOVE Terminal Command -->
+        <button type="button" id="btn-generate" class="btn-gen-main">
+          <span>Generate Sample</span>
+        </button>
+
+        <div class="cmd-wrap">
+          <div class="cmd-head">
+            <span class="cmd-lbl">Terminal FFmpeg Command</span>
+            <button type="button" id="btn-copy-cmd" class="btn-copy">Copy Command</button>
+          </div>
+          <div class="cmd-box" id="cmd-preview"></div>
+        </div>
+      </section>
+
+      <section class="result-box hidden" id="test-result" aria-label="Device Playback Result">
+        <div class="res-title" id="res-title"></div>
+        <div class="res-desc" id="res-desc"></div>
+      </section>
+
+      <section class="card-box" aria-label="Saved Sample Files">
+        <div class="sec-lbl">
+          <span>Saved Samples</span>
+          <span style="color:var(--muted); font-size:9.5px;">Auto-clean: 15d (Settings)</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--input); border:1px solid var(--border); border-radius:7px; padding:7px 9px;">
+          <div style="min-width:0;">
+            <span style="font-family:var(--mono); font-size:9.5px; color:var(--muted); display:block; text-transform:uppercase;">Storage Location</span>
+            <span style="font-family:var(--mono); font-size:10.5px; color:var(--text); font-weight:700; word-break:break-all;">/storage/emulated/0/ConversionVault/Samples/</span>
+          </div>
+          <button type="button" id="btn-open-fm" class="btn-sm" style="border-color:var(--gold); color:var(--gold-text);">File Manager ↗</button>
+        </div>
+        <div id="samples-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Sample Generated Pop-up -->
+  <div class="modal-backdrop hidden" id="gen-modal" role="dialog" aria-modal="true" aria-label="Sample File Generated">
+    <div class="pop-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="pop-title">✓ Sample File Generated</div>
+        <button type="button" id="btn-gen-close" class="btn-sm">Skip</button>
+      </div>
+      <div class="pop-desc">Saved to <strong>/storage/emulated/0/ConversionVault/Samples/</strong>. Test playback, share, or open in File Manager to move to a USB drive:</div>
+      <div class="pop-file" id="gen-file-lbl"></div>
+      <div class="pop-actions">
+        <button type="button" id="btn-gen-test" class="pop-btn-pri">Test on This Device</button>
+        <button type="button" id="btn-gen-share" class="pop-btn-sec">Share ↗</button>
+        <button type="button" id="btn-gen-fm" class="pop-btn-sec" style="flex-basis:100%;">Open in File Manager ↗</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Sample Confirmation Modal -->
+  <div class="modal-backdrop hidden" id="del-modal" role="dialog" aria-modal="true" aria-label="Delete Sample Confirmation">
+    <div class="pop-sheet warn">
+      <div class="pop-title">Delete Sample File?</div>
+      <div class="pop-desc" id="del-desc"></div>
+      <div class="pop-actions">
+        <button type="button" id="btn-del-cancel" class="pop-btn-sec">Cancel</button>
+        <button type="button" id="btn-del-yes" class="pop-btn-pri">Yes, Delete Sample</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const state = {
+      type: 'video',
+      v: { container: 'mp4', codec: 'libx264', crf: 18, res: '1920x1080', fps: 60, pixfmt: 'yuv420p', gop: 'auto', dur: 3, audio: 'aac' },
+      a: { fmt: 'opus', br: '192k', ar: '48000', ch: 'stereo', depth: 'auto', dur: 3 },
+      i: { fmt: 'webp', qual: 85, res: '1920x1080' },
+      lastSample: null,
+      pendingDelIdx: null,
+      saved: [
+        { name: 'test_hevc_10bit_60fps.mkv', meta: 'MKV · HEVC yuv420p10le · 3s · 1.4 MB', codec: 'libx265', pixfmt: 'yuv420p10le' }
+      ]
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function buildCommand() {
+      if (state.type === 'video') {
+        const v = state.v;
+        const aud = v.audio === 'none' ? '-an' : `-c:a ${v.audio} -b:a 192k`;
+        const gop = v.gop === 'auto' ? '' : ` -g ${v.gop}`;
+        return `ffmpeg -y -f lavfi -i testsrc2=size=${v.res}:rate=${v.fps} -f lavfi -i sine=frequency=440:sample_rate=48000 -t ${v.dur} -c:v ${v.codec} -crf ${v.crf}${gop} -pix_fmt ${v.pixfmt} ${aud} test_sample.${v.container}`;
+      }
+      if (state.type === 'audio') {
+        const a = state.a;
+        const ac = a.ch === '5.1' ? 6 : (a.ch === 'mono' ? 1 : 2);
+        const sf = a.depth === 'auto' ? '' : ` -sample_fmt ${a.depth}`;
+        return `ffmpeg -y -f lavfi -i sine=frequency=440:sample_rate=${a.ar} -t ${a.dur} -ac ${ac}${sf} -b:a ${a.br} test_tone.${a.fmt}`;
+      }
+      const i = state.i;
+      return `ffmpeg -y -f lavfi -i smptehdbars=size=${i.res} -frames:v 1 -q:v ${i.qual} test_pattern.${i.fmt}`;
+    }
+
+    function runDeviceCheck(codec, pixfmt, name) {
+      const box = document.getElementById('test-result');
+      const title = document.getElementById('res-title');
+      const desc = document.getElementById('res-desc');
+      box.classList.remove('hidden', 'res-ok', 'res-no');
+
+      if (codec === 'libx264' && pixfmt === 'yuv420p10le') {
+        box.classList.add('res-no');
+        title.textContent = '✗ Hardware Decode Unsupported (H.264 10-bit)';
+        desc.textContent = name + ' failed MediaCodec check on this device. Sample stays saved in Saved Samples; use yuv420p (8-bit) or HEVC for 10-bit.';
+      } else {
+        box.classList.add('res-ok');
+        title.textContent = '✓ Plays Smoothly on This Device';
+        desc.textContent = name + ' decoded cleanly with zero dropped frames. Your sample remains saved in Saved Samples.';
+      }
+    }
+
+    function renderControls() {
+      document.querySelectorAll('.t-tab').forEach(t => t.classList.toggle('active', t.getAttribute('data-type') === state.type));
+      const grid = document.getElementById('ctrl-grid');
+
+      if (state.type === 'video') {
+        const v = state.v;
+        grid.innerHTML = `
+          <div class="field"><label>Container</label>
+            <select data-k="container">
+              <option value="mp4" ${v.container==='mp4'?'selected':''}>.mp4 (Universal)</option>
+              <option value="mkv" ${v.container==='mkv'?'selected':''}>.mkv (Matroska)</option>
+              <option value="webm" ${v.container==='webm'?'selected':''}>.webm (WebM)</option>
+              <option value="mov" ${v.container==='mov'?'selected':''}>.mov (QuickTime)</option>
+            </select>
+          </div>
+          <div class="field"><label>Video Codec</label>
+            <select data-k="codec">
+              <option value="libx264" ${v.codec==='libx264'?'selected':''}>libx264 (H.264)</option>
+              <option value="libx265" ${v.codec==='libx265'?'selected':''}>libx265 (HEVC)</option>
+              <option value="libsvtav1" ${v.codec==='libsvtav1'?'selected':''}>libsvtav1 (AV1)</option>
+              <option value="libvpx-vp9" ${v.codec==='libvpx-vp9'?'selected':''}>libvpx-vp9 (VP9)</option>
+            </select>
+          </div>
+          <div class="field"><label>Resolution</label>
+            <select data-k="res">
+              <option value="3840x2160" ${v.res==='3840x2160'?'selected':''}>4K (3840×2160)</option>
+              <option value="2560x1440" ${v.res==='2560x1440'?'selected':''}>1440p (QHD)</option>
+              <option value="1920x1080" ${v.res==='1920x1080'?'selected':''}>1080p (FHD)</option>
+              <option value="1280x720" ${v.res==='1280x720'?'selected':''}>720p (HD)</option>
+              <option value="854x480" ${v.res==='854x480'?'selected':''}>480p (SD)</option>
+            </select>
+          </div>
+          <div class="field"><label>Frame Rate</label>
+            <select data-k="fps">
+              <option value="24" ${v.fps===24?'selected':''}>24 fps</option>
+              <option value="30" ${v.fps===30?'selected':''}>30 fps</option>
+              <option value="50" ${v.fps===50?'selected':''}>50 fps</option>
+              <option value="60" ${v.fps===60?'selected':''}>60 fps</option>
+              <option value="120" ${v.fps===120?'selected':''}>120 fps</option>
+            </select>
+          </div>
+          <div class="field"><label>Pixel Format</label>
+            <select data-k="pixfmt">
+              <option value="yuv420p" ${v.pixfmt==='yuv420p'?'selected':''}>yuv420p (8-bit)</option>
+              <option value="yuv420p10le" ${v.pixfmt==='yuv420p10le'?'selected':''}>yuv420p10le (10-bit)</option>
+              <option value="yuv422p" ${v.pixfmt==='yuv422p'?'selected':''}>yuv422p (4:2:2)</option>
+            </select>
+          </div>
+          <div class="field"><label>Frame Mode (GOP)</label>
+            <select data-k="gop">
+              <option value="auto" ${v.gop==='auto'?'selected':''}>Inter-Frame (Auto)</option>
+              <option value="15" ${v.gop==='15'?'selected':''}>Short-GOP (-g 15)</option>
+              <option value="1" ${v.gop==='1'?'selected':''}>All-I (-g 1)</option>
+            </select>
+          </div>
+          <div class="field"><label>Audio Track</label>
+            <select data-k="audio">
+              <option value="aac" ${v.audio==='aac'?'selected':''}>AAC Stereo</option>
+              <option value="ac3" ${v.audio==='ac3'?'selected':''}>AC3 Surround</option>
+              <option value="libopus" ${v.audio==='libopus'?'selected':''}>Opus</option>
+              <option value="flac" ${v.audio==='flac'?'selected':''}>Lossless FLAC</option>
+              <option value="none" ${v.audio==='none'?'selected':''}>Muted</option>
+            </select>
+          </div>
+          <div class="field"><label>Clip Duration</label>
+            <select data-k="dur">
+              <option value="2" ${v.dur===2?'selected':''}>2 seconds</option>
+              <option value="3" ${v.dur===3?'selected':''}>3 seconds</option>
+              <option value="5" ${v.dur===5?'selected':''}>5 seconds</option>
+              <option value="10" ${v.dur===10?'selected':''}>10 seconds</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label><span>Test CRF Quality</span><span class="field-val">CRF ${v.crf}</span></label>
+            <input type="range" min="12" max="34" value="${v.crf}" data-k="crf">
+          </div>
+        `;
+      } else if (state.type === 'audio') {
+        const a = state.a;
+        grid.innerHTML = `
+          <div class="field"><label>Format</label>
+            <select data-k="fmt">
+              <option value="opus" ${a.fmt==='opus'?'selected':''}>.opus</option>
+              <option value="flac" ${a.fmt==='flac'?'selected':''}>.flac (Lossless)</option>
+              <option value="mp3" ${a.fmt==='mp3'?'selected':''}>.mp3</option>
+              <option value="m4a" ${a.fmt==='m4a'?'selected':''}>.m4a (AAC)</option>
+              <option value="wav" ${a.fmt==='wav'?'selected':''}>.wav (PCM)</option>
+              <option value="ac3" ${a.fmt==='ac3'?'selected':''}>.ac3 (Surround)</option>
+            </select>
+          </div>
+          <div class="field"><label>Bitrate</label>
+            <select data-k="br">
+              <option value="96k" ${a.br==='96k'?'selected':''}>96 kbps</option>
+              <option value="128k" ${a.br==='128k'?'selected':''}>128 kbps</option>
+              <option value="192k" ${a.br==='192k'?'selected':''}>192 kbps</option>
+              <option value="320k" ${a.br==='320k'?'selected':''}>320 kbps</option>
+            </select>
+          </div>
+          <div class="field"><label>Sample Rate</label>
+            <select data-k="ar">
+              <option value="44100" ${a.ar==='44100'?'selected':''}>44,100 Hz</option>
+              <option value="48000" ${a.ar==='48000'?'selected':''}>48,000 Hz</option>
+              <option value="96000" ${a.ar==='96000'?'selected':''}>96,000 Hz</option>
+            </select>
+          </div>
+          <div class="field"><label>Channels</label>
+            <select data-k="ch">
+              <option value="mono" ${a.ch==='mono'?'selected':''}>Mono (1.0)</option>
+              <option value="stereo" ${a.ch==='stereo'?'selected':''}>Stereo (2.0)</option>
+              <option value="5.1" ${a.ch==='5.1'?'selected':''}>5.1 Surround</option>
+            </select>
+          </div>
+          <div class="field"><label>Bit Depth</label>
+            <select data-k="depth">
+              <option value="auto" ${a.depth==='auto'?'selected':''}>Auto</option>
+              <option value="s16" ${a.depth==='s16'?'selected':''}>16-bit (s16)</option>
+              <option value="s24" ${a.depth==='s24'?'selected':''}>24-bit (s24)</option>
+            </select>
+          </div>
+          <div class="field"><label>Duration</label>
+            <select data-k="dur">
+              <option value="2" ${a.dur===2?'selected':''}>2 seconds</option>
+              <option value="3" ${a.dur===3?'selected':''}>3 seconds</option>
+              <option value="5" ${a.dur===5?'selected':''}>5 seconds</option>
+            </select>
+          </div>
+        `;
+      } else {
+        const i = state.i;
+        grid.innerHTML = `
+          <div class="field"><label>Image Format</label>
+            <select data-k="fmt">
+              <option value="webp" ${i.fmt==='webp'?'selected':''}>.webp</option>
+              <option value="avif" ${i.fmt==='avif'?'selected':''}>.avif</option>
+              <option value="png" ${i.fmt==='png'?'selected':''}>.png</option>
+              <option value="jpg" ${i.fmt==='jpg'?'selected':''}>.jpg</option>
+            </select>
+          </div>
+          <div class="field"><label>Resolution</label>
+            <select data-k="res">
+              <option value="3840x2160" ${i.res==='3840x2160'?'selected':''}>4K (3840×2160)</option>
+              <option value="1920x1080" ${i.res==='1920x1080'?'selected':''}>1080p</option>
+              <option value="1280x720" ${i.res==='1280x720'?'selected':''}>720p</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label><span>Quality</span><span class="field-val">${i.qual}%</span></label>
+            <input type="range" min="15" max="100" value="${i.qual}" data-k="qual">
+          </div>
+        `;
+      }
+
+      document.getElementById('cmd-preview').textContent = '$ ' + buildCommand();
+      renderSaved();
+    }
+
+    function renderSaved() {
+      const wrap = document.getElementById('samples-list');
+      if (state.saved.length === 0) {
+        wrap.innerHTML = '<div style="font-size:12px; color:var(--muted); text-align:center; padding:12px;">No saved samples yet. Tap Generate Sample above.</div>';
+        return;
+      }
+      wrap.innerHTML = state.saved.map((s, idx) => `
+        <div class="sample-row">
+          <div>
+            <span class="sample-name">${s.name}</span>
+            <span class="sample-meta">${s.meta}</span>
+          </div>
+          <div class="sample-actions">
+            <button type="button" class="btn-sm pri" data-test="${idx}">Test on Device</button>
+            <button type="button" class="btn-sm" data-share="${idx}">Share ↗</button>
+            <button type="button" class="btn-sm" data-del="${idx}">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.querySelectorAll('.t-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.type = btn.getAttribute('data-type');
+        document.getElementById('test-result').classList.add('hidden');
+        renderControls();
+      });
+    });
+
+    document.getElementById('ctrl-grid').addEventListener('input', (e) => {
+      const k = e.target.getAttribute('data-k');
+      if (!k) return;
+      const val = (e.target.type === 'range' || k === 'fps' || k === 'dur') ? parseInt(e.target.value, 10) : e.target.value;
+      if (state.type === 'video') state.v[k] = val;
+      else if (state.type === 'audio') state.a[k] = val;
+      else state.i[k] = val;
+      renderControls();
+    });
+
+    document.getElementById('btn-copy-cmd').addEventListener('click', () => {
+      const cmd = buildCommand();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmd).catch(() => {});
+      }
+      showToast('Copied FFmpeg command');
+    });
+
+    document.getElementById('btn-generate').addEventListener('click', () => {
+      let item = null;
+      if (state.type === 'video') {
+        item = {
+          name: `sample_${state.v.codec.replace('lib','')}_crf${state.v.crf}_${state.v.fps}fps.${state.v.container}`,
+          meta: `${state.v.container.toUpperCase()} · ${state.v.res} · ${state.v.pixfmt} · ${state.v.dur}s`,
+          codec: state.v.codec,
+          pixfmt: state.v.pixfmt
+        };
+      } else if (state.type === 'audio') {
+        item = {
+          name: `sample_tone_${state.a.br}_${state.a.ch}.${state.a.fmt}`,
+          meta: `${state.a.fmt.toUpperCase()} · ${state.a.ar}Hz · ${state.a.ch} · ${state.a.dur}s`,
+          codec: state.a.fmt,
+          pixfmt: 'audio'
+        };
+      } else {
+        item = {
+          name: `sample_pattern_q${state.i.qual}.${state.i.fmt}`,
+          meta: `${state.i.fmt.toUpperCase()} · ${state.i.res} · Q${state.i.qual}`,
+          codec: state.i.fmt,
+          pixfmt: 'image'
+        };
+      }
+      state.saved.unshift(item);
+      state.lastSample = item;
+      renderSaved();
+      document.getElementById('gen-file-lbl').textContent = item.name + ' (' + item.meta + ')';
+      document.getElementById('gen-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-gen-close').addEventListener('click', () => {
+      document.getElementById('gen-modal').classList.add('hidden');
+    });
+    document.getElementById('btn-gen-test').addEventListener('click', () => {
+      document.getElementById('gen-modal').classList.add('hidden');
+      if (state.lastSample) runDeviceCheck(state.lastSample.codec, state.lastSample.pixfmt, state.lastSample.name);
+    });
+    document.getElementById('btn-open-fm').addEventListener('click', () => {
+      showToast('Opening /storage/emulated/0/ConversionVault/Samples/ in File Manager →');
+    });
+    document.getElementById('btn-gen-fm').addEventListener('click', () => {
+      document.getElementById('gen-modal').classList.add('hidden');
+      showToast('Opening /storage/emulated/0/ConversionVault/Samples/ in File Manager →');
+    });
+    document.getElementById('btn-gen-share').addEventListener('click', () => {
+      document.getElementById('gen-modal').classList.add('hidden');
+      if (state.lastSample) showToast('Sharing "' + state.lastSample.name + '" →');
+    });
+
+    document.getElementById('samples-list').addEventListener('click', (e) => {
+      const tst = e.target.closest('[data-test]');
+      if (tst) {
+        const s = state.saved[parseInt(tst.getAttribute('data-test'), 10)];
+        if (s) runDeviceCheck(s.codec, s.pixfmt, s.name);
+        return;
+      }
+      const sh = e.target.closest('[data-share]');
+      if (sh) {
+        const s = state.saved[parseInt(sh.getAttribute('data-share'), 10)];
+        if (s) showToast('Sharing "' + s.name + '" →');
+        return;
+      }
+      const dl = e.target.closest('[data-del]');
+      if (dl) {
+        const idx = parseInt(dl.getAttribute('data-del'), 10);
+        const s = state.saved[idx];
+        if (s) {
+          state.pendingDelIdx = idx;
+          document.getElementById('del-desc').textContent = 'Delete "' + s.name + '" from /ConversionVault/Samples/?';
+          document.getElementById('del-modal').classList.remove('hidden');
+        }
+      }
+    });
+
+    document.getElementById('btn-del-cancel').addEventListener('click', () => {
+      state.pendingDelIdx = null;
+      document.getElementById('del-modal').classList.add('hidden');
+    });
+    document.getElementById('btn-del-yes').addEventListener('click', () => {
+      if (state.pendingDelIdx !== null) {
+        const rm = state.saved.splice(state.pendingDelIdx, 1);
+        state.pendingDelIdx = null;
+        renderSaved();
+        showToast('Deleted ' + (rm[0] ? rm[0].name : 'sample'));
+      }
+      document.getElementById('del-modal').classList.add('hidden');
+    });
+
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Settings'));
+
+    renderControls();
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

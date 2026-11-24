@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Smart Format Suggestor</title>
+  <style>
+    :root {
+      --bg:#090d16; --surface:#0f1624; --card:#131c2e; --card-elev:#172236; --input:#0a0f1a;
+      --border:#1e293b; --border-strong:#334155; --text:#f8fafc; --muted:#94a3b8;
+      --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14); --crimson-hover:#be0837;
+      --gold:#fcd116; --gold-soft:rgba(252,209,22,0.13); --gold-text:#fcd116;
+      --emerald:#10b981; --emerald-soft:rgba(16,185,129,0.14);
+      --radius:12px; --radius-sm:8px;
+      --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13.5px;line-height:1.45;min-height:100vh;display:flex;justify-content:center;}
+    .app-frame{width:100%;max-width:540px;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);padding-bottom:32px;}
+    @media(min-width:600px){.app-frame{border-left:1px solid var(--border);border-right:1px solid var(--border);}}
+    .app-bar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .bar-left{display:flex;align-items:center;gap:10px;}
+    .back-btn{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+    .back-btn:hover{border-color:var(--crimson);color:var(--crimson);}
+    .page-title{font-size:15px;font-weight:700;line-height:1.2;}
+    .page-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
+    .suggest-badge{
+      font-family:var(--mono);font-size:10px;font-weight:800;padding:4px 9px;border-radius:6px;
+      background:linear-gradient(135deg,var(--gold-soft),var(--crimson-soft));
+      color:var(--gold-text);border:1px solid rgba(252,209,22,0.5);letter-spacing:0.05em;
+    }
+    .content{padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1;}
+
+    .card-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:10px;}
+    .sec-head{display:flex;justify-content:space-between;align-items:center;padding-bottom:5px;border-bottom:1px solid var(--border);}
+    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);}
+    .sec-note{font-family:var(--mono);font-size:9.5px;color:var(--muted);}
+
+    .chip-wrap{display:flex;flex-wrap:wrap;gap:6px;}
+    .s-chip{
+      padding:6px 10px;border-radius:7px;border:1px solid var(--border-strong);
+      background:var(--card);color:var(--muted);font-size:11.5px;font-weight:700;cursor:pointer;
+      transition:border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+    }
+    .s-chip:hover{border-color:var(--gold);color:var(--text);}
+    .s-chip.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
+    .s-chip.is-none.active{border-color:var(--border-strong);background:var(--card-elev);color:var(--muted);}
+
+    .rec-head-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:-4px;flex-wrap:wrap;}
+    .rec-list{display:flex;flex-direction:column;gap:10px;}
+    .rec-card{
+      background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius);
+      padding:13px 14px;display:flex;flex-direction:column;gap:8px;
+    }
+    .rec-card.rank-1{border-color:rgba(16,185,129,0.65);box-shadow:inset 3px 0 0 var(--emerald);background:linear-gradient(135deg,var(--emerald-soft) 0%,var(--surface) 70%);}
+    .rec-card.rank-2{box-shadow:inset 3px 0 0 var(--gold);}
+    .rec-card.rank-3{box-shadow:inset 3px 0 0 var(--crimson);}
+    .rec-card.rank-4{box-shadow:inset 3px 0 0 #38bdf8;}
+
+    .rec-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+    .rank-pill{font-family:var(--mono);font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:4px;}
+    .rp-1{background:var(--emerald-soft);color:var(--emerald);}
+    .rp-2{background:var(--gold-soft);color:var(--gold-text);}
+    .rp-3{background:var(--crimson-soft);color:var(--crimson);}
+    .rp-4{background:rgba(56,189,248,0.14);color:#38bdf8;}
+
+    .rec-name{font-size:14px;font-weight:800;color:var(--text);}
+    .rec-why{font-size:12px;color:var(--muted);line-height:1.45;}
+    .spec-pill{background:#05070b;border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.45;}
+
+    .rec-actions{display:flex;flex-wrap:wrap;gap:6px;padding-top:2px;}
+    .btn-use{
+      flex:1;padding:7px 12px;border-radius:7px;border:1px solid var(--crimson);
+      background:var(--crimson);color:#ffffff;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+    }
+    .btn-use:hover{background:var(--crimson-hover);}
+    .btn-sec{
+      padding:7px 10px;border-radius:7px;border:1px solid var(--border-strong);
+      background:var(--card-elev);color:var(--text);font-family:var(--mono);
+      font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+    }
+    .btn-sec:hover{border-color:var(--gold);color:var(--gold-text);}
+
+    .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast.show{opacity:1;}
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Home">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <div>
+          <div class="page-title">Smart Format Suggestor</div>
+          <div class="page-sub">DEVICE · PURPOSE · CUSTOM METRIC</div>
+        </div>
+      </div>
+      <span class="suggest-badge">★ SUGGESTOR</span>
+    </header>
+
+    <main class="content">
+      <!-- 1. TARGET DEVICE -->
+      <section class="card-box" aria-label="Target Device">
+        <div class="sec-head">
+          <span class="sec-lbl">1. Target Device</span>
+          <span class="sec-note">Pick 1 or Skip</span>
+        </div>
+        <div class="chip-wrap" id="grp-device">
+          <button type="button" class="s-chip is-none" data-val="none">None / Skip</button>
+          <button type="button" class="s-chip active" data-val="poco">This Phone (POCO X7 Pro)</button>
+          <button type="button" class="s-chip" data-val="android">Android Phone (General)</button>
+          <button type="button" class="s-chip" data-val="apple">iPhone / iPad</button>
+          <button type="button" class="s-chip" data-val="pc">Mac / Windows PC</button>
+          <button type="button" class="s-chip" data-val="smart_tv">Smart Display / TV</button>
+          <button type="button" class="s-chip" data-val="projector">Projector / USB Stick</button>
+          <button type="button" class="s-chip" data-val="car">Car Stereo / Head Unit</button>
+          <button type="button" class="s-chip" data-val="old_phone">Older / Low-End Phone</button>
+          <button type="button" class="s-chip" data-val="web">Web Browser</button>
+        </div>
+      </section>
+
+      <!-- 2. PURPOSE / GOAL -->
+      <section class="card-box" aria-label="Purpose or Goal">
+        <div class="sec-head">
+          <span class="sec-lbl">2. Purpose / Goal</span>
+          <span class="sec-note">Pick 1 or Skip</span>
+        </div>
+        <div class="chip-wrap" id="grp-purpose">
+          <button type="button" class="s-chip is-none" data-val="none">None / Skip</button>
+          <button type="button" class="s-chip active" data-val="reels">Social / Reels &amp; Shorts</button>
+          <button type="button" class="s-chip" data-val="edit">Video Editing (Alight / CapCut)</button>
+          <button type="button" class="s-chip" data-val="archive">Archive / Master Storage</button>
+          <button type="button" class="s-chip" data-val="share">Chat / Fast Share</button>
+          <button type="button" class="s-chip" data-val="stream">Home Media / Plex</button>
+          <button type="button" class="s-chip" data-val="audio">Music / Audio Only</button>
+          <button type="button" class="s-chip" data-val="photo">Photos / Web Gallery</button>
+        </div>
+      </section>
+
+      <!-- 3. CUSTOM PRIORITY METRIC -->
+      <section class="card-box" aria-label="Priority Metric">
+        <div class="sec-head">
+          <span class="sec-lbl">3. Custom Priority Metric</span>
+          <span class="sec-note">Pick 1 or Skip</span>
+        </div>
+        <div class="chip-wrap" id="grp-metric">
+          <button type="button" class="s-chip is-none" data-val="none">None / Skip</button>
+          <button type="button" class="s-chip active" data-val="balanced">Balanced (Sweet Spot)</button>
+          <button type="button" class="s-chip" data-val="quality">Max Quality Preserved</button>
+          <button type="button" class="s-chip" data-val="size">Smallest File Size</button>
+          <button type="button" class="s-chip" data-val="speed">Processing Speed / Battery</button>
+          <button type="button" class="s-chip" data-val="compat">Max Compatibility</button>
+          <button type="button" class="s-chip" data-val="raw">Raw / Zero-Lag Editing</button>
+          <button type="button" class="s-chip" data-val="privacy">Privacy / Forensic Scrub</button>
+        </div>
+      </section>
+
+      <!-- 4 RANKED RECOMMENDATIONS -->
+      <div class="rec-head-row">
+        <span class="sec-lbl">Recommended Presets (4 Options)</span>
+        <span class="sec-note" id="combo-lbl"></span>
+      </div>
+      <section class="rec-list" id="rec-list" aria-label="Recommended Presets"></section>
+    </main>
+  </div>
+  <div class="toast" id="toast">Ready</div>
+  <script>
+    const state = { device: 'poco', purpose: 'reels', metric: 'balanced' };
+    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+
+    function generateRecommendations() {
+      const { device, purpose, metric } = state;
+      const priv = metric === 'privacy' ? ' · Forensic Scrub (+bitexact)' : ' · Wipe Metadata';
+      const legacy = device === 'car' || device === 'old_phone' || device === 'projector' || metric === 'compat';
+      const apple = device === 'apple';
+      const modern = device === 'poco' || device === 'pc' || device === 'android' || device === 'none';
+
+      // 1. PHOTO / IMAGE PURPOSE
+      if (purpose === 'photo') {
+        if (legacy || apple) {
+          return [
+            { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'JPG High 92%', spec: `.jpg · Q92 · sRGB 4:4:4 · Auto-Orient${priv}`, why: 'Universal photo support across Apple, older phones, projectors, and car head units.' },
+            { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'Lossless PNG 24-bit', spec: `.png · Lossless RGB24 · Deflate${priv}`, why: 'Zero compression artifacts for thumbnails, graphics, and overlays.' },
+            { rank: '3 · SMALLER SIZE', cls: 'rank-3', rp: 'rp-3', name: 'WebP Crisp 85%', spec: `.webp · Q85 · sRGB 4:4:4 · Auto-Orient${priv}`, why: '~30% smaller than JPG with identical visual sharpness.' },
+            { rank: '4 · COMPACT WEB', cls: 'rank-4', rp: 'rp-4', name: 'JPG 1920px Q85', spec: `.jpg · 1920px Scale · Q85 · 4:2:0${priv}`, why: 'Fastest loading and tiny size for any screen.' }
+          ];
+        }
+        return [
+          { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'WebP Crisp 85%', spec: `.webp · Q85 · sRGB 4:4:4 · Auto-Orient${priv}`, why: 'Best size-to-quality balance on Android, browsers, and modern galleries.' },
+          { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'Lossless PNG 24-bit', spec: `.png · Lossless RGB24 · Keep Original Scale${priv}`, why: 'Pixel-perfect archival copy with zero lossy artifacts.' },
+          { rank: '3 · SMALLEST SIZE', cls: 'rank-3', rp: 'rp-3', name: 'AVIF Compact Q75', spec: `.avif · Q75 · 1920px · sRGB 4:2:0${priv}`, why: 'Smallest next-gen image size for storage and web.' },
+          { rank: '4 · UNIVERSAL SAFE', cls: 'rank-4', rp: 'rp-4', name: 'JPG High 92%', spec: `.jpg · Q92 · sRGB 4:4:4 · Auto-Orient${priv}`, why: 'Guaranteed to open on 100% of legacy devices and print shops.' }
+        ];
+      }
+
+      // 2. AUDIO / MUSIC PURPOSE
+      if (purpose === 'audio') {
+        if (device === 'car' || device === 'old_phone' || metric === 'compat') {
+          return [
+            { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'MP3 320k CBR', spec: `.mp3 · libmp3lame · 320 kbps · 44.1kHz Stereo${priv}`, why: 'Plays reliably on car stereos, USB head units, and older hardware players.' },
+            { rank: '2 · APPLE / PHONE SAFE', cls: 'rank-2', rp: 'rp-2', name: 'AAC 256k (.m4a)', spec: `.m4a · AAC-LC · 256 kbps · 48kHz Stereo${priv}`, why: 'Cleaner high frequencies than MP3 with broad phone & car support.' },
+            { rank: '3 · BALANCED VOLUME', cls: 'rank-3', rp: 'rp-3', name: 'Loudnorm MP3 192k', spec: `.mp3 · 192 kbps · EBU R128 (-14 LUFS)${priv}`, why: 'Keeps every track at an even volume while driving.' },
+            { rank: '4 · LOSSLESS ARCHIVE', cls: 'rank-4', rp: 'rp-4', name: 'WAV PCM 16-bit', spec: `.wav · PCM s16le · 44.1kHz Stereo · Uncompressed${priv}`, why: 'Zero-loss fallback for head units that reject FLAC.' }
+          ];
+        }
+        return [
+          { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: apple ? 'AAC 256k (.m4a)' : 'Opus 192k Transparent', spec: apple ? `.m4a · AAC-LC · 256 kbps · 48kHz${priv}` : `.opus · libopus · 192 kbps · 48kHz Stereo${priv}`, why: apple ? 'Native Apple hardware playback with transparent audio detail.' : 'Highest audio fidelity per MB on Android, PC, and web browsers.' },
+          { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'Lossless FLAC 24-bit', spec: `.flac · 24-bit (s24) · 48kHz · Zero Loss${priv}`, why: 'Bit-exact studio archive with ~45% lossless compression.' },
+          { rank: '3 · SMALLEST / SPEECH', cls: 'rank-3', rp: 'rp-3', name: 'Opus 96k Loudnorm', spec: `.opus · libopus · 96 kbps · EBU R128 (-14 LUFS)${priv}`, why: 'Tiny size for voice, podcasts, and fast chat sharing.' },
+          { rank: '4 · UNIVERSAL SAFE', cls: 'rank-4', rp: 'rp-4', name: 'MP3 320k CBR', spec: `.mp3 · libmp3lame · 320 kbps · 44.1kHz Stereo${priv}`, why: 'Plays on 100% of phones, cars, and legacy players.' }
+        ];
+      }
+
+      // 3. VIDEO EDITING OR RAW METRIC
+      if (purpose === 'edit' || metric === 'raw') {
+        return [
+          { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'H.264 All-I Edit', spec: `.mp4 · libx264 · Intra -g 1 · 0 B-Frames · CRF 15 · AAC 320k${priv}`, why: 'Every frame is independent for zero-lag scrubbing in Alight Motion & CapCut.' },
+          { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'H.264 4:2:2 Pro Master', spec: `.mov · libx264 · yuv422p · Intra -g 1 · CRF 14 · PCM 24-bit${priv}`, why: 'Extra chroma resolution for heavy color grading and VFX.' },
+          { rank: '3 · SMALLER EDIT', cls: 'rank-3', rp: 'rp-3', name: 'Short-GOP 1080p60', spec: `.mp4 · libx264 · -g 15 · 0 B-Frames · CRF 17 · AAC 256k${priv}`, why: 'Half the file size of All-I while keeping smooth timeline scrubbing.' },
+          { rank: '4 · UNIVERSAL SAFE', cls: 'rank-4', rp: 'rp-4', name: 'MP4 8-Bit Standard', spec: `.mp4 · libx264 · yuv420p · CRF 18 · AAC 192k · +faststart${priv}`, why: 'Safe fallback if an editor rejects 4:2:2 or high-bitrate streams.' }
+        ];
+      }
+
+      // 4. ARCHIVE / STREAM / SMALLEST SIZE
+      if (purpose === 'archive' || purpose === 'stream' || metric === 'size') {
+        if (legacy) {
+          return [
+            { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'H.264 8-Bit Archive', spec: `.mp4 · libx264 · yuv420p · CRF 18 · slower · AAC 256k · +faststart${priv}`, why: '100% safe for older phones, projectors, and car units that fail on HEVC 10-bit or AV1.' },
+            { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'H.264 CRF 16 Master', spec: `.mp4 · libx264 · yuv420p · CRF 16 · slow · AAC 320k${priv}`, why: 'Visually lossless 8-bit master with maximum compatibility.' },
+            { rank: '3 · SMALLER SIZE', cls: 'rank-3', rp: 'rp-3', name: 'HEVC 8-Bit MP4', spec: `.mp4 · libx265 · yuv420p · CRF 20 · AAC 192k · +faststart${priv}`, why: 'Saves ~35% space while avoiding 10-bit decoder errors.' },
+            { rank: '4 · COMPACT SHARE', cls: 'rank-4', rp: 'rp-4', name: '720p30 H.264 Safe', spec: `.mp4 · libx264 · 720p · 30fps · CRF 22 · Max 4M · AAC 128k${priv}`, why: 'Smallest guaranteed-playable format for USB sticks and legacy screens.' }
+          ];
+        }
+        const cont = apple ? '.mp4' : '.mkv';
+        return [
+          { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1', name: 'HEVC 10-Bit Archive', spec: `${cont} · libx265 · yuv420p10le · CRF 19 · slow · ${apple ? 'AAC 256k' : 'FLAC Lossless'}${priv}`, why: apple ? 'Apple-native HEVC 10-bit MP4 cuts size ~45% with HDR preservation.' : 'Cuts storage by ~45% while keeping 10-bit gradients and lossless audio.' },
+          { rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2', name: 'HEVC 10-Bit Master CRF 16', spec: `${cont} · libx265 · yuv420p10le · CRF 16 · slower · ${apple ? 'AAC 320k' : 'FLAC'}${priv}`, why: 'Near-master archival quality for 4K/1080p footage.' },
+          { rank: '3 · SMALLEST SIZE', cls: 'rank-3', rp: 'rp-3', name: (modern && !apple) ? 'AV1 Compact (libsvtav1)' : 'HEVC CRF 23 Compact', spec: (modern && !apple) ? `.mp4 · libsvtav1 · CRF 26 · yuv420p · Opus 128k${priv}` : `.mp4 · libx265 · yuv420p · CRF 23 · AAC 128k${priv}`, why: (modern && !apple) ? 'Smallest possible file size with hardware AV1 decode on modern chips.' : 'Compact HEVC stream without AV1 compatibility issues.' },
+          { rank: '4 · UNIVERSAL SAFE', cls: 'rank-4', rp: 'rp-4', name: 'H.264 8-Bit Fallback', spec: `.mp4 · libx264 · yuv420p · CRF 18 · AAC 256k · +faststart${priv}`, why: 'Plays on any screen or browser if 10-bit HEVC isn’t supported.' }
+        ];
+      }
+
+      // 5. REELS / SHARE / GENERAL BALANCED
+      const cap = (purpose === 'share') ? '4M' : '12M';
+      const crfMain = (metric === 'quality') ? 16 : (purpose === 'share' ? 23 : 18);
+      return [
+        {
+          rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1',
+          name: legacy ? 'Universal Safe MP4' : (purpose === 'share' ? 'Fast Share Compact MP4' : '60fps Reels HQ'),
+          spec: `.mp4 · libx264 · Constrained CRF ${crfMain} · Max ${cap} · yuv420p · AAC 192k · +faststart${priv}`,
+          why: legacy
+            ? '8-bit H.264 + AAC Stereo plays smoothly on 99% of older phones, projectors, and car screens.'
+            : 'Prevents social/chat apps from crushing dark scenes while keeping +faststart & clean metadata.'
+        },
+        {
+          rank: '2 · MAX QUALITY', cls: 'rank-2', rp: 'rp-2',
+          name: 'Pure CRF 16 Sharp Master',
+          spec: `.mp4 · libx264 · Pure CRF 16 · slower · yuv420p · AAC 256k · Loudnorm${priv}`,
+          why: 'No bitrate ceiling — preserves maximum fine detail with balanced -14 LUFS audio.'
+        },
+        {
+          rank: '3 · FASTER / SMALLER', cls: 'rank-3', rp: 'rp-3',
+          name: metric === 'speed' ? 'Fast H.264 (Battery Saver)' : 'HEVC 8-Bit Compact',
+          spec: metric === 'speed' ? `.mp4 · libx264 · fast · CRF 20 · yuv420p · AAC 160k${priv}` : `.mp4 · libx265 · medium · CRF 21 · yuv420p · AAC 160k${priv}`,
+          why: metric === 'speed' ? 'Encodes up to 3x faster with minimal heat and battery drain.' : 'Saves ~35% more storage while staying 8-bit safe across modern phones.'
+        },
+        {
+          rank: '4 · SAFE FALLBACK', cls: 'rank-4', rp: 'rp-4',
+          name: '720p30 Ultra-Compatible',
+          spec: `.mp4 · libx264 · 720p · 30fps · CRF 22 · Max 3M · AAC 128k Stereo${priv}`,
+          why: 'Guaranteed smooth playback and tiny upload size on any legacy screen or slow network.'
+        }
+      ];
+    }
+
+    function render() {
+      ['device', 'purpose', 'metric'].forEach(g => {
+        document.querySelectorAll(`#grp-${g} .s-chip`).forEach(c => {
+          c.classList.toggle('active', c.getAttribute('data-val') === state[g]);
+        });
+      });
+
+      const activeLabels = [];
+      ['device', 'purpose', 'metric'].forEach(g => {
+        if (state[g] !== 'none') {
+          const btn = document.querySelector(`#grp-${g} .s-chip.active`);
+          if (btn) activeLabels.push(btn.textContent);
+        }
+      });
+      document.getElementById('combo-lbl').textContent = activeLabels.length ? activeLabels.join(' · ') : 'All-Rounder Defaults';
+
+      const recs = generateRecommendations();
+      document.getElementById('rec-list').innerHTML = recs.map((r, idx) => `
+        <article class="rec-card ${r.cls}">
+          <div class="rec-top">
+            <span class="rank-pill ${r.rp}">${r.rank}</span>
+          </div>
+          <div class="rec-name">${r.name}</div>
+          <div class="rec-why">${r.why}</div>
+          <div class="spec-pill">${r.spec}</div>
+          <div class="rec-actions">
+            <button type="button" class="btn-use" data-use="${idx}">Use Preset ↗</button>
+            <button type="button" class="btn-sec" data-save="${idx}">Save Preset</button>
+            <button type="button" class="btn-sec" data-sample="${idx}">Test Sample ↗</button>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    ['device', 'purpose', 'metric'].forEach(g => {
+      document.getElementById(`grp-${g}`).addEventListener('click', (e) => {
+        const c = e.target.closest('.s-chip');
+        if (c) { state[g] = c.getAttribute('data-val'); render(); }
+      });
+    });
+
+    document.getElementById('rec-list').addEventListener('click', (e) => {
+      const recs = generateRecommendations();
+      const u = e.target.closest('[data-use]');
+      if (u) {
+        const r = recs[parseInt(u.getAttribute('data-use'), 10)];
+        if (r) showToast('Loaded "' + r.name + '" → Pick files');
+        return;
+      }
+      const sv = e.target.closest('[data-save]');
+      if (sv) {
+        const r = recs[parseInt(sv.getAttribute('data-save'), 10)];
+        if (r) showToast('Saved "' + r.name + '" to Presets Hub ✓');
+        return;
+      }
+      const smp = e.target.closest('[data-sample]');
+      if (smp) {
+        const r = recs[parseInt(smp.getAttribute('data-sample'), 10)];
+        if (r) showToast('Opening Sample Tester with "' + r.name + '" →');
+      }
+    });
+
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+    render();
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

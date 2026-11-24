@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Integrity &amp; Corruption Checker</title>
+  <style>
+    :root {
+      --bg:#090d16; --surface:#0f1624; --card:#131c2e; --card-elev:#172236; --input:#0a0f1a;
+      --border:#1e293b; --border-strong:#334155; --text:#f8fafc; --muted:#94a3b8;
+      --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14); --crimson-hover:#be0837;
+      --gold:#fcd116; --gold-soft:rgba(252,209,22,0.13); --gold-text:#fcd116;
+      --emerald:#10b981; --emerald-soft:rgba(16,185,129,0.14);
+      --radius:12px; --radius-sm:8px;
+      --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13.5px;line-height:1.45;min-height:100vh;display:flex;justify-content:center;}
+    .app-frame{width:100%;max-width:540px;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);padding-bottom:84px;}
+    @media(min-width:600px){.app-frame{border-left:1px solid var(--border);border-right:1px solid var(--border);}}
+    .app-bar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .bar-left{display:flex;align-items:center;gap:10px;}
+    .back-btn{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+    .back-btn:hover{border-color:var(--crimson);color:var(--crimson);}
+    .page-title{font-size:15px;font-weight:700;line-height:1.2;}
+    .page-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
+    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--emerald-soft);color:var(--emerald);border:1px solid rgba(16,185,129,0.35);}
+    .content{padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1;}
+    .card-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:11px;}
+    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);}
+    .file-pick{background:var(--card-elev);border:1px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+    .fname{font-family:var(--mono);font-size:12.5px;font-weight:700;word-break:break-all;}
+    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;}
+    .btn-sm{padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .btn-sm:hover{border-color:var(--crimson);color:var(--crimson);}
+
+    .mode-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+    .mode-btn{padding:10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;}
+    .mode-btn.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
+    .mode-btn strong{font-size:12px;}
+    .mode-btn small{font-family:var(--mono);font-size:9.5px;color:var(--muted);}
+    .mode-btn.active small{color:var(--gold-text);}
+
+    .check-list{display:flex;flex-direction:column;gap:6px;}
+    .chk-row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-family:var(--mono);font-size:11px;}
+    .st-ok{color:var(--emerald);font-weight:800;}
+    .st-warn{color:var(--gold-text);font-weight:800;}
+    .st-bad{color:var(--crimson);font-weight:800;}
+
+    .verdict-box{border-radius:var(--radius);padding:12px 14px;display:flex;flex-direction:column;gap:6px;border:1px solid rgba(16,185,129,0.5);background:var(--emerald-soft);}
+    .verdict-box.is-bad{border-color:rgba(219,10,64,0.65);background:var(--crimson-soft);}
+    .verdict-title{font-size:14px;font-weight:800;}
+    .verdict-desc{font-size:12px;color:var(--text);line-height:1.45;}
+
+    .cmd-wrap{background:#05070b;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;}
+    .cmd-box{font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.45;word-break:break-all;}
+
+    .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:540px;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:40;}
+    .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;}
+    .btn-primary:hover{background:var(--crimson-hover);}
+    .hidden{display:none !important;}
+    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast.show{opacity:1;}
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Home">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <div>
+          <div class="page-title">Integrity &amp; Corruption Check</div>
+          <div class="page-sub">DETECT INCOMPLETE, BROKEN OR CORRUPT FILES</div>
+        </div>
+      </div>
+      <span class="badge">DIAGNOSTIC</span>
+    </header>
+
+    <main class="content">
+      <section class="card-box">
+        <div class="sec-lbl">1. Target File to Verify</div>
+        <div class="file-pick">
+          <div style="min-width:0;">
+            <div class="fname" id="lbl-fname">gtr_night_ramp.mp4</div>
+            <div class="fmeta" id="lbl-fmeta">64.2 MB · Ready to scan</div>
+          </div>
+          <button type="button" id="btn-pick" class="btn-sm">Pick File</button>
+          <input type="file" id="inp-file" class="hidden" accept="video/*,audio/*,image/*">
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl">2. Scan Depth</div>
+        <div class="mode-grid" id="mode-grid">
+          <button type="button" class="mode-btn active" data-scan="deep">
+            <strong>Deep Frame Scan</strong>
+            <small>Decodes every frame (-f null -)</small>
+          </button>
+          <button type="button" class="mode-btn" data-scan="quick">
+            <strong>Quick Header Check</strong>
+            <small>Container &amp; moov atom (&lt;0.2s)</small>
+          </button>
+        </div>
+      </section>
+
+      <section class="verdict-box hidden" id="verdict-box" aria-label="Diagnostic Verdict">
+        <div class="verdict-title" id="verdict-title"></div>
+        <div class="verdict-desc" id="verdict-desc"></div>
+        <button type="button" id="btn-repair" class="btn-sm hidden" style="align-self:flex-start; border-color:var(--crimson); color:var(--crimson);">Attempt Lossless Remux Repair ↗</button>
+      </section>
+
+      <section class="card-box" id="checks-card">
+        <div class="sec-lbl">3. Stream Health Breakdown</div>
+        <div class="check-list" id="check-list">
+          <div class="chk-row"><span>Container Header &amp; Size</span><span class="st-ok" id="c-hdr">Pending</span></div>
+          <div class="chk-row"><span>Moov Atom / Seek Index</span><span class="st-ok" id="c-moov">Pending</span></div>
+          <div class="chk-row"><span>Video Frame Packets (1,800)</span><span class="st-ok" id="c-vid">Pending</span></div>
+          <div class="chk-row"><span>Audio Sync &amp; Timestamps (PTS)</span><span class="st-ok" id="c-aud">Pending</span></div>
+          <div class="chk-row"><span>Truncated EOF / Missing Tail</span><span class="st-ok" id="c-eof">Pending</span></div>
+        </div>
+      </section>
+
+      <section class="card-box">
+        <div class="sec-lbl">4. FFmpeg Verification Command</div>
+        <div class="cmd-wrap"><div class="cmd-box" id="cmd-box"></div></div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="btn-copy" class="btn-sm" style="flex:1;">Copy Command</button>
+          <button type="button" id="btn-sh" class="btn-sm" style="flex:1;">Export .sh (/SH_Scripts/)</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottom-bar">
+      <button type="button" id="btn-sim-bad" class="btn-sm" style="padding:10px 10px;">Test Corrupt Case</button>
+      <button type="button" id="btn-run" class="btn-primary">Run Integrity Scan ▶</button>
+    </footer>
+  </div>
+  <div class="toast" id="toast">Ready</div>
+  <script>
+    const state = { fname: 'gtr_night_ramp.mp4', scan: 'deep' };
+    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+
+    function renderCmd() {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-scan') === state.scan));
+      const cmd = state.scan === 'deep'
+        ? `ffmpeg -v error -err_detect explode -i "${state.fname}" -f null -`
+        : `ffprobe -v error -show_entries format=duration,size,nb_streams -show_streams "${state.fname}"`;
+      document.getElementById('cmd-box').textContent = '$ ' + cmd;
+    }
+
+    function showResult(isCorrupt) {
+      const box = document.getElementById('verdict-box');
+      const title = document.getElementById('verdict-title');
+      const desc = document.getElementById('verdict-desc');
+      const repBtn = document.getElementById('btn-repair');
+      box.classList.remove('hidden', 'is-bad');
+
+      if (isCorrupt) {
+        box.classList.add('is-bad');
+        title.textContent = '✗ Incomplete / Corrupted File Detected';
+        desc.textContent = 'Missing moov tail / 14 broken packets near 00:21.4 (possible incomplete download). You can attempt a lossless remux repair.';
+        repBtn.classList.remove('hidden');
+        document.getElementById('c-hdr').innerHTML = '<span class="st-ok">Valid ✓</span>';
+        document.getElementById('c-moov').innerHTML = '<span class="st-bad">Missing / Broken ✗</span>';
+        document.getElementById('c-vid').innerHTML = '<span class="st-bad">14 Corrupt Frames ✗</span>';
+        document.getElementById('c-aud').innerHTML = '<span class="st-warn">PTS Drift (+180ms)</span>';
+        document.getElementById('c-eof').innerHTML = '<span class="st-bad">Truncated EOF ✗</span>';
+      } else {
+        title.textContent = '✓ File Complete & Healthy (0 Errors)';
+        desc.textContent = 'All 1,800 video frames and audio packets decoded cleanly with valid timestamps and intact moov index.';
+        repBtn.classList.add('hidden');
+        document.getElementById('c-hdr').innerHTML = '<span class="st-ok">Valid ✓</span>';
+        document.getElementById('c-moov').innerHTML = '<span class="st-ok">Intact Faststart ✓</span>';
+        document.getElementById('c-vid').innerHTML = '<span class="st-ok">1,800 / 1,800 OK ✓</span>';
+        document.getElementById('c-aud').innerHTML = '<span class="st-ok">Synced (0ms) ✓</span>';
+        document.getElementById('c-eof').innerHTML = '<span class="st-ok">Complete EOF ✓</span>';
+      }
+    }
+
+    document.getElementById('mode-grid').addEventListener('click', (e) => {
+      const b = e.target.closest('.mode-btn');
+      if (b) { state.scan = b.getAttribute('data-scan'); renderCmd(); }
+    });
+    document.getElementById('btn-pick').addEventListener('click', () => document.getElementById('inp-file').click());
+    document.getElementById('inp-file').addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        state.fname = this.files[0].name;
+        document.getElementById('lbl-fname').textContent = state.fname;
+        document.getElementById('lbl-fmeta').textContent = (this.files[0].size / (1024 * 1024)).toFixed(1) + ' MB · Ready to scan';
+        renderCmd();
+      }
+    });
+    document.getElementById('btn-run').addEventListener('click', () => showResult(false));
+    document.getElementById('btn-sim-bad').addEventListener('click', () => showResult(true));
+    document.getElementById('btn-repair').addEventListener('click', () => showToast('Remuxing valid packets to /ConversionVault/Repaired/ →'));
+    document.getElementById('btn-copy').addEventListener('click', () => showToast('Copied FFmpeg verification command'));
+    document.getElementById('btn-sh').addEventListener('click', () => showToast('Saved to /ConversionVault/SH_Scripts/verify_file.sh'));
+    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+    renderCmd();
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>
