@@ -533,7 +533,22 @@
   <div class="toast" id="toast">Ready</div>
 
   <script>
-    const FILE = { name: 'No file selected', sizeMB: 64.2, durSec: 30, fps: 60 };
+    const FILE = { name: 'No file selected', sizeMB: 0, durSec: 0, fps: 0, width: 0, height: 0, bitrate: 0 };
+    window.updateSingleFileFromProbe = function(fileObj, info) {
+      if (fileObj) {
+        FILE.name = (info && info.filename) || fileObj.name || FILE.name;
+        const bytes = (info && info.sizeBytes) || fileObj.sizeBytes || 0;
+        if (bytes > 0) FILE.sizeMB = bytes / (1024 * 1024);
+      }
+      if (info) {
+        if (info.durationSec > 0) FILE.durSec = info.durationSec;
+        if (info.fps > 0) FILE.fps = info.fps;
+        if (info.width > 0) FILE.width = info.width;
+        if (info.height > 0) FILE.height = info.height;
+        if (info.bitrate > 0) FILE.bitrate = info.bitrate;
+      }
+      if (typeof renderMain === 'function') renderMain();
+    };
 
     const PRESETS = {
       builtin: [
@@ -642,16 +657,28 @@
     function estimateSingle(cfg) {
       const cMultCore = state.cores === '0-3' ? 0.62 : (state.cores === '7' ? 0.35 : (state.cores === '4-7' ? 0.78 : 1.0));
       const tMult = (state.threads === 8 ? 1.0 : (state.threads === 6 ? 0.82 : 0.58)) * cMultCore;
-      if (cfg.codec === 'copy') return { sec: 0.2, outMB: FILE.sizeMB, fpsLbl: 'Fast Stream Copy', rt: 'Instant' };
-      const preFps = { ultrafast: 280, fast: 122, medium: 92, slow: 62, slower: 44, veryslow: 25 }[cfg.preset] || 62;
-      const cMult = cfg.codec === 'libx265' ? 0.52 : (cfg.codec === 'libsvtav1' ? 0.34 : (cfg.codec === 'libvpx-vp9' ? 0.45 : 1.0));
-      const rMult = cfg.scale === '720' ? 1.9 : (cfg.scale === '480' ? 2.6 : 1.0);
-      const outFps = cfg.fps === 'original' ? FILE.fps : parseInt(cfg.fps, 10);
-      const fps = Math.max(4, preFps * cMult * rMult * tMult);
-      const sec = (FILE.durSec * outFps) / fps;
-      const cSize = cfg.codec === 'libx265' ? 0.44 : (cfg.codec === 'libsvtav1' ? 0.38 : 0.62);
-      const outMB = Math.max(1.5, FILE.sizeMB * cSize * (cfg.gop === '1' ? 1.8 : 1.0) * (outFps / FILE.fps) * Math.pow(2, (18 - cfg.crf) / 8));
-      return { sec, outMB, fpsLbl: '~' + Math.round(fps) + ' fps', rt: (FILE.durSec / sec).toFixed(2) + 'x RT' };
+      const srcMB = FILE.sizeMB > 0 ? FILE.sizeMB : 0;
+      const srcDur = FILE.durSec > 0 ? FILE.durSec : 0;
+      const srcFps = FILE.fps > 0 ? FILE.fps : 30;
+      if (srcMB <= 0 && srcDur <= 0) {
+        return { sec: 0, outMB: 0, fpsLbl: 'Probing file...', rt: '—', ramMB: 0 };
+      }
+      if (cfg.codec === 'copy') {
+        return { sec: Math.max(0.2, srcMB / 180), outMB: srcMB, fpsLbl: 'Fast Stream Copy', rt: 'Instant', ramMB: 90 };
+      }
+      const preFps = { ultrafast: 260, fast: 115, medium: 85, slow: 56, slower: 38, veryslow: 20 }[cfg.preset] || 60;
+      const cMult = cfg.codec === 'libx265' ? 0.48 : (cfg.codec === 'libsvtav1' ? 0.30 : (cfg.codec === 'libvpx-vp9' ? 0.42 : 1.0));
+      const srcPx = (FILE.width > 0 && FILE.height > 0) ? (FILE.width * FILE.height) : (1920 * 1080);
+      const targetPx = cfg.scale === '720' ? (1280 * 720) : (cfg.scale === '480' ? (854 * 480) : (cfg.scale === '1080_v' ? (1080 * 1920) : srcPx));
+      const resFactor = Math.max(0.22, Math.min(3.0, (1920 * 1080) / Math.max(1, targetPx)));
+      const outFps = cfg.fps === 'original' ? srcFps : (parseInt(cfg.fps, 10) || srcFps);
+      const fps = Math.max(2, preFps * cMult * resFactor * tMult);
+      const sec = srcDur > 0 ? Math.max(0.3, (srcDur * outFps) / fps) : Math.max(0.5, srcMB / 12);
+      const cSize = cfg.codec === 'libx265' ? 0.46 : (cfg.codec === 'libsvtav1' ? 0.38 : (cfg.codec === 'libvpx-vp9' ? 0.50 : 0.68));
+      const scaleSizeRatio = Math.min(1.0, Math.sqrt(targetPx / Math.max(1, srcPx)));
+      const outMB = Math.max(0.1, srcMB * cSize * scaleSizeRatio * (cfg.gop === '1' ? 1.75 : 1.0) * (outFps / Math.max(1, srcFps)) * Math.pow(2, (20 - (cfg.crf || 20)) / 8));
+      const ramMB = Math.round(180 + (targetPx / (1920 * 1080)) * 220 * (cfg.codec === 'libx265' || cfg.codec === 'libsvtav1' ? 1.4 : 1.0));
+      return { sec, outMB, fpsLbl: '~' + Math.round(fps) + ' fps', rt: srcDur > 0 ? ((srcDur / sec).toFixed(2) + 'x RT') : '—', ramMB };
     }
 
     function renderMain() {
@@ -680,7 +707,7 @@
       perfSec.classList.remove('is-untouched');
       const bars = computeBars(state.cfg);
       const est = estimateSingle(state.cfg);
-      const delta = Math.round(((est.outMB - FILE.sizeMB) / FILE.sizeMB) * 100);
+      const delta = FILE.sizeMB > 0 ? Math.round(((est.outMB - FILE.sizeMB) / FILE.sizeMB) * 100) : 0;
       const sign = delta <= 0 ? delta + '%' : '+' + delta + '%';
       const batt = Math.max(0.1, (est.sec / 3600) * (state.threads === 4 ? 18 : 28));
 
@@ -690,10 +717,10 @@
       document.getElementById('btn-open-format').textContent = 'Change Format ↗';
       document.getElementById('main-ps-bars').innerHTML = renderBars(bars, false);
 
-      document.getElementById('perf-time').textContent = fmtSec(est.sec);
-      document.getElementById('perf-fps').textContent = est.fpsLbl + ' · ' + est.rt;
-      document.getElementById('perf-size').textContent = FILE.sizeMB.toFixed(1) + ' → ' + est.outMB.toFixed(1) + ' MB (' + sign + ')';
-      document.getElementById('perf-res').textContent = '~480 MB RAM · ~' + batt.toFixed(1) + '% Batt';
+      document.getElementById('perf-time').textContent = est.sec > 0 ? fmtSec(est.sec) : '—';
+      document.getElementById('perf-fps').textContent = est.fpsLbl + (est.rt !== '—' ? ' · ' + est.rt : '');
+      document.getElementById('perf-size').textContent = FILE.sizeMB > 0 ? (FILE.sizeMB.toFixed(2) + ' → ' + est.outMB.toFixed(2) + ' MB (' + sign + ')') : 'Probing size...';
+      document.getElementById('perf-res').textContent = est.ramMB > 0 ? ('~' + est.ramMB + ' MB RAM · ~' + batt.toFixed(1) + '% Batt') : '—';
 
       const cmdPill = document.getElementById('core-cmd-pill');
       const warnEl = document.getElementById('core-warn-note');
