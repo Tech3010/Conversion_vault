@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -150,6 +151,11 @@ class ConversionForegroundService : Service() {
                                 updatedAt = System.currentTimeMillis()
                             )
                         )
+                        if (result.first) {
+                            try {
+                                MediaScannerConnection.scanFile(applicationContext, arrayOf(job.outputPath), null, null)
+                            } catch (_: Throwable) {}
+                        }
                         emitEvent(if (result.first) "job_done" else "job_failed", job.id, if (result.first) 100 else finished.progressPct, 0f, result.second)
 
                         if (result.first && job.originalPolicy == "DELETE_AFTER_VERIFY") {

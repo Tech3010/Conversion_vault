@@ -340,6 +340,18 @@
     if (window.__pickingCustomDest && mode === 'folder') {
       window.__pickingCustomDest = false;
       const folderPath = (files[0] && files[0].path) ? files[0].path.substring(0, files[0].path.lastIndexOf('/')) : ('/storage/emulated/0/' + (payload.folderName || 'ConversionVault'));
+      if (page === 'conversion_vault_p6_settings.html') {
+        const vLbl = document.getElementById('lbl-vault-path') || document.querySelector('.vault-path, .path-val');
+        if (vLbl) vLbl.textContent = folderPath + '/';
+        if (hasBridge && typeof window.AndroidBridge.saveSettings === 'function') {
+          window.AndroidBridge.saveSettings(JSON.stringify({ defaultVaultFolder: folderPath }));
+        }
+        toast('Default Vault Folder saved: ' + folderPath);
+        return;
+      }
+      window.__customToolDir = folderPath;
+      const dLbl = document.getElementById('lbl-dest-path');
+      if (dLbl && typeof window.setCustomDestFromNative !== 'function') dLbl.textContent = folderPath + '/';
       if (typeof window.setCustomDestFromNative === 'function') window.setCustomDestFromNative(folderPath);
       return;
     }
@@ -401,44 +413,73 @@
     if (!hasBridge || typeof window.AndroidBridge.getJobs !== 'function') return;
     try {
       const jobs = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL'));
-      const list = document.getElementById('history-list') || document.getElementById('queue-list') || document.querySelector('.job-list');
-      if (!list) return;
-      if (!jobs.length) {
-        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">No jobs yet. Pick a file from Home or Master Vault Studio to start.</div>';
-        return;
-      }
-      list.innerHTML = jobs.map(j => {
+      const qBox = document.getElementById('view-queue');
+      const hBox = document.getElementById('hist-list');
+      const cntQ = document.getElementById('cnt-queue');
+      const cntH = document.getElementById('cnt-hist');
+      if (!qBox && !hBox) return;
+
+      const active = jobs.filter(j => j.status === 'RUNNING' || j.status === 'QUEUED');
+      const finished = jobs.filter(j => j.status !== 'RUNNING' && j.status !== 'QUEUED');
+
+      if (cntQ) cntQ.textContent = String(active.length);
+      if (cntH) cntH.textContent = String(finished.length);
+
+      const renderCard = (j) => {
         const fname = (j.outputPath || j.inputPath || 'job').split('/').pop();
         const badgeColor = j.status === 'DONE' ? 'var(--emerald)' : (j.status === 'FAILED' ? 'var(--crimson)' : 'var(--gold-text)');
-        return '<div class="card" style="padding:12px;margin-bottom:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);">' +
+        const safeOut = (j.outputPath || '').replace(/"/g, '&quot;');
+        const errHtml = j.errorLog
+          ? '<div style="font-family:var(--mono);font-size:10.5px;color:var(--crimson);margin-top:6px;padding:6px 8px;border-radius:6px;background:rgba(219,10,64,0.1);word-break:break-word;">' + String(j.errorLog).replace(/</g, '&lt;').slice(0, 320) + '</div>'
+          : '';
+        return '<div class="card" style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
             '<strong style="font-size:13px;word-break:break-all;">' + fname + '</strong>' +
-            '<span style="font-size:11px;font-weight:700;color:' + badgeColor + ';">' + j.status + (j.status === 'RUNNING' ? ' ' + j.progressPct + '%' : '') + '</span>' +
+            '<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:' + badgeColor + ';">' + j.status + (j.status === 'RUNNING' ? ' ' + j.progressPct + '%' : '') + '</span>' +
           '</div>' +
-          '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + j.module + ' · ' + j.mediaType + '</div>' +
-          (j.errorLog ? '<div style="font-size:10.5px;color:var(--crimson);margin-top:4px;word-break:break-word;">' + j.errorLog.slice(0, 180) + '</div>' : '') +
-          '<div style="display:flex;gap:8px;margin-top:8px;">' +
-            (j.status === 'DONE' ? '<button type="button" class="btn-open-native" data-path="' + j.outputPath + '" style="padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);">Open</button>' : '') +
-            (j.status === 'DONE' ? '<button type="button" class="btn-share-native" data-path="' + j.outputPath + '" style="padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);">Share</button>' : '') +
-            (j.status === 'RUNNING' || j.status === 'QUEUED' ? '<button type="button" class="btn-cancel-native" data-id="' + j.id + '" style="padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid var(--crimson);background:transparent;color:var(--crimson);">Cancel</button>' : '') +
-            '<button type="button" class="btn-del-native" data-id="' + j.id + '" style="padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);">Remove</button>' +
+          '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + j.module + ' · ' + j.mediaType + (j.speed ? ' · ' + j.speed : '') + '</div>' +
+          '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;word-break:break-all;">' + safeOut + '</div>' +
+          errHtml +
+          '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;">' +
+            (j.status === 'DONE' ? '<button type="button" class="btn-open-native" data-path="' + safeOut + '" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--emerald);background:transparent;color:var(--emerald);">Open ▶</button>' : '') +
+            (j.status === 'DONE' ? '<button type="button" class="btn-share-native" data-path="' + safeOut + '" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);">Share ↗</button>' : '') +
+            (j.status === 'RUNNING' || j.status === 'QUEUED' ? '<button type="button" class="btn-cancel-native" data-id="' + j.id + '" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--crimson);background:transparent;color:var(--crimson);">Cancel</button>' : '') +
+            '<button type="button" class="btn-del-native" data-id="' + j.id + '" style="padding:6px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);">Remove</button>' +
           '</div>' +
         '</div>';
-      }).join('');
+      };
 
-      list.querySelectorAll('.btn-open-native').forEach(b => {
+      if (qBox) {
+        qBox.innerHTML = active.length
+          ? active.map(renderCard).join('')
+          : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;">No active jobs running right now. Check the <strong>History</strong> tab for completed or failed conversions.</div>';
+      }
+      if (hBox) {
+        hBox.innerHTML = finished.length
+          ? finished.map(renderCard).join('')
+          : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;">No conversion history yet. Pick a file and run any tool to see outputs here.</div>';
+      }
+
+      // If no active jobs are running but history has entries, auto-open History tab on first load
+      if (!window.__autoSwitchedHist && active.length === 0 && finished.length > 0) {
+        window.__autoSwitchedHist = true;
+        const histBtn = document.querySelector('[data-view="history"]');
+        if (histBtn) histBtn.click();
+      }
+
+      document.querySelectorAll('.btn-open-native').forEach(b => {
         b.addEventListener('click', () => window.AndroidBridge.openFile(b.getAttribute('data-path')));
       });
-      list.querySelectorAll('.btn-share-native').forEach(b => {
+      document.querySelectorAll('.btn-share-native').forEach(b => {
         b.addEventListener('click', () => window.AndroidBridge.shareFile(b.getAttribute('data-path')));
       });
-      list.querySelectorAll('.btn-cancel-native').forEach(b => {
+      document.querySelectorAll('.btn-cancel-native').forEach(b => {
         b.addEventListener('click', () => {
           window.AndroidBridge.cancelJob(b.getAttribute('data-id'));
           setTimeout(renderNativeJobs, 250);
         });
       });
-      list.querySelectorAll('.btn-del-native').forEach(b => {
+      document.querySelectorAll('.btn-del-native').forEach(b => {
         b.addEventListener('click', () => {
           window.AndroidBridge.deleteJob(b.getAttribute('data-id'), false);
           renderNativeJobs();
@@ -652,7 +693,52 @@
 
       if (bTester) bTester.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); navigateTo('conversion_vault_p8_playback_tester.html'); }, true);
       if (bPresets) bPresets.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); navigateTo('conversion_vault_p7_presets.html'); }, true);
-      if (bPickVault) bPickVault.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.AndroidBridge.pickFolder(); } }, true);
+      if (bPickVault) bPickVault.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.__pickingCustomDest = true; window.AndroidBridge.pickFolder(); } }, true);
+
+      const bClearCache = document.getElementById('btn-clear-cache');
+      if (bClearCache) bClearCache.addEventListener('click', (e) => {
+        if (!hasBridge || typeof window.AndroidBridge.clearCache !== 'function') return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        const r = JSON.parse(window.AndroidBridge.clearCache());
+        const mb = ((r.bytesFreed || 0) / (1024 * 1024)).toFixed(2);
+        toast('Cleared ' + mb + ' MB of temporary cache ✓');
+      }, true);
+
+      // Hydrate all saved Settings dropdowns & Vault Folder path from SharedPreferences
+      if (hasBridge && typeof window.AndroidBridge.getSettings === 'function') {
+        try {
+          const s = JSON.parse(window.AndroidBridge.getSettings());
+          const vLbl = document.getElementById('lbl-vault-path') || document.querySelector('.vault-path, .path-val');
+          if (vLbl && s.defaultVaultFolder) vLbl.textContent = s.defaultVaultFolder.replace(/\/$/, '') + '/';
+
+          const map = [
+            ['sel-def-sub', 'defaultSubfolderStyle'],
+            ['sel-def-suffix', 'defaultSuffixRule'],
+            ['sel-src-policy', 'originalSourcePolicy'],
+            ['sel-def-threads', 'defaultThreads'],
+            ['sel-hw-pref', 'hwPreference'],
+            ['sel-loglevel', 'logLevel'],
+            ['sel-def-meta', 'defaultMetadataPolicy'],
+            ['sel-sample-ttl', 'sampleRetentionDays']
+          ];
+          map.forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (s[key] !== undefined && s[key] !== null) {
+              const targetVal = String(s[key]);
+              if (Array.from(el.options).some(o => o.value === targetVal)) {
+                el.value = targetVal;
+              }
+            }
+            el.addEventListener('change', () => {
+              const payload = {};
+              payload[key] = (key === 'sampleRetentionDays') ? (parseInt(el.value, 10) || 15) : el.value;
+              window.AndroidBridge.saveSettings(JSON.stringify(payload));
+              toast('Setting saved ✓');
+            });
+          });
+        } catch (_) {}
+      }
       if (bOpenFm) bOpenFm.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.AndroidBridge.openFolder(''); } }, true);
       if (bExportPresets) bExportPresets.addEventListener('click', (e) => {
         if (hasBridge) {
@@ -816,6 +902,23 @@
     injectGlobalAnimations();
     applySavedTheme();
     hydrateHardwareStrip();
+    if (page === 'conversion_vault_p1_home.html' && hasBridge && typeof window.AndroidBridge.checkEngineHealth === 'function') {
+      setTimeout(() => {
+        try {
+          const h = JSON.parse(window.AndroidBridge.checkEngineHealth());
+          const pill = document.querySelector('.engine-pill');
+          if (pill) {
+            if (h.ok) {
+              pill.innerHTML = '<span class="pulse-dot"></span> FFmpeg &amp; FFprobe Ready';
+            } else {
+              pill.style.color = 'var(--crimson)';
+              pill.style.background = 'rgba(219,10,64,0.15)';
+              pill.textContent = 'Engine Error: ' + (h.error || 'FFmpeg init failed').slice(0, 50);
+            }
+          }
+        } catch (_) {}
+      }, 150);
+    }
 
     document.querySelectorAll('.bottom-nav .nav-item[data-nav]').forEach(btn => {
       btn.addEventListener('click', (e) => {

@@ -35,8 +35,11 @@ object VaultStorageManager {
     )
 
     fun getRootDir(context: Context, customRootPath: String? = null): File {
-        val preferred = if (!customRootPath.isNullOrBlank()) {
-            File(customRootPath)
+        val savedRoot = context.getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+            .getString("default_vault_folder", null)
+        val chosen = customRootPath?.takeIf { it.isNotBlank() } ?: savedRoot?.takeIf { it.isNotBlank() }
+        val preferred = if (chosen != null) {
+            File(chosen)
         } else {
             File(Environment.getExternalStorageDirectory(), DEFAULT_ROOT_NAME)
         }

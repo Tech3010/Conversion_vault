@@ -2,6 +2,7 @@ package com.conversionvault.app.bridge
 
 import android.content.Context
 import android.content.Intent
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.MimeTypeMap
@@ -29,6 +30,32 @@ class AndroidBridge(
     private val context: Context get() = activity.applicationContext
     private val db: VaultDatabase get() = VaultDatabase.getInstance(context)
     private val prefs get() = context.getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+
+    @JavascriptInterface
+    fun checkEngineHealth(): String {
+        return try {
+            val ff = FFmpegKit.execute("-version")
+            val fp = FFprobeKit.execute("-version")
+            val ffOk = ReturnCode.isSuccess(ff.returnCode)
+            val fpOk = ReturnCode.isSuccess(fp.returnCode)
+            val firstLine = (ff.allLogsAsString ?: "").lines().firstOrNull { it.contains("ffmpeg version", true) } ?: "FFmpeg 6.1 GPL"
+            JSONObject().apply {
+                put("ok", ffOk && fpOk)
+                put("ffmpegOk", ffOk)
+                put("ffprobeOk", fpOk)
+                put("version", firstLine.take(60))
+                put("error", if (ffOk && fpOk) "" else ((ff.allLogsAsString ?: "") + " " + (fp.allLogsAsString ?: "")).take(220))
+            }.toString()
+        } catch (t: Throwable) {
+            JSONObject().apply {
+                put("ok", false)
+                put("ffmpegOk", false)
+                put("ffprobeOk", false)
+                put("version", "Engine Error")
+                put("error", "${t.javaClass.simpleName}: ${t.message}")
+            }.toString()
+        }
+    }
 
     @JavascriptInterface
     fun getDeviceTelemetry(): String {
@@ -171,7 +198,9 @@ class AndroidBridge(
         val outFile = VaultStorageManager.resolveNonConflictingFile(outDir, baseName, ext)
 
         val templateArgs = req.optString("commandArgs", "-y -i {INPUT} -c copy {OUTPUT}")
-        val resolvedArgs = templateArgs
+        val defThreads = prefs.getString("default_threads", "auto") ?: "auto"
+        val threadsPrefix = if (defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else ""
+        val resolvedArgs = (threadsPrefix + templateArgs)
             .replace("{INPUT}", "\"${inFile.absolutePath}\"")
             .replace("{OUTPUT}", "\"${outFile.absolutePath}\"")
 
@@ -354,6 +383,12 @@ class AndroidBridge(
             put("theme", prefs.getString("theme", "dark"))
             put("defaultVaultFolder", prefs.getString("default_vault_folder", VaultStorageManager.getRootDir(context).absolutePath))
             put("originalSourcePolicy", prefs.getString("original_source_policy", "KEEP"))
+            put("defaultSubfolderStyle", prefs.getString("default_subfolder_style", "none"))
+            put("defaultSuffixRule", prefs.getString("default_suffix_rule", "orig"))
+            put("defaultThreads", prefs.getString("default_threads", "auto"))
+            put("hwPreference", prefs.getString("hw_preference", "sw_quality"))
+            put("logLevel", prefs.getString("log_level", "info"))
+            put("defaultMetadataPolicy", prefs.getString("default_metadata_policy", "forensic"))
             put("autoSuffixCollision", true)
             put("sampleRetentionDays", prefs.getInt("sample_retention_days", 15))
         }.toString()
@@ -370,9 +405,30 @@ class AndroidBridge(
             }
             if (o.has("defaultVaultFolder")) putString("default_vault_folder", o.getString("defaultVaultFolder"))
             if (o.has("originalSourcePolicy")) putString("original_source_policy", o.getString("originalSourcePolicy"))
+            if (o.has("defaultSubfolderStyle")) putString("default_subfolder_style", o.getString("defaultSubfolderStyle"))
+            if (o.has("defaultSuffixRule")) putString("default_suffix_rule", o.getString("defaultSuffixRule"))
+            if (o.has("defaultThreads")) putString("default_threads", o.getString("defaultThreads"))
+            if (o.has("hwPreference")) putString("hw_preference", o.getString("hwPreference"))
+            if (o.has("logLevel")) putString("log_level", o.getString("logLevel"))
+            if (o.has("defaultMetadataPolicy")) putString("default_metadata_policy", o.getString("defaultMetadataPolicy"))
             if (o.has("sampleRetentionDays")) putInt("sample_retention_days", o.getInt("sampleRetentionDays"))
         }.apply()
         return JSONObject().put("ok", true).toString()
+    }
+
+    @JavascriptInterface
+    fun clearCache(): String {
+        var bytesFreed = 0L
+        try {
+            val staged = File(context.cacheDir, "staged_inputs")
+            staged.listFiles()?.forEach { f ->
+                if (f.isFile) {
+                    bytesFreed += f.length()
+                    f.delete()
+                }
+            }
+        } catch (_: Throwable) {}
+        return JSONObject().put("ok", true).put("bytesFreed", bytesFreed).toString()
     }
 
     @JavascriptInterface
@@ -405,6 +461,9 @@ class AndroidBridge(
                 outFile.parentFile?.mkdirs()
                 val session = FFmpegKit.execute(finalCmd)
                 val ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
+                if (ok) {
+                    try { MediaScannerConnection.scanFile(context, arrayOf(outFile.absolutePath), null, null) } catch (_: Throwable) {}
+                }
                 JSONObject().apply {
                     put("ok", ok)
                     put("type", type)
