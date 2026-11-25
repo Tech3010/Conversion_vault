@@ -550,9 +550,96 @@
     }
 
     if (page === 'conversion_vault_p2a_single.html') {
+      const activeFiles = getActiveFiles();
+      const firstFile = activeFiles[0];
+      let singlePhotoCfg = null;
+      if (firstFile && classifyExt(firstFile.name) === 'i') {
+        singlePhotoCfg = { format: 'webp', quality: 88, scale: 'original', orient: 'auto', meta: 'wipe', colorSpace: 'srgb_444' };
+        const presetBox = document.getElementById('main-preset-box');
+        if (presetBox && !document.getElementById('native-photo-single-card')) {
+          const card = document.createElement('div');
+          card.id = 'native-photo-single-card';
+          card.style.cssText = 'margin-top:10px; padding:12px; border-radius:12px; border:1px solid rgba(16,185,129,0.4); background:rgba(16,185,129,0.06); display:flex; flex-direction:column; gap:10px;';
+          card.innerHTML =
+            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+              '<span style="font-size:12px; font-weight:800; color:var(--emerald);">Native Photo Engine (Skia + Exif + Heif)</span>' +
+              '<span style="font-size:10px; font-family:var(--mono); color:var(--muted);">PHOTO MODE</span>' +
+            '</div>' +
+            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Output Format</label>' +
+                '<select id="sp-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="webp" selected>.webp (Modern)</option>' +
+                  '<option value="jpg">.jpg (Universal)</option>' +
+                  '<option value="png">.png (Lossless)</option>' +
+                  '<option value="heic">.heic (HEIF High-Eff)</option>' +
+                  '<option value="avif">.avif (Ultra Small)</option>' +
+                '</select></div>' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Max Width Scale</label>' +
+                '<select id="sp-scale" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="original" selected>Keep Original</option>' +
+                  '<option value="3840">3840 px (4K)</option>' +
+                  '<option value="1920">1920 px</option>' +
+                  '<option value="1080">1080 px</option>' +
+                  '<option value="720">720 px</option>' +
+                '</select></div>' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Orientation</label>' +
+                '<select id="sp-orient" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="auto" selected>Auto-Orient (EXIF)</option>' +
+                  '<option value="keep">Keep Original</option>' +
+                  '<option value="90cw">Rotate 90° CW</option>' +
+                  '<option value="90ccw">Rotate 90° CCW</option>' +
+                  '<option value="180">Rotate 180°</option>' +
+                  '<option value="hflip">Flip Horizontal</option>' +
+                '</select></div>' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">EXIF Privacy</label>' +
+                '<select id="sp-meta" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="wipe" selected>Wipe All EXIF &amp; GPS</option>' +
+                  '<option value="deep">Forensic Scrub</option>' +
+                  '<option value="gps">Strip GPS Only</option>' +
+                  '<option value="keep">Keep EXIF</option>' +
+                '</select></div>' +
+            '</div>' +
+            '<div><div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px;"><span>Image Quality</span><strong id="sp-qual-lbl" style="color:var(--text);">88%</strong></div>' +
+              '<input type="range" id="sp-qual" min="15" max="100" value="88" style="width:100%;"></div>';
+          presetBox.parentNode.insertBefore(card, presetBox.nextSibling);
+
+          const syncPhotoSummary = () => {
+            singlePhotoCfg.format = document.getElementById('sp-fmt').value;
+            singlePhotoCfg.scale = document.getElementById('sp-scale').value;
+            singlePhotoCfg.orient = document.getElementById('sp-orient').value;
+            singlePhotoCfg.meta = document.getElementById('sp-meta').value;
+            singlePhotoCfg.quality = parseInt(document.getElementById('sp-qual').value, 10) || 88;
+            document.getElementById('sp-qual-lbl').textContent = singlePhotoCfg.format === 'png' ? 'Lossless' : (singlePhotoCfg.quality + '%');
+            const stPill = document.getElementById('fmt-status-pill');
+            const psName = document.getElementById('main-ps-name');
+            const psTags = document.getElementById('main-ps-tags');
+            const footT = document.getElementById('foot-title');
+            const footS = document.getElementById('foot-sub');
+            if (stPill) stPill.textContent = '.' + singlePhotoCfg.format.toUpperCase();
+            if (psName) psName.textContent = 'Native Photo Engine · .' + singlePhotoCfg.format.toUpperCase();
+            if (psTags) psTags.textContent = (singlePhotoCfg.format === 'png' ? 'Lossless PNG' : ('Quality ' + singlePhotoCfg.quality + '%')) + ' · Scale: ' + singlePhotoCfg.scale + ' · EXIF: ' + singlePhotoCfg.meta;
+            if (footT) footT.textContent = 'Native Photo Engine Ready';
+            if (footS) footS.textContent = '.' + singlePhotoCfg.format.toUpperCase() + ' · Q' + singlePhotoCfg.quality + ' · ' + singlePhotoCfg.meta;
+            const mvBtn = document.getElementById('btn-move-convert');
+            if (mvBtn) mvBtn.disabled = false;
+          };
+          ['sp-fmt', 'sp-scale', 'sp-orient', 'sp-meta', 'sp-qual'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', syncPhotoSummary);
+            if (el) el.addEventListener('change', syncPhotoSummary);
+          });
+          syncPhotoSummary();
+        }
+      }
+
       const bMove = document.getElementById('btn-move-convert');
       if (bMove) bMove.addEventListener('click', (e) => {
         e.preventDefault(); e.stopImmediatePropagation();
+        if (singlePhotoCfg) {
+          safeSet('cv_pending_convert_cfg', JSON.stringify({ mode: 'single_photo', photo: singlePhotoCfg }));
+        } else {
+          safeSet('cv_pending_convert_cfg', JSON.stringify({ mode: 'single_video' }));
+        }
         navigateTo('conversion_vault_p3b_output_single.html');
       }, true);
     }
@@ -562,6 +649,11 @@
       const bGo = document.getElementById('btn-go-convert');
       if (bGo) bGo.addEventListener('click', (e) => {
         e.preventDefault(); e.stopImmediatePropagation();
+        if (typeof window.getVaultBatchConfigs === 'function') {
+          try {
+            safeSet('cv_pending_convert_cfg', JSON.stringify({ mode: 'batch', batch: window.getVaultBatchConfigs() }));
+          } catch (_) {}
+        }
         navigateTo('conversion_vault_p3b_output.html');
       }, true);
     }
@@ -578,16 +670,44 @@
         if (!hasBridge) { toast('Native engine runs inside Android APK'); return; }
         const outNameEl = document.getElementById('inp-fname');
         const probe = JSON.parse(safeGet('cv_last_probe', '{}') || '{}');
+        let pendingCfg = {};
+        try { pendingCfg = JSON.parse(safeGet('cv_pending_convert_cfg', '{}') || '{}'); } catch (_) {}
         let queuedCount = 0;
         let lastErr = '';
         files.forEach((f, idx) => {
           const c = classifyExt(f.name);
           const bucket = c === 'a' ? 'Audios' : (c === 'i' ? 'Images' : 'Videos');
           const mType = c === 'a' ? 'Audio' : (c === 'i' ? 'Image' : 'Video');
-          const ext = c === 'a' ? 'm4a' : (c === 'i' ? 'webp' : 'mp4');
-          const args = c === 'a' ? '-y -i {INPUT} -c:a aac -b:a 192k {OUTPUT}'
-                     : (c === 'i' ? '-y -i {INPUT} -c:v libwebp -quality 85 {OUTPUT}'
-                                  : '-y -i {INPUT} -c:v libx264 -pix_fmt yuv420p -crf 20 -preset fast -c:a aac -b:a 192k -movflags +faststart {OUTPUT}');
+          let ext = c === 'a' ? 'm4a' : (c === 'i' ? 'webp' : 'mp4');
+          let args = '';
+
+          if (c === 'i') {
+            const batchItemCfg = pendingCfg.batch && pendingCfg.batch.byName && pendingCfg.batch.byName[f.name];
+            const batchImgCfg = pendingCfg.batch && pendingCfg.batch.byCat && pendingCfg.batch.byCat.image;
+            const pCfg = (pendingCfg.mode === 'single_photo' && pendingCfg.photo) || batchItemCfg || batchImgCfg || {};
+            ext = (pCfg.format || pCfg.fmt || 'webp').replace(/^\./, '').toLowerCase();
+            const photoSpec = {
+              format: ext,
+              quality: parseInt(pCfg.quality || pCfg.qual || 88, 10) || 88,
+              scale: String(pCfg.scale || 'original'),
+              orient: String(pCfg.orient || 'auto'),
+              meta: String(pCfg.meta || 'wipe'),
+              colorSpace: String(pCfg.colorSpace || 'srgb_444')
+            };
+            args = 'NATIVE_PHOTO:' + JSON.stringify(photoSpec);
+          } else if (c === 'a') {
+            const aCfg = (pendingCfg.batch && pendingCfg.batch.byName && pendingCfg.batch.byName[f.name]) || (pendingCfg.batch && pendingCfg.batch.byCat && pendingCfg.batch.byCat.audio) || {};
+            ext = (aCfg.fmt || 'm4a').replace(/^\./, '').toLowerCase();
+            const br = aCfg.br || '192k';
+            args = ext === 'flac' ? '-y -i {INPUT} -c:a flac {OUTPUT}'
+                 : (ext === 'wav' ? '-y -i {INPUT} -c:a pcm_s16le {OUTPUT}'
+                 : (ext === 'mp3' ? '-y -i {INPUT} -c:a libmp3lame -b:a ' + br + ' {OUTPUT}'
+                 : (ext === 'opus' ? '-y -i {INPUT} -c:a libopus -b:a ' + br + ' {OUTPUT}'
+                                   : '-y -i {INPUT} -c:a aac -b:a ' + br + ' {OUTPUT}')));
+          } else {
+            args = '-y -i {INPUT} -c:v libx264 -pix_fmt yuv420p -crf 20 -preset fast -c:a aac -b:a 192k -movflags +faststart {OUTPUT}';
+          }
+
           const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify({
             module: 'Vault_Core',
             subBucket: bucket,
@@ -943,7 +1063,7 @@
           const pill = document.querySelector('.engine-pill');
           if (pill) {
             if (h.ok) {
-              pill.innerHTML = '<span class="pulse-dot"></span> FFmpeg &amp; FFprobe Ready';
+              pill.innerHTML = '<span class="pulse-dot"></span> FFmpeg · FFprobe · Photo Engine Ready';
             } else {
               pill.style.color = 'var(--crimson)';
               pill.style.background = 'rgba(219,10,64,0.15)';

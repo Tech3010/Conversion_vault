@@ -283,10 +283,12 @@ object NativePhotoEngine {
                 .setQuality(quality.coerceIn(15, 100))
                 .setMaxImages(1)
                 .build()
-            writer.use { w ->
-                w.start()
-                w.addBitmap(targetBmp)
-                w.stop(0)
+            try {
+                writer.start()
+                writer.addBitmap(targetBmp)
+                writer.stop(0)
+            } finally {
+                try { writer.close() } catch (_: Throwable) {}
             }
         } finally {
             if (targetBmp !== bitmap) targetBmp.recycle()

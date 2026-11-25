@@ -1580,6 +1580,7 @@
               <option value="webp" ${draft.fmt === 'webp' ? 'selected' : ''}>.webp (Modern)</option>
               <option value="jpg" ${draft.fmt === 'jpg' ? 'selected' : ''}>.jpg (Universal)</option>
               <option value="png" ${draft.fmt === 'png' ? 'selected' : ''}>.png (Lossless)</option>
+              <option value="heic" ${draft.fmt === 'heic' ? 'selected' : ''}>.heic (HEIF High-Eff)</option>
               <option value="avif" ${draft.fmt === 'avif' ? 'selected' : ''}>.avif (Ultra Small)</option>
             </select>
           </div>
@@ -1929,6 +1930,18 @@
         });
       }
     });
+    window.getVaultBatchConfigs = function() {
+      const byName = {};
+      const byCat = {
+        video: (state.globalCfg && state.globalCfg.video) || null,
+        audio: (state.globalCfg && state.globalCfg.audio) || null,
+        image: (state.globalCfg && state.globalCfg.image) || null
+      };
+      (state.items || []).forEach(it => {
+        if (it && it.name && it.cfg) byName[it.name] = it.cfg;
+      });
+      return { byName, byCat };
+    };
   </script>
   <script src="vault-bridge.js"></script>
 </body>
