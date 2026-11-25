@@ -751,7 +751,8 @@
             const merged = [];
             const seen = new Set();
             roomList.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
-            BUILTIN_IMG_PRESETS.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
+            const hiddenB = new Set([].concat(JSON.parse(safeGet('cv_deleted_builtins', '[]') || '[]'), JSON.parse(safeGet('cv_perm_deleted_builtins', '[]') || '[]')));
+            BUILTIN_IMG_PRESETS.forEach(s => { if (!hiddenB.has(s.raw.name) && !seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
             if (cntEl) cntEl.textContent = 'Presets (' + merged.length + ')';
             if (arrEl) arrEl.textContent = spPresetsOpen ? '▴' : '▾';
             wrap.style.display = spPresetsOpen ? 'flex' : 'none';
@@ -905,7 +906,8 @@
             const merged = [];
             const seen = new Set();
             roomList.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
-            BUILTIN_AUD_PRESETS.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
+            const hiddenB = new Set([].concat(JSON.parse(safeGet('cv_deleted_builtins', '[]') || '[]'), JSON.parse(safeGet('cv_perm_deleted_builtins', '[]') || '[]')));
+            BUILTIN_AUD_PRESETS.forEach(s => { if (!hiddenB.has(s.raw.name) && !seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
             if (cntEl) cntEl.textContent = 'Presets (' + merged.length + ')';
             if (arrEl) arrEl.textContent = saPresetsOpen ? '▴' : '▾';
             wrap.style.display = saPresetsOpen ? 'flex' : 'none';

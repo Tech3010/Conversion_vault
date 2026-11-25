@@ -713,11 +713,25 @@
       document.getElementById('btn-move-convert').disabled = false;
     }
 
+    function getHiddenBuiltinNames() {
+      const hidden = new Set();
+      ['cv_deleted_builtins', 'cv_perm_deleted_builtins'].forEach(k => {
+        try {
+          const raw = (window.AndroidBridge && typeof window.AndroidBridge.getAppState === 'function')
+            ? window.AndroidBridge.getAppState(k)
+            : localStorage.getItem(k);
+          (JSON.parse(raw || '[]') || []).forEach(n => hidden.add(n));
+        } catch (_) {}
+      });
+      return hidden;
+    }
+
     function getAllVideoPresets() {
       const merged = [];
       const seen = new Set();
+      const hiddenBuiltins = getHiddenBuiltinNames();
       (PRESETS.saved || []).forEach(p => { if (!seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
-      (PRESETS.builtin || []).forEach(p => { if (!seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
+      (PRESETS.builtin || []).forEach(p => { if (!hiddenBuiltins.has(p.name) && !seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
       return merged;
     }
 

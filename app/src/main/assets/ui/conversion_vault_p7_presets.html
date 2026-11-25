@@ -1075,7 +1075,10 @@
         } else if (act === 'restore') {
           state.deleted = state.deleted.filter(x => x.id !== id);
           state.templates.unshift(t);
-          if (t.roomId && window.AndroidBridge && typeof window.AndroidBridge.restorePreset === 'function') {
+          if (t.origin === 'builtin') {
+            writeBuiltinStateList('cv_deleted_builtins', readBuiltinStateList('cv_deleted_builtins').filter(n => n !== t.name));
+            writeBuiltinStateList('cv_perm_deleted_builtins', readBuiltinStateList('cv_perm_deleted_builtins').filter(n => n !== t.name));
+          } else if (t.roomId && window.AndroidBridge && typeof window.AndroidBridge.restorePreset === 'function') {
             try { window.AndroidBridge.restorePreset(String(t.roomId)); } catch (_) {}
           }
           render();
@@ -1102,6 +1105,26 @@
       state.pendingDelete = null;
       document.getElementById('confirm-modal').classList.add('hidden');
     });
+    function readBuiltinStateList(key) {
+      try {
+        const raw = (window.AndroidBridge && typeof window.AndroidBridge.getAppState === 'function')
+          ? window.AndroidBridge.getAppState(key)
+          : localStorage.getItem(key);
+        const arr = JSON.parse(raw || '[]');
+        return Array.isArray(arr) ? arr : [];
+      } catch (_) { return []; }
+    }
+    function writeBuiltinStateList(key, arr) {
+      const uniq = Array.from(new Set(arr || []));
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.setAppState === 'function') {
+          window.AndroidBridge.setAppState(key, JSON.stringify(uniq));
+        } else {
+          localStorage.setItem(key, JSON.stringify(uniq));
+        }
+      } catch (_) {}
+    }
+
     document.getElementById('btn-confirm-yes').addEventListener('click', () => {
       const p = state.pendingDelete;
       if (!p) return;
@@ -1110,13 +1133,24 @@
         if (item) {
           state.templates = state.templates.filter(x => x.id !== p.id);
           state.deleted.unshift(item);
-          if (item.roomId && window.AndroidBridge && typeof window.AndroidBridge.softDeletePreset === 'function') {
+          if (item.origin === 'builtin') {
+            const delB = readBuiltinStateList('cv_deleted_builtins');
+            delB.push(item.name);
+            writeBuiltinStateList('cv_deleted_builtins', delB);
+          } else if (item.roomId && window.AndroidBridge && typeof window.AndroidBridge.softDeletePreset === 'function') {
             try { window.AndroidBridge.softDeletePreset(String(item.roomId)); } catch (_) {}
           }
           showToast('Moved "' + p.name + '" to Deleted Presets');
         }
       } else {
+        const item = state.deleted.find(x => x.id === p.id);
         state.deleted = state.deleted.filter(x => x.id !== p.id);
+        if (item && item.origin === 'builtin') {
+          writeBuiltinStateList('cv_deleted_builtins', readBuiltinStateList('cv_deleted_builtins').filter(n => n !== item.name));
+          const permB = readBuiltinStateList('cv_perm_deleted_builtins');
+          permB.push(item.name);
+          writeBuiltinStateList('cv_perm_deleted_builtins', permB);
+        }
         showToast('Permanently deleted "' + p.name + '"');
       }
       state.pendingDelete = null;
@@ -1127,8 +1161,12 @@
         (function loadNativePresetsIntoHub() {
       if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
       try {
-        // Keep only Built-In presets from static array; load ALL Saved presets strictly from Room SQLite
-        state.templates = state.templates.filter(t => t.origin === 'builtin');
+        // Keep only non-deleted Built-In presets; move soft-deleted Built-Ins into state.deleted
+        const delBuiltins = new Set(readBuiltinStateList('cv_deleted_builtins'));
+        const permBuiltins = new Set(readBuiltinStateList('cv_perm_deleted_builtins'));
+        const allBuiltins = state.templates.filter(t => t.origin === 'builtin');
+        state.templates = allBuiltins.filter(t => !delBuiltins.has(t.name) && !permBuiltins.has(t.name));
+        const softDeletedBuiltins = allBuiltins.filter(t => delBuiltins.has(t.name) && !permBuiltins.has(t.name));
         const mapRoomPreset = (p, idx) => {
           let parsed = {};
           try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
@@ -1150,7 +1188,7 @@
         const activeList = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
         activeList.forEach((p, idx) => state.templates.unshift(mapRoomPreset(p, idx)));
         const delList = JSON.parse(window.AndroidBridge.getPresets(true) || '[]');
-        state.deleted = delList.map((p, idx) => mapRoomPreset(p, 5000 + idx));
+        state.deleted = softDeletedBuiltins.concat(delList.map((p, idx) => mapRoomPreset(p, 5000 + idx)));
       } catch (_) {}
     })();
     render();

@@ -1218,11 +1218,25 @@
       renderModal();
     }
 
+    function getHiddenBuiltinNames() {
+      const hidden = new Set();
+      ['cv_deleted_builtins', 'cv_perm_deleted_builtins'].forEach(k => {
+        try {
+          const raw = (window.AndroidBridge && typeof window.AndroidBridge.getAppState === 'function')
+            ? window.AndroidBridge.getAppState(k)
+            : localStorage.getItem(k);
+          (JSON.parse(raw || '[]') || []).forEach(n => hidden.add(n));
+        } catch (_) {}
+      });
+      return hidden;
+    }
+
     function getAllBatchPresetsForCat(cat) {
       const merged = [];
       const seen = new Set();
+      const hiddenBuiltins = getHiddenBuiltinNames();
       ((PRESET_LIBRARY[cat] && PRESET_LIBRARY[cat].saved) || []).forEach(p => { if (!seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
-      ((PRESET_LIBRARY[cat] && PRESET_LIBRARY[cat].builtin) || []).forEach(p => { if (!seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
+      ((PRESET_LIBRARY[cat] && PRESET_LIBRARY[cat].builtin) || []).forEach(p => { if (!hiddenBuiltins.has(p.name) && !seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
       return merged;
     }
 
