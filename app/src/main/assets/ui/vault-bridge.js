@@ -458,32 +458,30 @@
       return;
     }
 
-    setActiveFiles(mode, files);
-
     if (page === 'conversion_vault_p2_select.html') {
-      if (mode === 'single' && files.length >= 1) {
-        const f = files[0];
-        const mb = f.sizeBytes ? (f.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB' : 'Ready';
-        const ext = (f.name.split('.').pop() || 'FILE').toUpperCase();
-        if (typeof window.showSelection === 'function') {
-          window.showSelection('single', f.name, ext + ' · ' + mb, null);
+      // Unified Collect & Drop: append Single, Multi, or Folder picks into ONE shared basket (deduped by path)
+      const existing = getActiveFiles();
+      const seenPaths = new Set(existing.map(x => x.path || x.name));
+      let added = 0;
+      const merged = existing.slice();
+      files.forEach(f => {
+        if (!classifyExt(f.name)) return;
+        const key = f.path || f.name;
+        if (!seenPaths.has(key)) {
+          seenPaths.add(key);
+          merged.push(f);
+          added++;
         }
-      } else {
-        const counts = { v: 0, a: 0, i: 0 };
-        let totalBytes = 0;
-        files.forEach(f => {
-          const c = classifyExt(f.name);
-          if (c) { counts[c]++; totalBytes += (f.sizeBytes || 0); }
-        });
-        const total = counts.v + counts.a + counts.i;
-        const mb = (totalBytes / (1024 * 1024)).toFixed(1);
-        if (typeof window.showSelection === 'function') {
-          window.showSelection(mode, total + ' Media Files Detected', 'Total Size: ' + mb + ' MB · Auto-split into 3 buckets', counts);
-        }
+      });
+      setActiveFiles(merged.length > 1 ? 'multi' : 'single', merged);
+      if (typeof window.renderUnifiedPickBasket === 'function') {
+        window.renderUnifiedPickBasket();
       }
-      toast('Selected ' + files.length + (files.length === 1 ? ' file' : ' files'));
+      toast(added > 0 ? ('Added ' + added + (added === 1 ? ' file' : ' files') + ' (' + merged.length + ' total)') : ('Already in list (' + merged.length + ' total)'));
       return;
     }
+
+    setActiveFiles(mode, files);
 
     if (files.length > 0) {
       probeAndHydrateSingleFile(files[0]);
@@ -609,6 +607,74 @@
     }
 
     if (page === 'conversion_vault_p2_select.html') {
+      let pickSortMode = 'added';
+      const sortPickedFiles = (arr) => {
+        const list = (arr || []).slice();
+        if (pickSortMode === 'name_asc') list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+        else if (pickSortMode === 'name_desc') list.sort((a, b) => String(b.name || '').localeCompare(String(a.name || ''), undefined, { sensitivity: 'base' }));
+        else if (pickSortMode === 'size_desc') list.sort((a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0));
+        else if (pickSortMode === 'size_asc') list.sort((a, b) => (a.sizeBytes || 0) - (b.sizeBytes || 0));
+        return list;
+      };
+
+      const renderUnifiedPickBasket = () => {
+        const raw = getActiveFiles();
+        const sorted = sortPickedFiles(raw);
+        const card = document.getElementById('picked-card');
+        const listEl = document.getElementById('picked-files-list');
+        const sortRow = document.getElementById('picked-sort-row');
+        const btnCont = document.getElementById('btn-continue');
+        const ctaStatus = document.getElementById('cta-status');
+
+        if (!sorted.length) {
+          if (card) card.classList.add('hidden');
+          if (sortRow) sortRow.classList.add('hidden');
+          if (listEl) listEl.innerHTML = '';
+          if (btnCont) btnCont.disabled = true;
+          if (ctaStatus) ctaStatus.textContent = 'No source selected';
+          return;
+        }
+
+        const counts = { v: 0, a: 0, i: 0 };
+        let totalBytes = 0;
+        sorted.forEach(f => {
+          const c = classifyExt(f.name);
+          if (c) counts[c]++;
+          totalBytes += (f.sizeBytes || 0);
+        });
+        const mb = (totalBytes / (1024 * 1024)).toFixed(2);
+        if (typeof window.showSelection === 'function') {
+          if (sorted.length === 1) {
+            const f = sorted[0];
+            const ext = (f.name.split('.').pop() || 'FILE').toUpperCase();
+            window.showSelection('single', f.name, ext + ' · ' + mb + ' MB · Tap cards above to add more files', counts);
+          } else {
+            window.showSelection('multi', sorted.length + ' Collected Files Ready', 'Total Size: ' + mb + ' MB · Tap cards above to add more', counts);
+          }
+        }
+        if (sortRow) sortRow.classList.toggle('hidden', sorted.length <= 1);
+        if (ctaStatus) ctaStatus.textContent = sorted.length + (sorted.length === 1 ? ' file ready' : ' files ready');
+        if (btnCont) btnCont.disabled = false;
+
+        if (listEl) {
+          const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          listEl.innerHTML = sorted.map((f) => {
+            const c = classifyExt(f.name);
+            const tag = c === 'a' ? 'AUDIO' : (c === 'i' ? 'PHOTO' : 'VIDEO');
+            const sz = f.sizeBytes ? (f.sizeBytes < 1024 * 1024 ? (f.sizeBytes / 1024).toFixed(0) + ' KB' : (f.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB') : '—';
+            const key = esc(f.path || f.name);
+            return '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 8px; border-radius:7px; border:1px solid var(--border); background:var(--surface);">' +
+              '<div style="min-width:0;">' +
+                '<div style="font-size:11.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(f.name) + '</div>' +
+                '<div style="font-size:10px; font-family:var(--mono); color:var(--muted);">' + tag + ' · ' + sz + '</div>' +
+              '</div>' +
+              '<button type="button" data-rm-pick="' + key + '" style="border:none; background:transparent; color:var(--crimson); font-size:15px; font-weight:800; padding:2px 6px; cursor:pointer;" aria-label="Remove file">×</button>' +
+            '</div>';
+          }).join('');
+        }
+      };
+      window.renderUnifiedPickBasket = renderUnifiedPickBasket;
+
       const bind = (id, fn) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('click', (e) => {
@@ -621,14 +687,45 @@
       bind('card-multi', () => window.AndroidBridge.pickMultipleFiles());
       bind('card-folder', () => window.AndroidBridge.pickFolder());
 
+      const selPickSort = document.getElementById('sel-pick-sort');
+      if (selPickSort) {
+        selPickSort.addEventListener('change', () => {
+          pickSortMode = selPickSort.value || 'added';
+          const sorted = sortPickedFiles(getActiveFiles());
+          setActiveFiles(sorted.length > 1 ? 'multi' : 'single', sorted);
+          renderUnifiedPickBasket();
+        });
+      }
+
+      const btnClearPick = document.getElementById('btn-clear-pick');
+      if (btnClearPick) {
+        btnClearPick.addEventListener('click', () => {
+          setActiveFiles('single', []);
+          renderUnifiedPickBasket();
+          toast('Cleared collected files');
+        }, true);
+      }
+
+      document.addEventListener('click', (e) => {
+        const rm = e.target.closest('[data-rm-pick]');
+        if (!rm) return;
+        const key = rm.getAttribute('data-rm-pick');
+        const next = getActiveFiles().filter(f => (f.path || f.name) !== key);
+        setActiveFiles(next.length > 1 ? 'multi' : 'single', next);
+        renderUnifiedPickBasket();
+      });
+
       const btnCont = document.getElementById('btn-continue');
       if (btnCont) btnCont.addEventListener('click', (e) => {
         e.preventDefault(); e.stopImmediatePropagation();
-        const m = getActiveMode();
-        if (m === 'folder') navigateTo('conversion_vault_p3_batch.html');
-        else if (m === 'multi') navigateTo('conversion_vault_p2b_multi_collector.html');
-        else navigateTo('conversion_vault_p2a_single.html');
+        const sorted = sortPickedFiles(getActiveFiles());
+        if (!sorted.length) { toast('Add at least one file first'); return; }
+        setActiveFiles(sorted.length > 1 ? 'multi' : 'single', sorted);
+        if (sorted.length === 1) navigateTo('conversion_vault_p2a_single.html');
+        else navigateTo('conversion_vault_p3_batch.html');
       }, true);
+
+      renderUnifiedPickBasket();
     }
 
     if (page === 'conversion_vault_p2b_multi_collector.html') {
@@ -1155,7 +1252,20 @@
           if (res && res.ok) {
             queuedCount = res.count || jobSpecs.length;
             if (res.firstJobId) safeSet('cv_active_job_id', res.firstJobId);
-            safeSet('cv_batch_job_ids', JSON.stringify(res.jobIds || []));
+            const jIds = res.jobIds || [];
+            safeSet('cv_batch_job_ids', JSON.stringify(jIds));
+            if (jIds.length > 1) {
+              try {
+                const reg = JSON.parse(safeGet('cv_batches_meta', '[]') || '[]');
+                reg.unshift({
+                  batchId: 'batch_' + Date.now(),
+                  createdAt: Date.now(),
+                  total: jIds.length,
+                  jobIds: jIds
+                });
+                safeSet('cv_batches_meta', JSON.stringify(reg.slice(0, 30)));
+              } catch (_) {}
+            }
           } else {
             lastErr = (res && res.error) || 'Failed to queue batch';
           }

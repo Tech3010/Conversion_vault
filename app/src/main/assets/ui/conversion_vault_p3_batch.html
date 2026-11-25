@@ -567,9 +567,20 @@
     <main class="content" id="page-folder">
       <div class="folder-strip">
         <div>
-          <div class="folder-path">/storage/emulated/0/Movies/dist</div>
+          <div class="folder-path" id="batch-source-title">Collected Media Workspace</div>
           <div class="folder-meta">Check files (All / None / Invert) → Apply Preset to Selected</div>
         </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:2px 2px 4px;">
+        <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px;">Sort Files</span>
+        <select id="sel-batch-sort" style="padding:6px 10px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px; font-weight:600;">
+          <option value="added" selected>Added Order</option>
+          <option value="name_asc">Name (A → Z)</option>
+          <option value="name_desc">Name (Z → A)</option>
+          <option value="size_desc">Size (Largest First)</option>
+          <option value="size_asc">Size (Smallest First)</option>
+        </select>
       </div>
 
       <!-- 1. VIDEOS BUCKET -->
@@ -2031,6 +2042,27 @@
         });
       }
     });
+    const selBatchSort = document.getElementById('sel-batch-sort');
+    if (selBatchSort) {
+      selBatchSort.addEventListener('change', () => {
+        const mode = selBatchSort.value || 'added';
+        if (mode === 'name_asc') state.files.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+        else if (mode === 'name_desc') state.files.sort((a, b) => String(b.name || '').localeCompare(String(a.name || ''), undefined, { sensitivity: 'base' }));
+        else if (mode === 'size_desc') state.files.sort((a, b) => (b.sizeMB || 0) - (a.sizeMB || 0));
+        else if (mode === 'size_asc') state.files.sort((a, b) => (a.sizeMB || 0) - (b.sizeMB || 0));
+        else state.files.sort((a, b) => (a.id || 0) - (b.id || 0));
+        // Keep cv_active_files synced to the sorted order so Conversion Engine executes in sorted order
+        try {
+          const orderedNative = state.files.map(f => ({ name: f.name, path: f.path, sizeBytes: Math.round((f.sizeMB || 0) * 1024 * 1024) }));
+          if (window.AndroidBridge && window.AndroidBridge.setAppState) {
+            window.AndroidBridge.setAppState('cv_active_files', JSON.stringify(orderedNative));
+          }
+          localStorage.setItem('cv_active_files', JSON.stringify(orderedNative));
+        } catch (_) {}
+        renderAll();
+      });
+    }
+
     window.getVaultBatchConfigs = function() {
       const byName = {};
       const byCat = {

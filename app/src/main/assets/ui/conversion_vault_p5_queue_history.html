@@ -246,17 +246,29 @@
         </button>
       </div>
 
-      <!-- Sort Control (applies to Queue & History) -->
+      <!-- Sort & File-Manager Multi-Select Toolbar -->
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-        <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px;">Sort By</span>
-        <select id="sel-sort-jobs" style="padding:6px 10px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px; font-weight:600;">
-          <option value="date_desc" selected>Date (Newest First)</option>
-          <option value="date_asc">Date (Oldest First)</option>
-          <option value="name_asc">Name (A → Z)</option>
-          <option value="name_desc">Name (Z → A)</option>
-          <option value="size_desc">Size (Largest First)</option>
-          <option value="size_asc">Size (Smallest First)</option>
-        </select>
+        <button type="button" id="btn-toggle-select" class="btn-sm" style="padding:6px 12px;">☑ Select</button>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:10.5px; font-weight:700; color:var(--muted); text-transform:uppercase;">Sort</span>
+          <select id="sel-sort-jobs" style="padding:6px 10px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px; font-weight:600;">
+            <option value="date_desc" selected>Date (Newest)</option>
+            <option value="date_asc">Date (Oldest)</option>
+            <option value="name_asc">Name (A → Z)</option>
+            <option value="name_desc">Name (Z → A)</option>
+            <option value="size_desc">Size (Largest)</option>
+            <option value="size_asc">Size (Smallest)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Multi-Select Action Bar (File-Manager Style) -->
+      <div id="multi-select-bar" class="hidden" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid rgba(219,10,64,0.45); background:rgba(219,10,64,0.08);">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong id="lbl-sel-count" style="font-size:12px; color:var(--text);">0 Selected</strong>
+          <button type="button" id="btn-sel-all" class="btn-sm">Select All</button>
+        </div>
+        <div id="multi-sel-actions" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
       </div>
 
       <!-- ACTIVE QUEUE VIEW -->
@@ -338,9 +350,13 @@
       subFilter: 'all',
       sortBy: 'date_desc',
       bundleOpen: false,
+      selectMode: false,
+      selectedIds: new Set(),
+      openBatchIds: new Set(),
       pendingConfirm: null,
       openIds: new Set(),
       userPickedTab: false,
+      batchesMeta: [],
       queue: [],
       history: []
     };
@@ -450,12 +466,50 @@
         });
         state.queue = q;
         state.history = h;
+        try {
+          const bRaw = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_batches_meta')) || localStorage.getItem('cv_batches_meta') || '[]';
+          state.batchesMeta = JSON.parse(bRaw || '[]');
+        } catch (_) { state.batchesMeta = []; }
 
         if (!state.userPickedTab) {
           state.view = (q.length > 0) ? 'queue' : (h.length > 0 ? 'history' : 'queue');
         }
       } catch (_) {}
       render();
+    }
+
+    function getVisibleHistoryItems() {
+      const filteredHist = state.history.filter(h => {
+        if (state.filter === 'all') return true;
+        if (state.filter === 'cancelled') return h.status === 'cancelled';
+        if (state.filter === 'vault_core') {
+          if (h.mod !== 'vault_core') return false;
+          return state.subFilter === 'all' ? true : h.cat === state.subFilter;
+        }
+        return h.mod === state.filter;
+      });
+      return sortItems(filteredHist);
+    }
+
+    function updateMultiSelectBar() {
+      const bar = document.getElementById('multi-select-bar');
+      const btnToggle = document.getElementById('btn-toggle-select');
+      const cntEl = document.getElementById('lbl-sel-count');
+      const actEl = document.getElementById('multi-sel-actions');
+      if (btnToggle) btnToggle.textContent = state.selectMode ? '✕ Done' : '☑ Select';
+      if (!bar || !actEl) return;
+      bar.classList.toggle('hidden', !state.selectMode);
+      if (!state.selectMode) return;
+      const n = state.selectedIds.size;
+      if (cntEl) cntEl.textContent = n + ' Selected';
+      if (state.view === 'queue') {
+        actEl.innerHTML =
+          '<button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-bulk="cancel-sel" ' + (n === 0 ? 'disabled' : '') + '>■ Cancel Selected (' + n + ')</button>';
+      } else {
+        actEl.innerHTML =
+          '<button type="button" class="btn-sm" data-bulk="del-logs" ' + (n === 0 ? 'disabled' : '') + '>Delete Logs (' + n + ')</button>' +
+          '<button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-bulk="del-files" ' + (n === 0 ? 'disabled' : '') + '>Delete Files (' + n + ')</button>';
+      }
     }
 
     function render() {
@@ -465,11 +519,12 @@
       document.getElementById('cnt-queue').textContent = String(state.queue.length);
       document.getElementById('cnt-hist').textContent = String(state.history.length);
       document.getElementById('btn-clear-hist').classList.toggle('hidden', state.history.length === 0);
+      updateMultiSelectBar();
 
       // Render Active Queue (Bundled Batch Queue when >1 files; Cancel ONLY, no Remove!)
       const qWrap = document.getElementById('view-queue');
       if (state.queue.length === 0) {
-        qWrap.innerHTML = '<div class="empty-box">No active conversions running right now.' + (state.history.length ? ' Tap <strong>History</strong> above to see your finished files.' : '') + '</div>';
+        qWrap.innerHTML = '<div class="empty-box">No active conversions running right now.' + (state.history.length ? ' Tap <strong>History</strong> above to see your finished or cancelled files.' : '') + '</div>';
       } else if (state.queue.length > 1) {
         const runningItem = state.queue.find(x => x.status === 'running') || null;
         const pausedCnt = state.queue.filter(x => x.status === 'paused').length;
@@ -478,6 +533,7 @@
         const sortedQueue = sortItems(state.queue);
         const targetOpenId = (runningItem && runningItem.id) || sortedQueue[0].id;
         const activePct = runningItem ? Math.max(4, runningItem.pct || 0) : 0;
+        const showFiles = state.bundleOpen || state.selectMode;
 
         qWrap.innerHTML = `
           <div class="job-card ${isBatchPaused ? '' : 'is-run'}">
@@ -501,16 +557,19 @@
                   ? `<button type="button" class="btn-sm primary" data-qact="resume-batch">▶ Resume Batch</button>`
                   : `<button type="button" class="btn-sm" data-qact="pause-batch">❚❚ Pause Batch</button>`}
                 <button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);" data-qact="cancel-batch">■ Cancel Batch</button>
-                <button type="button" class="btn-sm" data-qact="toggle-bundle">${state.bundleOpen ? 'Hide Files ▴' : ('Files (' + state.queue.length + ') ▾')}</button>
+                <button type="button" class="btn-sm" data-qact="toggle-bundle">${showFiles ? 'Hide Files ▴' : ('Files (' + state.queue.length + ') ▾')}</button>
               </div>
             </div>
-            ${state.bundleOpen ? `
+            ${showFiles ? `
               <div class="hist-drawer" style="display:flex; flex-direction:column; gap:6px;">
                 ${sortedQueue.map((q, idx) => `
                   <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--card);">
-                    <div style="min-width:0;">
-                      <div style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">#${idx + 1} · ${esc(q.title)}</div>
-                      <div style="font-size:10.5px; color:var(--muted);">${esc(q.sub)} · ${q.status.toUpperCase()}</div>
+                    <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                      ${state.selectMode ? `<input type="checkbox" data-sel-id="${esc(q.id)}" ${state.selectedIds.has(q.id) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--crimson);">` : ''}
+                      <div style="min-width:0;">
+                        <div style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">#${idx + 1} · ${esc(q.title)}</div>
+                        <div style="font-size:10.5px; color:var(--muted);">${esc(q.sub)} · ${q.status.toUpperCase()}</div>
+                      </div>
                     </div>
                     <div style="display:flex; gap:6px; flex-shrink:0;">
                       ${q.status === 'paused' ? `<button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(q.id)}">▶ Resume</button>` : ''}
@@ -531,9 +590,12 @@
             <div class="job-card ${isRun ? 'is-run' : ''}">
               <div class="job-main">
                 <div class="job-top">
-                  <div style="min-width:0;">
-                    <div class="job-title">${esc(q.title)}</div>
-                    <div class="job-sub">${esc(q.sub)}</div>
+                  <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                    ${state.selectMode ? `<input type="checkbox" data-sel-id="${esc(q.id)}" ${state.selectedIds.has(q.id) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--crimson);">` : ''}
+                    <div style="min-width:0;">
+                      <div class="job-title">${esc(q.title)}</div>
+                      <div class="job-sub">${esc(q.sub)}</div>
+                    </div>
                   </div>
                   <span class="status-pill ${isRun ? 'sp-run' : 'sp-wait'}">${isRun ? (q.pct + '%') : (isPaused ? 'PAUSED' : 'QUEUED')}</span>
                 </div>
@@ -555,65 +617,198 @@
         }).join('');
       }
 
-      // Render History
+      // Render History (with Bundled Cancelled Batches + File-Manager Multi-Select!)
       document.querySelectorAll('.f-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-filter') === state.filter));
       const subBar = document.getElementById('vault-subfilters');
       subBar.classList.toggle('hidden', state.filter !== 'vault_core');
       document.querySelectorAll('.sf-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-subfilter') === state.subFilter));
 
-      const filteredHist = state.history.filter(h => {
-        if (state.filter === 'all') return true;
-        if (state.filter === 'cancelled') return h.status === 'cancelled';
-        if (state.filter === 'vault_core') {
-          if (h.mod !== 'vault_core') return false;
-          return state.subFilter === 'all' ? true : h.cat === state.subFilter;
-        }
-        return h.mod === state.filter;
-      });
-      const items = sortItems(filteredHist);
+      const items = getVisibleHistoryItems();
       const hWrap = document.getElementById('hist-list');
       if (items.length === 0) {
         hWrap.innerHTML = '<div class="empty-box">No conversion history matches this filter.</div>';
-      } else {
-        hWrap.innerHTML = items.map(h => `
-          <div class="job-card ${h.status === 'done' ? 'is-done' : 'is-fail'}">
+        return;
+      }
+
+      // Group cancelled jobs belonging to a batch into Bundled Cancelled Batch cards
+      const cancelledById = {};
+      items.filter(h => h.status === 'cancelled').forEach(h => { cancelledById[h.id] = h; });
+      const groupedIds = new Set();
+      const cancelledBatches = [];
+
+      (state.batchesMeta || []).forEach(b => {
+        const members = (b.jobIds || []).map(id => cancelledById[String(id)]).filter(Boolean);
+        if (members.length >= 2) {
+          members.forEach(m => groupedIds.add(m.id));
+          cancelledBatches.push({
+            batchId: b.batchId,
+            createdAt: b.createdAt || (members[0] && members[0].createdAt) || 0,
+            members: sortItems(members)
+          });
+        }
+      });
+
+      // Fallback grouping: if >=2 ungrouped cancelled items were created within 3 seconds of each other, bundle them too!
+      const ungroupedCancelled = items.filter(h => h.status === 'cancelled' && !groupedIds.has(h.id));
+      if (ungroupedCancelled.length >= 2) {
+        const byTime = ungroupedCancelled.slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        let curGrp = [byTime[0]];
+        for (let i = 1; i < byTime.length; i++) {
+          if (Math.abs((byTime[i].createdAt || 0) - (byTime[i - 1].createdAt || 0)) <= 4000) {
+            curGrp.push(byTime[i]);
+          } else {
+            if (curGrp.length >= 2) {
+              curGrp.forEach(m => groupedIds.add(m.id));
+              cancelledBatches.push({ batchId: 'auto_' + curGrp[0].id, createdAt: curGrp[0].createdAt || 0, members: sortItems(curGrp) });
+            }
+            curGrp = [byTime[i]];
+          }
+        }
+        if (curGrp.length >= 2) {
+          curGrp.forEach(m => groupedIds.add(m.id));
+          cancelledBatches.push({ batchId: 'auto_' + curGrp[0].id, createdAt: curGrp[0].createdAt || 0, members: sortItems(curGrp) });
+        }
+      }
+
+      const batchHtml = cancelledBatches.map(b => {
+        const isOpen = state.openBatchIds.has(b.batchId);
+        const totalBytes = b.members.reduce((acc, m) => acc + (m.sizeBytes || 0), 0);
+        const allChecked = b.members.every(m => state.selectedIds.has(m.id));
+        const idsAttr = esc(JSON.stringify(b.members.map(m => m.id)));
+        return `
+          <div class="job-card is-fail">
             <div class="job-main">
               <div class="job-top">
+                <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                  ${state.selectMode ? `<input type="checkbox" data-sel-batch="${idsAttr}" ${allChecked ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--crimson);">` : ''}
+                  <div style="min-width:0;">
+                    <span class="mod-tag">CANCELLED BATCH</span>
+                    <div class="job-title">Cancelled Batch · ${b.members.length} Files</div>
+                    <div class="job-sub">${fmtWhen(b.createdAt)}${totalBytes > 0 ? (' · ' + fmtSize(totalBytes)) : ''}</div>
+                  </div>
+                </div>
+                <span class="status-pill sp-fail">CANCELLED</span>
+              </div>
+              <div class="job-actions">
+                <button type="button" class="btn-sm primary" data-qact="resume-cancelled-batch" data-ids="${idsAttr}">▶ Resume Batch</button>
+                <button type="button" class="btn-sm" data-qact="toggle-cancel-batch" data-bid="${esc(b.batchId)}">${isOpen ? 'Hide Files ▴' : ('Files (' + b.members.length + ') ▾')}</button>
+              </div>
+            </div>
+            ${isOpen ? `
+              <div class="hist-drawer" style="display:flex; flex-direction:column; gap:6px;">
+                ${b.members.map((m, idx) => `
+                  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--card);">
+                    <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                      ${state.selectMode ? `<input type="checkbox" data-sel-id="${esc(m.id)}" ${state.selectedIds.has(m.id) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--crimson);">` : ''}
+                      <div style="min-width:0;">
+                        <div style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">#${idx + 1} · ${esc(m.title)}</div>
+                        <div style="font-size:10.5px; color:var(--muted);">${esc(m.preset)}</div>
+                      </div>
+                    </div>
+                    <button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(m.id)}">▶ Resume</button>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      const singleItems = items.filter(h => !groupedIds.has(h.id));
+      const singlesHtml = singleItems.map(h => `
+        <div class="job-card ${h.status === 'done' ? 'is-done' : 'is-fail'}">
+          <div class="job-main">
+            <div class="job-top">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                ${state.selectMode ? `<input type="checkbox" data-sel-id="${esc(h.id)}" ${state.selectedIds.has(h.id) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--crimson);">` : ''}
                 <div style="min-width:0;">
                   <span class="mod-tag">${esc(h.modLabel)}</span>
                   <div class="job-title">${esc(h.title)}</div>
                   <div class="job-sub">${esc(h.preset)} · ${esc(h.when)}</div>
                 </div>
-                <span class="status-pill ${h.status === 'done' ? 'sp-done' : 'sp-fail'}">${h.status.toUpperCase()}</span>
               </div>
-              <div class="job-metrics">
-                <span class="${h.status === 'done' ? 'c-emerald' : 'c-gold'}">${esc(h.delta)}</span>
-              </div>
-              <div class="job-actions">
-                ${h.status === 'done' ? `<button type="button" class="btn-sm primary" data-hact="open" data-id="${esc(h.id)}">Open ▶</button>` : ''}
-                ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="share" data-id="${esc(h.id)}">Share ↗</button>` : ''}
-                ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="folder" data-id="${esc(h.id)}">Folder ↗</button>` : ''}
-                ${h.status !== 'done' ? `<button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(h.id)}">▶ Resume</button>` : ''}
-                <button type="button" class="btn-sm" data-hact="toggle" data-id="${esc(h.id)}">${h.open ? 'Hide ▴' : 'Details ▾'}</button>
+              <span class="status-pill ${h.status === 'done' ? 'sp-done' : 'sp-fail'}">${h.status.toUpperCase()}</span>
+            </div>
+            <div class="job-metrics">
+              <span class="${h.status === 'done' ? 'c-emerald' : 'c-gold'}">${esc(h.delta)}</span>
+            </div>
+            <div class="job-actions">
+              ${h.status === 'done' ? `<button type="button" class="btn-sm primary" data-hact="open" data-id="${esc(h.id)}">Open ▶</button>` : ''}
+              ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="share" data-id="${esc(h.id)}">Share ↗</button>` : ''}
+              ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="folder" data-id="${esc(h.id)}">Folder ↗</button>` : ''}
+              ${h.status !== 'done' ? `<button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(h.id)}">▶ Resume</button>` : ''}
+              <button type="button" class="btn-sm" data-hact="toggle" data-id="${esc(h.id)}">${h.open ? 'Hide ▴' : 'Details ▾'}</button>
+            </div>
+          </div>
+          ${h.open ? `
+            <div class="hist-drawer">
+              <div style="word-break:break-all;"><strong>Saved To:</strong> ${esc(h.dest)}</div>
+              <div class="cmd-box" style="word-break:break-word;">${esc(h.cmd)}</div>
+              <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" class="btn-sm" data-hact="delete" data-id="${esc(h.id)}">Remove Log</button>
+                ${h.status === 'done' ? `<button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-hact="delfile" data-id="${esc(h.id)}">Delete File</button>` : ''}
               </div>
             </div>
-            ${h.open ? `
-              <div class="hist-drawer">
-                <div style="word-break:break-all;"><strong>Saved To:</strong> ${esc(h.dest)}</div>
-                <div class="cmd-box" style="word-break:break-word;">${esc(h.cmd)}</div>
-                <div style="display:flex; justify-content:flex-end; gap:8px;">
-                  <button type="button" class="btn-sm" data-hact="delete" data-id="${esc(h.id)}">Remove Log</button>
-                  ${h.status === 'done' ? `<button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-hact="delfile" data-id="${esc(h.id)}">Delete File</button>` : ''}
-                </div>
-              </div>
-            ` : ''}
-          </div>
-        `).join('');
-      }
+          ` : ''}
+        </div>
+      `).join('');
+
+      hWrap.innerHTML = batchHtml + singlesHtml;
     }
 
     window.refreshVaultQueueHistory = function() {
-      loadJobsFromNative();
+      document.getElementById('btn-toggle-select')?.addEventListener('click', () => {
+      state.selectMode = !state.selectMode;
+      state.selectedIds.clear();
+      render();
+    });
+    document.getElementById('btn-sel-all')?.addEventListener('click', () => {
+      const list = state.view === 'queue' ? state.queue : getVisibleHistoryItems();
+      const allSelected = list.length > 0 && list.every(it => state.selectedIds.has(it.id));
+      state.selectedIds.clear();
+      if (!allSelected) list.forEach(it => state.selectedIds.add(it.id));
+      render();
+    });
+    document.addEventListener('change', (e) => {
+      const cb = e.target.closest('[data-sel-id]');
+      if (cb) {
+        const id = cb.getAttribute('data-sel-id');
+        if (cb.checked) state.selectedIds.add(id); else state.selectedIds.delete(id);
+        updateMultiSelectBar();
+        return;
+      }
+      const bcb = e.target.closest('[data-sel-batch]');
+      if (bcb) {
+        try {
+          const ids = JSON.parse(bcb.getAttribute('data-sel-batch') || '[]');
+          ids.forEach(id => { if (bcb.checked) state.selectedIds.add(id); else state.selectedIds.delete(id); });
+          render();
+        } catch (_) {}
+      }
+    });
+    document.addEventListener('click', (e) => {
+      const bk = e.target.closest('[data-bulk]');
+      if (!bk || state.selectedIds.size === 0) return;
+      const act = bk.getAttribute('data-bulk');
+      const ids = Array.from(state.selectedIds);
+      if (act === 'cancel-sel' && window.AndroidBridge && window.AndroidBridge.cancelJob) {
+        ids.forEach(id => { try { window.AndroidBridge.cancelJob(id); } catch (_) {} });
+        state.selectedIds.clear();
+        state.selectMode = false;
+        showToast('Cancelled ' + ids.length + ' selected job(s)');
+        setTimeout(loadJobsFromNative, 250);
+      } else if (act === 'del-logs' || act === 'del-files') {
+        state.pendingConfirm = { type: act, ids: ids };
+        document.getElementById('confirm-title').textContent = act === 'del-files' ? ('Delete ' + ids.length + ' File(s)?') : ('Delete ' + ids.length + ' Log(s)?');
+        document.getElementById('confirm-desc').textContent = act === 'del-files'
+          ? 'Permanently delete the ' + ids.length + ' selected output file(s) from storage and remove their logs?'
+          : 'Remove the ' + ids.length + ' selected log(s) from History? Your files on storage will not be deleted.';
+        document.getElementById('btn-confirm-yes').textContent = act === 'del-files' ? 'Yes, Delete Files' : 'Yes, Delete Logs';
+        document.getElementById('confirm-modal').classList.remove('hidden');
+      }
+    });
+
+    loadJobsFromNative();
     };
 
     const selSort = document.getElementById('sel-sort-jobs');
@@ -680,6 +875,25 @@
           setTimeout(loadJobsFromNative, 250);
           return;
         }
+        if (act === 'toggle-cancel-batch') {
+          const bid = qa.getAttribute('data-bid');
+          if (state.openBatchIds.has(bid)) state.openBatchIds.delete(bid);
+          else state.openBatchIds.add(bid);
+          render();
+          return;
+        }
+        if (act === 'resume-cancelled-batch' && window.AndroidBridge && window.AndroidBridge.resumeBatchJobs) {
+          const idsStr = qa.getAttribute('data-ids') || '[]';
+          window.AndroidBridge.resumeBatchJobs(idsStr);
+          showToast('Resumed cancelled batch ▶');
+          state.view = 'queue';
+          state.userPickedTab = true;
+          setTimeout(() => {
+            if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p4a_convert_single.html');
+            else loadJobsFromNative();
+          }, 200);
+          return;
+        }
         if (act === 'cancel' && window.AndroidBridge && window.AndroidBridge.cancelJob) {
           window.AndroidBridge.cancelJob(id);
           showToast('Cancelled job');
@@ -742,6 +956,16 @@
       } else if (p.type === 'delfile' && window.AndroidBridge.deleteJob) {
         window.AndroidBridge.deleteJob(p.id, true);
         showToast('Deleted ' + p.title);
+      } else if ((p.type === 'del-logs' || p.type === 'del-files') && p.ids) {
+        const delFiles = (p.type === 'del-files');
+        if (window.AndroidBridge.deleteJobsBatch) {
+          window.AndroidBridge.deleteJobsBatch(JSON.stringify(p.ids), delFiles);
+        } else if (window.AndroidBridge.deleteJob) {
+          p.ids.forEach(id => { try { window.AndroidBridge.deleteJob(id, delFiles); } catch (_) {} });
+        }
+        state.selectedIds.clear();
+        state.selectMode = false;
+        showToast((delFiles ? 'Deleted ' : 'Removed ') + p.ids.length + ' item(s)');
       }
       loadJobsFromNative();
     });

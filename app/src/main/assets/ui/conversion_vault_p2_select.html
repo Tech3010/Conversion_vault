@@ -536,6 +536,17 @@
           <div class="bpill"><span class="bpill-k">Audios</span><span class="bpill-v c-emerald" id="cnt-a">0</span></div>
           <div class="bpill"><span class="bpill-k">Images</span><span class="bpill-v c-gold" id="cnt-i">0</span></div>
         </div>
+        <div id="picked-sort-row" class="hidden" style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; padding-top:8px; border-top:1px solid var(--border);">
+          <span style="font-size:10.5px; font-weight:700; color:var(--muted); text-transform:uppercase;">Sort Dropped Files</span>
+          <select id="sel-pick-sort" style="padding:5px 8px; border-radius:7px; background:var(--surface); color:var(--text); border:1px solid var(--border); font-size:11.5px; font-weight:600;">
+            <option value="added" selected>Added Order</option>
+            <option value="name_asc">Name (A → Z)</option>
+            <option value="name_desc">Name (Z → A)</option>
+            <option value="size_desc">Size (Largest)</option>
+            <option value="size_asc">Size (Smallest)</option>
+          </select>
+        </div>
+        <div id="picked-files-list" style="display:flex; flex-direction:column; gap:5px; margin-top:8px; max-height:220px; overflow-y:auto;"></div>
       </section>
     </main>
 

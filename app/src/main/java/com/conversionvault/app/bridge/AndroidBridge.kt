@@ -577,6 +577,75 @@ class AndroidBridge(
     }
 
     @JavascriptInterface
+    fun resumeBatchJobs(jobIdsJsonArrayStr: String): String {
+        return try {
+            val arr = JSONArray(jobIdsJsonArrayStr)
+            val ids = mutableListOf<String>()
+            for (i in 0 until arr.length()) {
+                val id = arr.optString(i, "")
+                if (id.isNotBlank()) ids.add(id)
+            }
+            if (ids.isNotEmpty()) {
+                runBlocking {
+                    ids.forEachIndexed { idx, id ->
+                        db.jobDao().getJobById(id)?.let { j ->
+                            db.jobDao().upsertJob(
+                                j.copy(
+                                    status = "QUEUED",
+                                    progressPct = 0,
+                                    errorLog = "",
+                                    updatedAt = System.currentTimeMillis() + idx
+                                )
+                            )
+                        }
+                    }
+                }
+                val appStatePrefs = context.getSharedPreferences("vault_app_state", Context.MODE_PRIVATE)
+                appStatePrefs.edit()
+                    .putString("cv_batch_job_ids", jobIdsJsonArrayStr)
+                    .putString("cv_active_job_id", ids.first())
+                    .apply()
+                val i = Intent(context, ConversionForegroundService::class.java).apply {
+                    action = ConversionForegroundService.ACTION_RESUME_QUEUE
+                }
+                try { ContextCompat.startForegroundService(context, i) } catch (_: Throwable) {
+                    try { context.startService(i) } catch (_: Throwable) {}
+                }
+            }
+            JSONObject().put("ok", ids.isNotEmpty()).put("count", ids.size).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Resume batch failed").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun deleteJobsBatch(jobIdsJsonArrayStr: String, deleteFiles: Boolean): String {
+        return try {
+            val arr = JSONArray(jobIdsJsonArrayStr)
+            var count = 0
+            runBlocking {
+                for (i in 0 until arr.length()) {
+                    val id = arr.optString(i, "")
+                    if (id.isBlank()) continue
+                    if (deleteFiles) {
+                        db.jobDao().getJobById(id)?.let { j ->
+                            val outF = File(j.outputPath)
+                            if (outF.exists() && outF.absolutePath != File(j.inputPath).absolutePath) {
+                                try { outF.delete() } catch (_: Throwable) {}
+                            }
+                        }
+                    }
+                    db.jobDao().deleteJob(id)
+                    count++
+                }
+            }
+            JSONObject().put("ok", true).put("count", count).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Batch delete failed").toString()
+        }
+    }
+
+    @JavascriptInterface
     fun cancelAllActiveJobs(): String {
         return try {
             val i = Intent(context, ConversionForegroundService::class.java).apply {
