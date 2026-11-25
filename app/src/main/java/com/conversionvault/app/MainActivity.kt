@@ -137,7 +137,8 @@ class MainActivity : AppCompatActivity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
-            settings.cacheMode = WebSettings.LOAD_DEFAULT
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE
+            clearCache(true)
             webViewClient = object : WebViewClientCompat() {
                 override fun shouldInterceptRequest(
                     view: WebView,
