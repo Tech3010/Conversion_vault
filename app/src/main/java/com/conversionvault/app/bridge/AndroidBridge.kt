@@ -52,7 +52,7 @@ class AndroidBridge(
                 put("ffmpegOk", false)
                 put("ffprobeOk", false)
                 put("version", "Engine Error")
-                put("error", "${t.javaClass.simpleName}: ${t.message}")
+                put("error", "${t.javaClass.simpleName}: ${t.message}" + (t.cause?.let { " | Cause: ${it.javaClass.simpleName}: ${it.message}" } ?: ""))
             }.toString()
         }
     }

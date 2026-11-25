@@ -913,7 +913,7 @@
             } else {
               pill.style.color = 'var(--crimson)';
               pill.style.background = 'rgba(219,10,64,0.15)';
-              pill.textContent = 'Engine Error: ' + (h.error || 'FFmpeg init failed').slice(0, 50);
+              pill.style.whiteSpace = 'normal'; pill.style.borderRadius = '8px'; pill.textContent = 'Engine Error: ' + (h.error || 'FFmpeg init failed').slice(0, 260);
             }
           }
         } catch (_) {}
