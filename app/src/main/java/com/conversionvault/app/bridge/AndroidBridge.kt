@@ -501,10 +501,13 @@ class AndroidBridge(
                 }
             }
 
+            val idArr = JSONArray()
+            entities.forEach { idArr.put(it.id) }
             JSONObject().apply {
                 put("ok", entities.isNotEmpty())
                 put("count", entities.size)
                 put("firstJobId", firstJobId)
+                put("jobIds", idArr)
                 if (entities.isEmpty()) put("error", "No valid files to queue")
             }.toString()
         } catch (t: Throwable) {

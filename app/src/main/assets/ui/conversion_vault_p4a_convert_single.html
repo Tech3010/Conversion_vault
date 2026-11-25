@@ -239,8 +239,8 @@
       <div class="bar-left">
         <button type="button" id="btn-go-home" class="back-btn" aria-label="Go to Home"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>
         <div>
-          <div class="page-title">Vault Engine · Single File</div>
-          <div class="page-sub">STEP 4 · LIVE FFMPEG TELEMETRY</div>
+          <div class="page-title">Conversion Engine</div>
+          <div class="page-sub" id="engine-sub">LIVE CONVERSION TELEMETRY</div>
         </div>
       </div>
       <span class="engine-state-pill state-running" id="engine-pill">
@@ -254,19 +254,19 @@
       <section class="pit-hero" id="pit-hero" aria-label="Single File Telemetry">
         <div class="file-pill-row">
           <div style="min-width:0;">
-            <div class="fp-name">Loading file...</div>
-            <div class="fp-preset">60fps Reels HQ · .mp4 · libx264 · 60fps · CRF 18 · AAC 192k</div>
+            <div class="fp-name">Preparing file...</div>
+            <div class="fp-preset" id="fp-preset">Conversion Engine</div>
           </div>
-          <span class="fp-type">VIDEO</span>
+          <span class="fp-type" id="fp-type">MEDIA</span>
         </div>
 
         <div class="pit-top">
           <div>
-            <div class="pit-lbl" id="pit-lbl">Encoding Stream (v:0 + a:0)</div>
+            <div class="pit-lbl" id="pit-lbl">Conversion Engine</div>
             <div class="pit-pct" id="pit-pct">0%</div>
           </div>
           <div class="pit-time-block">
-            <div class="pit-eta" id="pit-eta">ETA 00:41</div>
+            <div class="pit-eta" id="pit-eta">Calculating...</div>
             <div class="pit-elapsed" id="pit-elapsed">Elapsed 00:00</div>
           </div>
         </div>
@@ -278,27 +278,27 @@
         <div class="telemetry-6">
           <div class="tele-cell">
             <span class="tele-k">Encode Speed</span>
-            <span class="tele-v c-emerald" id="tele-speed">44 fps · 0.73x RT</span>
+            <span class="tele-v c-emerald" id="tele-speed">—</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Frame Counter</span>
-            <span class="tele-v" id="tele-frames">0 / 1,800 fr</span>
+            <span class="tele-k">Source Duration</span>
+            <span class="tele-v" id="tele-frames">—</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Live Bitrate</span>
-            <span class="tele-v c-gold" id="tele-br">0.0 Mbps</span>
+            <span class="tele-k">Engine</span>
+            <span class="tele-v c-gold" id="tele-br">Conversion Engine</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Quantizer (q)</span>
-            <span class="tele-v" id="tele-q">q=18.0</span>
+            <span class="tele-k">Media Type</span>
+            <span class="tele-v" id="tele-q">—</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Device CPU</span>
-            <span class="tele-v" id="tele-cpu">88% · 41°C Cool</span>
+            <span class="tele-k">Engine State</span>
+            <span class="tele-v" id="tele-cpu">Active</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Output Written</span>
-            <span class="tele-v" id="tele-size">0.0 / 26.8 MB</span>
+            <span class="tele-k">File Size</span>
+            <span class="tele-v" id="tele-size">—</span>
           </div>
         </div>
       </section>
@@ -306,7 +306,7 @@
       <!-- 2. OUTPUT DESTINATION & RESULT -->
       <section class="dest-card" aria-label="Output File Path">
         <span class="dest-k">Target Output Path</span>
-        <span class="dest-path">/storage/emulated/0/ConversionVault/Vault_Core/Videos/Loading file...</span>
+        <span class="dest-path">—</span>
         <div class="dest-delta hidden" id="done-summary"></div>
       </section>
 
@@ -327,6 +327,15 @@
           </div>
         </div>
         <div class="console-body" id="console-body"></div>
+      </section>
+
+      <!-- 4. BATCH QUEUE (ORDERED UPCOMING & COMPLETED FILES) -->
+      <section class="sec-card hidden" id="batch-queue-card" aria-label="Batch Conversion Queue">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:11px 14px; border-bottom:1px solid var(--border);">
+          <span style="font-size:12.5px; font-weight:800; color:var(--text);">Conversion Queue</span>
+          <span id="batch-queue-summary" style="font-family:var(--mono); font-size:11px; font-weight:700; color:var(--gold-text);">—</span>
+        </div>
+        <div id="batch-queue-list" style="display:flex; flex-direction:column; gap:6px; padding:10px 12px; max-height:320px; overflow-y:auto;"></div>
       </section>
     </main>
 
@@ -402,8 +411,15 @@
         pill.className = 'engine-state-pill ' + (st === 'DONE' ? 'state-done' : (st === 'FAILED' || st === 'CANCELLED' ? 'state-paused' : 'state-running'));
       }
 
+      const outExtUp = (outPath.split('.').pop() || '').toUpperCase();
+      const fpType = document.getElementById('fp-type');
+      if (fpType) fpType.textContent = (j.mediaType || 'MEDIA').toUpperCase();
+      const fpPreset = document.getElementById('fp-preset');
+      if (fpPreset) fpPreset.textContent = (j.commandArgs && j.commandArgs.startsWith('NATIVE_PHOTO:'))
+        ? ('Native Photo Engine · .' + (outExtUp || 'IMG'))
+        : ('Conversion Engine · .' + (outExtUp || 'OUT'));
       const pitLbl = document.getElementById('pit-lbl');
-      if (pitLbl) pitLbl.textContent = (j.module || 'Vault_Core') + ' · ' + (j.mediaType || 'Media');
+      if (pitLbl) pitLbl.textContent = 'Conversion Engine · ' + (j.mediaType || 'Media');
 
       const pctEl = document.getElementById('pit-pct');
       if (pctEl) pctEl.textContent = pct + '%';
@@ -434,7 +450,7 @@
       if (frEl) frEl.textContent = j.durationMs ? (j.durationMs / 1000).toFixed(1) + 's source' : 'Stream copy / auto';
 
       const brEl = document.getElementById('tele-br');
-      if (brEl) brEl.textContent = j.module || 'Vault_Core';
+      if (brEl) brEl.textContent = (j.commandArgs && j.commandArgs.startsWith('NATIVE_PHOTO:')) ? 'Native Photo Engine' : 'FFmpeg Engine';
 
       const qEl = document.getElementById('tele-q');
       if (qEl) qEl.textContent = j.mediaType || 'Media';
@@ -500,6 +516,76 @@
       }
     }
 
+    function renderBatchQueue() {
+      const card = document.getElementById('batch-queue-card');
+      const listEl = document.getElementById('batch-queue-list');
+      const sumEl = document.getElementById('batch-queue-summary');
+      const subEl = document.getElementById('engine-sub');
+      if (!card || !listEl || !window.AndroidBridge || !window.AndroidBridge.getJobs) return;
+      try {
+        const allJobs = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL') || '[]');
+        let batchIds = [];
+        try {
+          const raw = (window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_batch_job_ids')) || '[]';
+          batchIds = JSON.parse(raw || '[]');
+        } catch (_) {}
+
+        let batchJobs = [];
+        if (Array.isArray(batchIds) && batchIds.length > 1) {
+          const byId = {};
+          allJobs.forEach(j => { byId[String(j.id)] = j; });
+          batchJobs = batchIds.map(id => byId[String(id)]).filter(Boolean);
+        } else {
+          // Fallback: if multiple jobs are currently QUEUED/RUNNING, show them in chronological order
+          const active = allJobs.filter(j => j.status === 'RUNNING' || j.status === 'QUEUED');
+          if (active.length > 1) {
+            batchJobs = active.slice().reverse();
+          }
+        }
+
+        if (batchJobs.length <= 1) {
+          card.classList.add('hidden');
+          if (subEl) subEl.textContent = 'LIVE CONVERSION TELEMETRY';
+          return;
+        }
+
+        card.classList.remove('hidden');
+        const runningCnt = batchJobs.filter(j => j.status === 'RUNNING').length;
+        const queuedCnt = batchJobs.filter(j => j.status === 'QUEUED').length;
+        const doneCnt = batchJobs.filter(j => j.status === 'DONE').length;
+        const failCnt = batchJobs.filter(j => j.status === 'FAILED' || j.status === 'CANCELLED').length;
+        const total = batchJobs.length;
+        const curPos = Math.min(total, doneCnt + failCnt + (runningCnt > 0 ? 1 : 0));
+
+        if (subEl) subEl.textContent = 'BATCH ' + curPos + ' OF ' + total + ' · ' + queuedCnt + ' QUEUED';
+        if (sumEl) sumEl.textContent = doneCnt + '/' + total + ' Done · ' + queuedCnt + ' Queued' + (failCnt > 0 ? (' · ' + failCnt + ' Failed') : '');
+
+        // Arrange in order: currently queued upcoming files first (in exact execution order), then completed/failed
+        const upcoming = batchJobs.filter(j => j.status === 'QUEUED');
+        const finished = batchJobs.filter(j => j.status === 'DONE' || j.status === 'FAILED' || j.status === 'CANCELLED');
+        const ordered = upcoming.concat(finished);
+        const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        listEl.innerHTML = ordered.map((j, idx) => {
+          const nm = (j.inputPath || 'File').split('/').pop();
+          const outExt = ((j.outputPath || '').split('.').pop() || '').toUpperCase();
+          const st = String(j.status || 'QUEUED').toUpperCase();
+          const badgeColor = st === 'DONE' ? 'var(--emerald)' : (st === 'FAILED' || st === 'CANCELLED' ? 'var(--crimson)' : 'var(--gold-text)');
+          const orderNum = st === 'QUEUED' ? ('#' + (idx + 1)) : (st === 'DONE' ? '✓' : '✗');
+          return '<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface);">' +
+            '<div style="min-width:0; display:flex; align-items:center; gap:8px;">' +
+              '<span style="font-family:var(--mono); font-size:10.5px; font-weight:800; color:' + badgeColor + '; min-width:22px;">' + orderNum + '</span>' +
+              '<div style="min-width:0;">' +
+                '<div style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(nm) + '</div>' +
+                '<div style="font-size:10.5px; font-family:var(--mono); color:var(--muted);">' + esc(j.mediaType || 'Media') + (outExt ? ' → .' + esc(outExt) : '') + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<span style="font-family:var(--mono); font-size:10px; font-weight:800; color:' + badgeColor + '; flex-shrink:0;">' + st + '</span>' +
+          '</div>';
+        }).join('');
+      } catch (_) {}
+    }
+
     function pollJob() {
       if (!activeJobId) activeJobId = resolveActiveJobId();
       if (!activeJobId || !window.AndroidBridge || !window.AndroidBridge.getJobById) return;
@@ -507,12 +593,39 @@
         const j = JSON.parse(window.AndroidBridge.getJobById(activeJobId) || '{}');
         if (j && j.id) renderJobTelemetry(j);
       } catch (_) {}
+      renderBatchQueue();
     }
 
     window.onLiveEngineEvent = function(ev) {
       if (!ev) return;
-      if (ev.jobId && (!activeJobId || ev.jobId === activeJobId)) {
-        activeJobId = ev.jobId;
+      if (ev.type === 'job_started' && ev.jobId) {
+        activeJobId = String(ev.jobId);
+        try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', activeJobId); } catch (_) {}
+        pollJob();
+        return;
+      }
+      if (ev.type === 'job_progress' && ev.jobId && (!activeJobId || String(ev.jobId) === String(activeJobId))) {
+        activeJobId = String(ev.jobId);
+        const pct = Math.max(0, Math.min(99, parseInt(ev.progress, 10) || 0));
+        const pctEl = document.getElementById('pit-pct');
+        const fillEl = document.getElementById('master-fill');
+        const spdEl = document.getElementById('tele-speed');
+        const szEl = document.getElementById('tele-size');
+        const frEl = document.getElementById('tele-frames');
+        const etaEl = document.getElementById('pit-eta');
+        if (pctEl) pctEl.textContent = pct + '%';
+        if (fillEl) fillEl.style.width = Math.max(3, pct) + '%';
+        if (spdEl) spdEl.textContent = (ev.fps > 0 ? (Math.round(ev.fps) + ' fps · ') : '') + (ev.speed || 'Running');
+        if (szEl && ev.outBytes > 0 && lastJob) szEl.textContent = fmtMB(lastJob.inputSizeBytes) + ' → ' + fmtMB(ev.outBytes);
+        if (frEl && ev.durationMs > 0) frEl.textContent = (ev.timeMs / 1000).toFixed(1) + 's / ' + (ev.durationMs / 1000).toFixed(1) + 's';
+        if (etaEl && pct > 0 && lastJob && lastJob.createdAt) {
+          const elap = Math.max(1, Math.floor((Date.now() - lastJob.createdAt) / 1000));
+          etaEl.textContent = 'ETA ' + fmtClock(Math.round((elap / pct) * (100 - pct)));
+        }
+        return;
+      }
+      if (ev.jobId && (!activeJobId || String(ev.jobId) === String(activeJobId))) {
+        activeJobId = String(ev.jobId);
         pollJob();
       }
     };

@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.MediaMetadataRetriever
 import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.IBinder
@@ -271,12 +272,37 @@ class ConversionForegroundService : Service() {
         return executeFfmpegBlocking(job, ffmpegArgs)
     }
 
+    private fun resolveRealDurationMs(path: String, existingMs: Long): Long {
+        if (existingMs > 0L) return existingMs
+        val mmr = MediaMetadataRetriever()
+        return try {
+            mmr.setDataSource(path)
+            mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+        } catch (_: Throwable) {
+            0L
+        } finally {
+            try { mmr.release() } catch (_: Throwable) {}
+        }
+    }
+
     private suspend fun executeFfmpegBlocking(job: JobEntity, resolvedCmdArgs: String): Pair<Boolean, String> = suspendCancellableCoroutine { cont ->
-        val durationMs = job.durationMs.coerceAtLeast(1L)
+        val realDurationMs = resolveRealDurationMs(job.inputPath, job.durationMs)
+        if (realDurationMs > 0L && job.durationMs <= 0L) {
+            serviceScope.launch {
+                try {
+                    val dao = VaultDatabase.getInstance(applicationContext).jobDao()
+                    dao.getJobById(job.id)?.let { cur ->
+                        dao.upsertJob(cur.copy(durationMs = realDurationMs))
+                    }
+                } catch (_: Throwable) {}
+            }
+        }
+        val durationMs = realDurationMs.coerceAtLeast(1L)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val outFileRef = File(job.outputPath)
 
         try {
-            File(job.outputPath).parentFile?.mkdirs()
+            outFileRef.parentFile?.mkdirs()
             activeSession = FFmpegKit.executeAsync(
                 resolvedCmdArgs,
                 { session ->
@@ -290,22 +316,24 @@ class ConversionForegroundService : Service() {
                 { _ -> },
                 { stats ->
                     try {
-                        val pct = if (job.durationMs > 0) {
-                            ((stats.time.toDouble() / durationMs.toDouble()) * 100.0).toInt().coerceIn(0, 99)
+                        val timeMs = stats.time.toLong().coerceAtLeast(0L)
+                        val pct = if (realDurationMs > 0L) {
+                            ((timeMs.toDouble() / durationMs.toDouble()) * 100.0).toInt().coerceIn(0, 99)
                         } else 0
                         val fps = stats.videoFps
                         val speed = String.format(Locale.US, "%.2fx", stats.speed)
-                        nm.notify(JOB_NOTIFICATION_ID, buildJobNotification("Encoding ${File(job.outputPath).name}", "$pct% · ${fps.toInt()} fps · $speed", pct, false))
-                        emitEvent("job_progress", job.id, pct, fps, speed)
+                        val outBytes = try { if (outFileRef.exists()) outFileRef.length() else stats.size } catch (_: Throwable) { stats.size }
+                        nm.notify(JOB_NOTIFICATION_ID, buildJobNotification("Encoding ${outFileRef.name}", "$pct% · ${fps.toInt()} fps · $speed", pct, false))
+                        emitEvent("job_progress", job.id, pct, fps, speed, outBytes, timeMs, realDurationMs)
                         val now = System.currentTimeMillis()
-                        if (now - lastDbTickMs >= 900L) {
+                        if (now - lastDbTickMs >= 350L) {
                             lastDbTickMs = now
                             serviceScope.launch {
                                 try {
                                     val dao = VaultDatabase.getInstance(applicationContext).jobDao()
                                     dao.getJobById(job.id)?.let { cur ->
                                         if (cur.status == "RUNNING") {
-                                            dao.upsertJob(cur.copy(progressPct = pct, fps = fps, speed = speed, updatedAt = now))
+                                            dao.upsertJob(cur.copy(progressPct = pct, fps = fps, speed = speed, durationMs = if (realDurationMs > 0L) realDurationMs else cur.durationMs, updatedAt = now))
                                         }
                                     }
                                 } catch (_: Throwable) {}
@@ -321,7 +349,16 @@ class ConversionForegroundService : Service() {
         }
     }
 
-    private fun emitEvent(type: String, jobId: String, pct: Int, fps: Float, detail: String) {
+    private fun emitEvent(
+        type: String,
+        jobId: String,
+        pct: Int,
+        fps: Float,
+        detail: String,
+        outBytes: Long = 0L,
+        timeMs: Long = 0L,
+        durationMs: Long = 0L
+    ) {
         try {
             val payload = JSONObject().apply {
                 put("type", type)
@@ -329,6 +366,9 @@ class ConversionForegroundService : Service() {
                 put("progress", pct)
                 put("fps", fps)
                 put("speed", detail)
+                put("outBytes", outBytes)
+                put("timeMs", timeMs)
+                put("durationMs", durationMs)
             }.toString()
             sendBroadcast(Intent(BROADCAST_PROGRESS).apply {
                 setPackage(packageName)

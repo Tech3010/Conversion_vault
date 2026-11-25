@@ -1155,6 +1155,7 @@
           if (res && res.ok) {
             queuedCount = res.count || jobSpecs.length;
             if (res.firstJobId) safeSet('cv_active_job_id', res.firstJobId);
+            safeSet('cv_batch_job_ids', JSON.stringify(res.jobIds || []));
           } else {
             lastErr = (res && res.error) || 'Failed to queue batch';
           }
