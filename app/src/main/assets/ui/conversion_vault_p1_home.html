@@ -133,10 +133,10 @@
       flex: 1;
     }
 
-    /* Engine Status Telemetry Pill Strip */
+    /* Engine Status Telemetry Pill Strip (Emerald Theme Tier) */
     .status-strip {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: linear-gradient(135deg, var(--emerald-soft) 0%, var(--surface) 74%);
+      border: 1px solid rgba(16, 185, 129, 0.55);
       border-radius: var(--radius);
       padding: 12px 14px;
       display: flex;
@@ -170,8 +170,9 @@
     .hw-tag {
       font-family: var(--mono);
       font-size: 11px;
-      color: var(--gold-text);
-      background: var(--gold-soft);
+      color: var(--emerald);
+      background: var(--emerald-soft);
+      border: 1px solid rgba(16, 185, 129, 0.35);
       padding: 3px 8px;
       border-radius: 6px;
       font-weight: 700;
@@ -183,7 +184,7 @@
     }
     .mini-stat {
       background: var(--card);
-      border: 1px solid var(--border);
+      border: 1px solid rgba(16, 185, 129, 0.28);
       border-radius: var(--radius-sm);
       padding: 7px 9px;
     }
@@ -472,7 +473,7 @@
         </div>
         <div>
           <div class="brand-name">Conversion Vault</div>
-          <div class="brand-sub">OFFLINE MEDIA ENGINE · v1.0</div>
+          <div class="brand-sub">OFFLINE MEDIA ENGINE · v1.5.4</div>
         </div>
       </div>
     </header>
@@ -543,7 +544,7 @@
       <!-- Special Vault Tools (Gold Signature Modules) -->
       <div class="sec-head">
         <span class="sec-title">Special Vault Tools</span>
-        <span class="sec-badge gold-badge">5 Signature Tools</span>
+        <span class="sec-badge gold-badge">6 Signature Tools</span>
       </div>
 
       <section class="tool-grid" aria-label="Special Vault Tools">
@@ -623,37 +624,8 @@
           </div>
         </button>
 
-        <!-- Special Tool 5: Sample & TV Playback Tester -->
-        <button type="button" class="tool-card gold-tile" data-tool="playback_tester" style="grid-column: 1 / -1;">
-          <div class="tool-card-top">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <div class="tool-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/>
-                </svg>
-              </div>
-              <div>
-                <div class="tool-title">Sample &amp; Playback Tester</div>
-                <div class="tool-desc">Generate instant 3-second lavfi test clips (H.264, HEVC 10-bit, AV1, Opus) to verify playback on your phone, TV, or car stereo before batch encoding.</div>
-              </div>
-            </div>
-          </div>
-          <div class="tool-card-foot">
-            <span class="tool-tag">TV &amp; Device Test</span>
-            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
-          </div>
-        </button>
-      </section>
-
-      <!-- Quick Media Tools -->
-      <div class="sec-head">
-        <span class="sec-title">Quick Media Tools</span>
-        <span class="sec-badge">4 Fast Utilities</span>
-      </div>
-
-      <section class="tool-grid" aria-label="Quick Media Tools">
-        <!-- Quick Tool 1: Target-Size Compressor -->
-        <button type="button" class="tool-card" data-tool="compressor">
+        <!-- Special Tool 5: Target-Size Compressor -->
+        <button type="button" class="tool-card gold-tile" data-tool="compressor">
           <div class="tool-card-top">
             <div class="tool-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -664,7 +636,7 @@
           </div>
           <div>
             <div class="tool-title">Target Compressor</div>
-            <div class="tool-desc">Shrink any video to an exact MB limit (e.g. under 15 MB) automatically.</div>
+            <div class="tool-desc">Shrink any video, audio, or photo to an exact MB/KB size limit automatically.</div>
           </div>
           <div class="tool-card-foot">
             <span class="tool-tag">Size Cap</span>
@@ -672,61 +644,21 @@
           </div>
         </button>
 
-        <!-- Quick Tool 2: Audio Extractor & Muter -->
-        <button type="button" class="tool-card" data-tool="audio_tools">
+        <!-- Special Tool 6: Sample & TV Playback Tester -->
+        <button type="button" class="tool-card gold-tile" data-tool="playback_tester">
           <div class="tool-card-top">
             <div class="tool-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/>
               </svg>
             </div>
           </div>
           <div>
-            <div class="tool-title">Audio Extract &amp; Mute</div>
-            <div class="tool-desc">Pull lossless FLAC/Opus/MP3 from video, or mute clips instantly (-an).</div>
+            <div class="tool-title">Sample Tester</div>
+            <div class="tool-desc">Generate instant lavfi test clips (H.264, HEVC, AV1, VP9, Opus) to verify playback.</div>
           </div>
           <div class="tool-card-foot">
-            <span class="tool-tag">Audio</span>
-            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
-          </div>
-        </button>
-
-        <!-- Quick Tool 3: Lossless Trim & GIF Maker -->
-        <button type="button" class="tool-card" data-tool="trim_gif">
-          <div class="tool-card-top">
-            <div class="tool-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
-                <line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/>
-              </svg>
-            </div>
-          </div>
-          <div>
-            <div class="tool-title">Trim &amp; GIF Maker</div>
-            <div class="tool-desc">Zero-loss clip cutting (-c copy) and 2-pass custom-palette GIFs.</div>
-          </div>
-          <div class="tool-card-foot">
-            <span class="tool-tag">Fast Cut</span>
-            <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
-          </div>
-        </button>
-
-        <!-- Quick Tool 4: Lossless Thumbnail Capturer -->
-        <button type="button" class="tool-card" data-tool="thumbnail">
-          <div class="tool-card-top">
-            <div class="tool-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
-            </div>
-          </div>
-          <div>
-            <div class="tool-title">Thumbnail Capturer</div>
-            <div class="tool-desc">Pick exact timestamp (HH:MM:SS.ms) to grab a bit-exact lossless PNG frame.</div>
-          </div>
-          <div class="tool-card-foot">
-            <span class="tool-tag">Lossless PNG</span>
+            <span class="tool-tag">Playback Test</span>
             <span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
           </div>
         </button>
@@ -796,11 +728,8 @@
     const toolDetails = {
       converter: { title: 'Master Vault Studio Selected', desc: 'Opens the dedicated Single-File & 3-Bucket Mixed Folder converter (Videos, Audios, Images).' },
       metadata: { title: 'Metadata Modifier Selected', desc: 'Opens the GPS, Timestamp, Device Model & EXIF/ID3 Viewer, Editor, and One-Tap Wiper.' },
-      compressor: { title: 'Target Compressor Selected', desc: 'Opens the exact-MB target compressor (auto-calculates bitrate & CRF for WhatsApp/Discord/Web).' },
-      audio_tools: { title: 'Audio Extract & Mute Selected', desc: 'Opens lossless audio extraction (FLAC/Opus/MP3) and instant zero-reencode video muter (-an).' },
+      compressor: { title: 'Target Compressor Selected', desc: 'Opens the exact MB/KB target compressor for Video, Audio, and Photos.' },
       inspector: { title: 'Stream Inspector Selected', desc: 'Opens raw FFprobe diagnostics: codec, bitrate, Intra/Inter GOP structure, and hidden tags.' },
-      trim_gif: { title: 'Trim & GIF Maker Selected', desc: 'Opens instant lossless clip cutting (-c copy) and 2-pass palette GIFs.' },
-      thumbnail: { title: 'Thumbnail Capturer Selected', desc: 'Opens exact-timestamp lossless PNG frame capture.' },
       suggestor: { title: 'Format Suggestor Selected', desc: 'Opens 4 ranked codec presets tailored to your device, goal & priority.' },
       integrity: { title: 'Integrity Check Selected', desc: 'Opens Deep Frame Scan (-f null -) & Quick Header Check to detect corruption and repair.' }
     };

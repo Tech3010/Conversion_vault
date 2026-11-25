@@ -354,7 +354,60 @@ class ConversionForegroundService : Service() {
             try { File(job.outputPath).delete() } catch (_: Throwable) {}
         }
 
-        return executeFfmpegBlocking(job, ffmpegArgs)
+        // Universal FFmpeg command sanitizer for AV1, VP9, 24-bit Audio, and MP4/Opus muxing
+        var safeArgs = ffmpegArgs
+            .replace("-sample_fmt s24", "-sample_fmt s32 -bits_per_raw_sample 24")
+            .replace("-deadline realtime", "-deadline good -cpu-used 5 -row-mt 1")
+
+        if (safeArgs.contains("libsvtav1")) {
+            // SVT-AV1 requires numeric presets (0-13), not x264 string names, and does not support yuv422p or -tune
+            safeArgs = safeArgs
+                .replace(Regex("-preset\\s+(ultrafast|superfast|veryfast)"), "-preset 9")
+                .replace(Regex("-preset\\s+(faster|fast)"), "-preset 8")
+                .replace(Regex("-preset\\s+medium"), "-preset 6")
+                .replace(Regex("-preset\\s+(slow|slower|veryslow)"), "-preset 5")
+                .replace(Regex("-tune\\s+\\S+"), "")
+                .replace("yuv422p", "yuv420p")
+        }
+        if (safeArgs.contains("libvpx-vp9")) {
+            // VP9 uses -b:v 0 -deadline good -cpu-used 5 -row-mt 1 instead of -preset / -tune
+            safeArgs = safeArgs
+                .replace(Regex("-preset\\s+\\S+"), "-b:v 0 -deadline good -cpu-used 5 -row-mt 1")
+                .replace(Regex("-tune\\s+\\S+"), "")
+                .replace("yuv422p", "yuv420p")
+            if (!safeArgs.contains("-b:v 0")) {
+                safeArgs = safeArgs.replace("libvpx-vp9", "libvpx-vp9 -b:v 0 -deadline good -cpu-used 5 -row-mt 1")
+            }
+            if (safeArgs.contains("yuv420p10le") && !safeArgs.contains("-profile:v")) {
+                safeArgs = safeArgs.replace("libvpx-vp9", "libvpx-vp9 -profile:v 2")
+            }
+        }
+        if (safeArgs.contains("libopus") && job.outputPath.endsWith(".mp4", ignoreCase = true) && !safeArgs.contains("-strict -2")) {
+            safeArgs = safeArgs.replace("-c:a libopus", "-strict -2 -c:a libopus")
+        }
+
+        val firstRes = executeFfmpegBlocking(job, safeArgs)
+        if (firstRes.first) return firstRes
+
+        // Automatic fallback if libsvtav1 is missing/unsupported -> retry with libaom-av1
+        if (safeArgs.contains("libsvtav1")) {
+            try { File(job.outputPath).delete() } catch (_: Throwable) {}
+            val aomArgs = safeArgs
+                .replace("libsvtav1", "libaom-av1")
+                .replace(Regex("-preset\\s+\\d+"), "-cpu-used 8 -row-mt 1")
+            val aomRes = executeFfmpegBlocking(job, aomArgs)
+            if (aomRes.first) return aomRes
+        }
+
+        // Automatic fallback if 10-bit pixel format is rejected by encoder (e.g. 8-bit x264 or VP9 build) -> retry with 8-bit yuv420p
+        if (safeArgs.contains("yuv420p10le") && (safeArgs.contains("libx264") || safeArgs.contains("libvpx-vp9"))) {
+            try { File(job.outputPath).delete() } catch (_: Throwable) {}
+            val bit8Args = safeArgs.replace("yuv420p10le", "yuv420p").replace("-profile:v 2", "")
+            val bit8Res = executeFfmpegBlocking(job, bit8Args)
+            if (bit8Res.first) return bit8Res
+        }
+
+        return firstRes
     }
 
     private fun resolveRealDurationMs(path: String, existingMs: Long): Long {

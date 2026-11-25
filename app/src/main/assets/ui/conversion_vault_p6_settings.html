@@ -185,9 +185,17 @@
 
     /* FFmpeg Encyclopedia */
     .encyc-head-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .encyc-cnt { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--gold-text); }
-    .encyc-list { display: flex; flex-direction: column; gap: 7px; max-height: 320px; overflow-y: auto; }
+    .encyc-cnt { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--gold-text); white-space: nowrap; }
+    .encyc-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+    .encyc-cat-btn {
+      padding: 4px 9px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card); color: var(--muted); font-family: var(--mono);
+      font-size: 10px; font-weight: 700; cursor: pointer;
+    }
+    .encyc-cat-btn.active { border-color: var(--crimson); background: var(--crimson-soft); color: var(--text); }
+    .encyc-list { display: flex; flex-direction: column; gap: 8px; overflow: visible; max-height: none; }
     .encyc-item {
+      flex-shrink: 0;
       background: var(--card); border: 1px solid var(--border); border-radius: 7px;
       padding: 8px 10px; display: flex; flex-direction: column; gap: 3px;
     }
@@ -233,6 +241,7 @@
       } catch(e) {}
     })();
   </script>
+  <script src="vault-presets.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -425,11 +434,19 @@
           </div>
           <span class="cap-badge cb-warn" id="badge-saved-presets">PRESETS</span>
         </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 8px; background:var(--input); border:1px solid var(--border); border-radius:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" id="btn-preset-sel-all" class="btn-sm" style="padding:4px 9px; font-size:10px;">Select All</button>
+            <span id="lbl-preset-sel-count" style="font-family:var(--mono); font-size:10px; color:var(--muted);">0 selected</span>
+          </div>
+          <button type="button" id="btn-dedupe-presets" class="btn-sm" style="padding:4px 9px; font-size:10px; border-color:rgba(219,10,64,0.45); color:#fda4af;">Delete Duplicates</button>
+        </div>
         <div id="settings-saved-presets-list" style="display:flex; flex-direction:column; gap:8px;"></div>
-        <div style="display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+        <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
           <input type="file" id="inp-import-presets-file" accept=".json,application/json" style="display:none;">
-          <button type="button" id="btn-import-presets" class="btn-sm" style="flex:1; justify-content:center;">Import JSON</button>
-          <button type="button" id="btn-export-presets" class="btn-sm" style="flex:1; justify-content:center;">Export JSON</button>
+          <button type="button" id="btn-import-presets" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Import JSON</button>
+          <button type="button" id="btn-export-presets" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Export All</button>
+          <button type="button" id="btn-export-selected-presets" class="btn-sm" style="flex:1 1 100%; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Selected (0)</button>
         </div>
       </section>
 
@@ -475,13 +492,23 @@
       <section class="set-card" aria-label="FFmpeg Encyclopedia">
         <div class="encyc-head-row">
           <input type="text" id="inp-encyc-search" placeholder="Search 45 flags: -crf, -g, bitexact, transpose, sub, loudnorm...">
-          <span class="encyc-cnt" id="encyc-cnt">45</span>
+          <span class="encyc-cnt" id="encyc-cnt">45/45</span>
+        </div>
+        <div class="encyc-cats" id="encyc-cats">
+          <button type="button" class="encyc-cat-btn active" data-ecat="ALL">ALL</button>
+          <button type="button" class="encyc-cat-btn" data-ecat="VIDEO">VIDEO</button>
+          <button type="button" class="encyc-cat-btn" data-ecat="COLOR">COLOR</button>
+          <button type="button" class="encyc-cat-btn" data-ecat="AUDIO">AUDIO</button>
+          <button type="button" class="encyc-cat-btn" data-ecat="SUBS">SUBS</button>
+          <button type="button" class="encyc-cat-btn" data-ecat="PRIVACY">PRIVACY</button>
+          <button type="button" class="encyc-cat-btn" data-ecat="MUXER">MUXER</button>
+          <button type="button" class="encyc-cat-btn" data-ecat="ENGINE">ENGINE</button>
         </div>
         <div class="encyc-list" id="encyc-list"></div>
       </section>
 
       <div class="about-foot">
-        Conversion Vault v1.3.9 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
+        Conversion Vault v1.5.4 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
       </div>
     </main>
 
@@ -572,11 +599,18 @@
       setTimeout(() => t.classList.remove('show'), 1800);
     }
 
+    let activeEncycCat = 'ALL';
     function renderEncyc(query) {
       const q = (query || '').trim().toLowerCase();
-      const filtered = ENCYC.filter(e => e.flag.toLowerCase().includes(q) || e.desc.toLowerCase().includes(q) || e.cat.toLowerCase().includes(q));
-      document.getElementById('encyc-cnt').textContent = filtered.length + '/' + ENCYC.length;
+      const filtered = ENCYC.filter(e => {
+        if (activeEncycCat !== 'ALL' && e.cat !== activeEncycCat) return false;
+        if (!q) return true;
+        return e.flag.toLowerCase().includes(q) || e.desc.toLowerCase().includes(q) || e.cat.toLowerCase().includes(q);
+      });
+      const cntEl = document.getElementById('encyc-cnt');
+      if (cntEl) cntEl.textContent = filtered.length + '/' + ENCYC.length;
       const wrap = document.getElementById('encyc-list');
+      if (!wrap) return;
       if (filtered.length === 0) {
         wrap.innerHTML = '<div style="font-size:12px; color:var(--muted); text-align:center; padding:12px;">No matching FFmpeg flags found.</div>';
         return;
@@ -590,6 +624,17 @@
           <div class="encyc-desc">${e.desc}</div>
         </div>
       `).join('');
+    }
+    const encycCatsWrap = document.getElementById('encyc-cats');
+    if (encycCatsWrap) {
+      encycCatsWrap.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-ecat]');
+        if (!b) return;
+        activeEncycCat = b.getAttribute('data-ecat') || 'ALL';
+        encycCatsWrap.querySelectorAll('.encyc-cat-btn').forEach(x => x.classList.toggle('active', x === b));
+        const inp = document.getElementById('inp-encyc-search');
+        renderEncyc(inp ? inp.value : '');
+      });
     }
 
     document.getElementById('theme-grid').addEventListener('click', (e) => {
@@ -612,7 +657,7 @@
       document.getElementById('lbl-bench').textContent = 'Calibrated: ~45.2 fps (1080p60 x264)';
       showToast('0.3s synthetic FFmpeg benchmark complete');
     });
-    document.getElementById('btn-manage-presets').addEventListener('click', () => showToast('Opening Saved Preset Editor →'));
+    const _bm = document.getElementById('btn-manage-presets'); if (_bm) _bm.addEventListener('click', () => showToast('Opening Saved Preset Editor →'));
     document.getElementById('btn-import-presets').addEventListener('click', () => showToast('Select .json preset file to import →'));
     document.getElementById('btn-export-presets').addEventListener('click', () => showToast('Exported conversion_vault_presets.json'));
     document.getElementById('btn-clear-cache').addEventListener('click', () => {

@@ -11,6 +11,7 @@
       --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14); --crimson-hover:#be0837;
       --gold:#fcd116; --gold-soft:rgba(252,209,22,0.13); --gold-text:#fcd116;
       --emerald:#10b981; --emerald-soft:rgba(16,185,129,0.14);
+      --sky:#38bdf8; --sky-soft:rgba(56,189,248,0.14);
       --radius:12px; --radius-sm:8px;
       --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
       --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -25,15 +26,19 @@
     .back-btn:hover{border-color:var(--crimson);color:var(--crimson);}
     .page-title{font-size:15px;font-weight:700;line-height:1.2;}
     .page-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
-    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--emerald-soft);color:var(--emerald);border:1px solid rgba(16,185,129,0.35);}
+    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--emerald-soft);color:var(--emerald);border:1px solid rgba(16,185,129,0.35);white-space:nowrap;}
+    .badge.b-warn{background:var(--gold-soft);color:var(--gold-text);border-color:rgba(252,209,22,0.45);}
+    .badge.b-bad{background:var(--crimson-soft);color:var(--crimson);border-color:rgba(219,10,64,0.5);}
     .content{padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1;}
     .card-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:11px;}
-    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);}
+    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;}
+    .sec-cnt{font-size:9.5px;color:var(--muted);font-weight:700;}
     .file-pick{background:var(--card-elev);border:1px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
     .fname{font-family:var(--mono);font-size:12.5px;font-weight:700;word-break:break-all;}
-    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;}
+    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;word-break:break-all;}
     .btn-sm{padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
     .btn-sm:hover{border-color:var(--crimson);color:var(--crimson);}
+    .btn-sm:disabled,.btn-primary:disabled{opacity:0.55;cursor:not-allowed;}
 
     .mode-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
     .mode-btn{padding:10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;}
@@ -42,16 +47,33 @@
     .mode-btn small{font-family:var(--mono);font-size:9.5px;color:var(--muted);}
     .mode-btn.active small{color:var(--gold-text);}
 
+    .empty-state{background:var(--surface);border:1px dashed var(--border-strong);border-radius:var(--radius);padding:22px 16px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;}
+    .empty-title{font-size:13.5px;font-weight:800;color:var(--text);}
+    .empty-sub{font-size:11.5px;color:var(--muted);max-width:360px;line-height:1.5;}
+
+    .verdict-box{border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:8px;border:1px solid rgba(16,185,129,0.55);background:var(--emerald-soft);}
+    .verdict-box.is-warn{border-color:rgba(252,209,22,0.55);background:var(--gold-soft);}
+    .verdict-box.is-bad{border-color:rgba(219,10,64,0.65);background:var(--crimson-soft);}
+    .verdict-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+    .verdict-title{font-size:14px;font-weight:800;}
+    .score-pill{font-family:var(--mono);font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px;background:rgba(9,13,22,0.65);border:1px solid var(--border-strong);color:var(--text);}
+    .verdict-desc{font-size:12px;color:var(--text);line-height:1.45;}
+
     .check-list{display:flex;flex-direction:column;gap:6px;}
-    .chk-row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-family:var(--mono);font-size:11px;}
+    .chk-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-family:var(--mono);font-size:11px;}
+    .chk-l{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+    .chk-name{color:var(--text);font-weight:700;}
+    .chk-sub{color:var(--muted);font-size:9.5px;word-break:break-word;}
+    .chk-val{text-align:right;white-space:nowrap;flex-shrink:0;}
     .st-ok{color:var(--emerald);font-weight:800;}
     .st-warn{color:var(--gold-text);font-weight:800;}
-    .st-bad{color:var(--crimson);font-weight:800;}
+    .st-bad{color:#fda4af;font-weight:800;}
+    .st-info{color:var(--sky);font-weight:700;}
 
-    .verdict-box{border-radius:var(--radius);padding:12px 14px;display:flex;flex-direction:column;gap:6px;border:1px solid rgba(16,185,129,0.5);background:var(--emerald-soft);}
-    .verdict-box.is-bad{border-color:rgba(219,10,64,0.65);background:var(--crimson-soft);}
-    .verdict-title{font-size:14px;font-weight:800;}
-    .verdict-desc{font-size:12px;color:var(--text);line-height:1.45;}
+    .sha-box{background:#05070b;border:1px solid var(--border);border-radius:7px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+    .sha-val{font-family:var(--mono);font-size:10px;color:var(--sky);word-break:break-all;line-height:1.4;}
+
+    .err-log{background:#05070b;border:1px solid rgba(219,10,64,0.45);border-radius:8px;padding:10px 11px;font-family:var(--mono);font-size:10px;color:#fda4af;line-height:1.5;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;}
 
     .cmd-wrap{background:#05070b;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;}
     .cmd-box{font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.45;word-break:break-all;}
@@ -60,7 +82,7 @@
     .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;}
     .btn-primary:hover{background:var(--crimson-hover);}
     .hidden{display:none !important;}
-    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;max-width:90vw;text-align:center;}
     .toast.show{opacity:1;}
   </style>
   <script>
@@ -81,19 +103,19 @@
         </button>
         <div>
           <div class="page-title">Integrity &amp; Corruption Check</div>
-          <div class="page-sub">DETECT INCOMPLETE, BROKEN OR CORRUPT FILES</div>
+          <div class="page-sub" id="hdr-sub">BINARY, ATOM, STREAM &amp; PACKET DIAGNOSTICS</div>
         </div>
       </div>
-      <span class="badge">DIAGNOSTIC</span>
+      <span class="badge" id="hdr-badge">DIAGNOSTIC</span>
     </header>
 
     <main class="content">
       <section class="card-box">
-        <div class="sec-lbl">1. Target File to Verify</div>
+        <div class="sec-lbl"><span>1. Target File to Verify</span><span class="sec-cnt" id="lbl-type-pill">READY</span></div>
         <div class="file-pick">
-          <div style="min-width:0;">
+          <div style="min-width:0; flex:1;">
             <div class="fname" id="lbl-fname">No file selected</div>
-            <div class="fmeta" id="lbl-fmeta">No file selected yet — tap Pick File</div>
+            <div class="fmeta" id="lbl-fmeta">Tap Pick File to verify any Video, Audio, or Photo</div>
           </div>
           <button type="button" id="btn-pick" class="btn-sm">Pick File</button>
           <input type="file" id="inp-file" class="hidden" accept="video/*,audio/*,image/*">
@@ -101,127 +123,535 @@
       </section>
 
       <section class="card-box">
-        <div class="sec-lbl">2. Scan Depth</div>
+        <div class="sec-lbl"><span>2. Scan Depth</span></div>
         <div class="mode-grid" id="mode-grid">
           <button type="button" class="mode-btn active" data-scan="deep">
-            <strong>Deep Frame Scan</strong>
-            <small>Decodes every frame (-f null -)</small>
+            <strong>Deep Frame / Packet Scan</strong>
+            <small>Full FFmpeg decode + binary atoms + SHA-256</small>
           </button>
           <button type="button" class="mode-btn" data-scan="quick">
-            <strong>Quick Header Check</strong>
-            <small>Container &amp; moov atom (&lt;0.2s)</small>
+            <strong>Quick Header &amp; Atom Check</strong>
+            <small>Magic bytes, moov/EOF, FFprobe &amp; SHA-256</small>
           </button>
         </div>
       </section>
 
+      <div id="empty-state" class="empty-state">
+        <div class="empty-title">No Scan Run Yet</div>
+        <div class="empty-sub">Pick a file and tap <strong>Run Integrity Scan ▶</strong> to check magic bytes, MP4 moov/EOF atoms, null-byte truncation, bitrate/size consistency, A/V sync drift, frame/packet decode errors, and SHA-256 checksum.</div>
+      </div>
+
       <section class="verdict-box hidden" id="verdict-box" aria-label="Diagnostic Verdict">
-        <div class="verdict-title" id="verdict-title"></div>
+        <div class="verdict-top">
+          <div class="verdict-title" id="verdict-title"></div>
+          <span class="score-pill" id="verdict-score">100/100</span>
+        </div>
         <div class="verdict-desc" id="verdict-desc"></div>
         <button type="button" id="btn-repair" class="btn-sm hidden" style="align-self:flex-start; border-color:var(--crimson); color:var(--crimson);">Attempt Lossless Remux Repair ↗</button>
       </section>
 
-      <section class="card-box" id="checks-card">
-        <div class="sec-lbl">3. Stream Health Breakdown</div>
-        <div class="check-list" id="check-list">
-          <div class="chk-row"><span>Container Header &amp; Size</span><span class="st-ok" id="c-hdr">Pending</span></div>
-          <div class="chk-row"><span>Moov Atom / Seek Index</span><span class="st-ok" id="c-moov">Pending</span></div>
-          <div class="chk-row"><span>Video Frame Packets (1,800)</span><span class="st-ok" id="c-vid">Pending</span></div>
-          <div class="chk-row"><span>Audio Sync &amp; Timestamps (PTS)</span><span class="st-ok" id="c-aud">Pending</span></div>
-          <div class="chk-row"><span>Truncated EOF / Missing Tail</span><span class="st-ok" id="c-eof">Pending</span></div>
+      <section class="card-box hidden" id="checks-card">
+        <div class="sec-lbl"><span>3. Real-Time Integrity Breakdown</span><span class="sec-cnt" id="lbl-scan-ms"></span></div>
+        <div class="check-list" id="check-list"></div>
+        <div class="sha-box hidden" id="sha-box">
+          <div style="min-width:0; flex:1;">
+            <span style="font-family:var(--mono); font-size:9.5px; color:var(--muted); display:block;">SHA-256 FILE CHECKSUM</span>
+            <span class="sha-val" id="sha-val">—</span>
+          </div>
+          <button type="button" id="btn-copy-sha" class="btn-sm">Copy</button>
         </div>
       </section>
 
+      <section class="card-box hidden" id="err-card">
+        <div class="sec-lbl"><span>4. Raw Decoder Error Log</span><span class="sec-cnt" id="lbl-err-cnt">0 LINES</span></div>
+        <div class="err-log" id="err-log"></div>
+      </section>
+
       <section class="card-box">
-        <div class="sec-lbl">4. FFmpeg Verification Command</div>
+        <div class="sec-lbl"><span>FFmpeg Verification Command</span></div>
         <div class="cmd-wrap"><div class="cmd-box" id="cmd-box"></div></div>
         <div style="display:flex; gap:8px;">
           <button type="button" id="btn-copy" class="btn-sm" style="flex:1;">Copy Command</button>
-          <button type="button" id="btn-sh" class="btn-sm" style="flex:1;">Export .sh (/SH_Scripts/)</button>
+          <button type="button" id="btn-export-txt" class="btn-sm" style="flex:1;" disabled>Export Report (.txt)</button>
         </div>
       </section>
     </main>
 
     <footer class="bottom-bar">
-      <button type="button" id="btn-sim-bad" class="btn-sm" style="padding:10px 10px;">Test Corrupt Case</button>
-      <button type="button" id="btn-run" class="btn-primary">Run Integrity Scan ▶</button>
+      <button type="button" id="btn-run" class="btn-primary" disabled>Run Integrity Scan ▶</button>
     </footer>
   </div>
   <div class="toast" id="toast">Ready</div>
+
   <script>
-    const state = { fname: 'No file selected', scan: 'deep' };
-    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+    const state = {
+      path: '',
+      fname: '',
+      sizeBytes: 0,
+      scan: 'deep',
+      scanning: false,
+      lastReport: null
+    };
+    let toastTimer = null;
+
+    function showToast(m) {
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.textContent = m;
+      t.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    function esc(s) {
+      return String(s === undefined || s === null || s === '' ? '—' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtBytes(b) {
+      const n = Number(b) || 0;
+      if (!n) return '0 B';
+      const mb = n / (1024 * 1024);
+      return n.toLocaleString() + ' B (' + (mb >= 1 ? mb.toFixed(2) + ' MB' : (n / 1024).toFixed(1) + ' KB') + ')';
+    }
+
+    function fmtDur(sec) {
+      const s = Number(sec);
+      if (!isFinite(s) || s <= 0) return '—';
+      const m = Math.floor(s / 60);
+      const r = (s % 60).toFixed(2).padStart(5, '0');
+      return m + ':' + r;
+    }
 
     function renderCmd() {
       document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-scan') === state.scan));
+      const target = state.path || state.fname || '<select_file>';
       const cmd = state.scan === 'deep'
-        ? `ffmpeg -v error -err_detect explode -i "${state.fname}" -f null -`
-        : `ffprobe -v error -show_entries format=duration,size,nb_streams -show_streams "${state.fname}"`;
+        ? `ffmpeg -v error -err_detect +crccheck+bitstream+buffer+explode -i "${target}" -f null -`
+        : `ffprobe -v error -show_entries format=format_name,duration,size,bit_rate,probe_score -show_streams "${target}"`;
       document.getElementById('cmd-box').textContent = '$ ' + cmd;
     }
 
-    function showResult(isCorrupt) {
-      const box = document.getElementById('verdict-box');
-      const title = document.getElementById('verdict-title');
-      const desc = document.getElementById('verdict-desc');
-      const repBtn = document.getElementById('btn-repair');
-      box.classList.remove('hidden', 'is-bad');
-
-      if (isCorrupt) {
-        box.classList.add('is-bad');
-        title.textContent = '✗ Incomplete / Corrupted File Detected';
-        desc.textContent = 'Missing moov tail / 14 broken packets near 00:21.4 (possible incomplete download). You can attempt a lossless remux repair.';
-        repBtn.classList.remove('hidden');
-        document.getElementById('c-hdr').innerHTML = '<span class="st-ok">Valid ✓</span>';
-        document.getElementById('c-moov').innerHTML = '<span class="st-bad">Missing / Broken ✗</span>';
-        document.getElementById('c-vid').innerHTML = '<span class="st-bad">14 Corrupt Frames ✗</span>';
-        document.getElementById('c-aud').innerHTML = '<span class="st-warn">PTS Drift (+180ms)</span>';
-        document.getElementById('c-eof').innerHTML = '<span class="st-bad">Truncated EOF ✗</span>';
+    function copyText(text, label) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast('Copied ' + label + ' ✓')).catch(() => fallbackCopy(text, label));
       } else {
-        title.textContent = '✓ File Complete & Healthy (0 Errors)';
-        desc.textContent = 'All 1,800 video frames and audio packets decoded cleanly with valid timestamps and intact moov index.';
-        repBtn.classList.add('hidden');
-        document.getElementById('c-hdr').innerHTML = '<span class="st-ok">Valid ✓</span>';
-        document.getElementById('c-moov').innerHTML = '<span class="st-ok">Intact Faststart ✓</span>';
-        document.getElementById('c-vid').innerHTML = '<span class="st-ok">1,800 / 1,800 OK ✓</span>';
-        document.getElementById('c-aud').innerHTML = '<span class="st-ok">Synced (0ms) ✓</span>';
-        document.getElementById('c-eof').innerHTML = '<span class="st-ok">Complete EOF ✓</span>';
+        fallbackCopy(text, label);
       }
     }
+
+    function fallbackCopy(text, label) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Copied ' + label + ' ✓');
+      } catch (_) {
+        showToast('Copy failed');
+      }
+    }
+
+    function renderCheckRow(name, sub, val, cls) {
+      return `<div class="chk-row"><div class="chk-l"><span class="chk-name">${esc(name)}</span>${sub ? `<span class="chk-sub">${esc(sub)}</span>` : ''}</div><span class="chk-val ${cls}">${esc(val)}</span></div>`;
+    }
+
+    window.onIntegrityResult = function(res) {
+      state.scanning = false;
+      const runBtn = document.getElementById('btn-run');
+      if (runBtn) { runBtn.disabled = !state.path; runBtn.textContent = 'Run Integrity Scan ▶'; }
+
+      if (!res) {
+        showToast('Scan failed: empty response');
+        return;
+      }
+      state.lastReport = res;
+
+      const verdict = res.verdict || (res.ok ? 'HEALTHY' : 'CORRUPTED');
+      const score = typeof res.healthScore === 'number' ? res.healthScore : (res.ok ? 100 : 25);
+      const kind = (res.mediaKind || 'media').toUpperCase();
+      document.getElementById('lbl-type-pill').textContent = kind;
+      document.getElementById('lbl-scan-ms').textContent = (res.elapsedMs ? (res.elapsedMs / 1000).toFixed(2) + 's' : '') + ' · ' + (res.deepScan ? 'DEEP' : 'QUICK');
+
+      const hdrBadge = document.getElementById('hdr-badge');
+      hdrBadge.className = 'badge' + (verdict === 'CORRUPTED' ? ' b-bad' : (verdict === 'WARNING' ? ' b-warn' : ''));
+      hdrBadge.textContent = verdict;
+
+      // Verdict Banner
+      const vBox = document.getElementById('verdict-box');
+      const vTitle = document.getElementById('verdict-title');
+      const vScore = document.getElementById('verdict-score');
+      const vDesc = document.getElementById('verdict-desc');
+      const repBtn = document.getElementById('btn-repair');
+
+      vBox.classList.remove('hidden', 'is-bad', 'is-warn');
+      vScore.textContent = score + '/100';
+      if (verdict === 'CORRUPTED') {
+        vBox.classList.add('is-bad');
+        vTitle.textContent = '✗ Corruption / Incomplete File Detected';
+        vDesc.textContent = res.summary || 'Errors were found in container structure or media packets.';
+        if (res.mediaKind !== 'photo') repBtn.classList.remove('hidden'); else repBtn.classList.add('hidden');
+      } else if (verdict === 'WARNING') {
+        vBox.classList.add('is-warn');
+        vTitle.textContent = '⚠ File Playable with Structural Warnings';
+        vDesc.textContent = res.summary || 'Minor container, sync, or timestamp anomalies detected.';
+        if (res.mediaKind !== 'photo') repBtn.classList.remove('hidden'); else repBtn.classList.add('hidden');
+      } else {
+        vTitle.textContent = '✓ File Complete & Healthy (0 Errors)';
+        vDesc.textContent = res.summary || 'Container structure, binary signatures, and streams passed verification cleanly.';
+        repBtn.classList.add('hidden');
+      }
+
+      // Build Media-Type-Specific Real-Time Breakdown Rows
+      const rows = [];
+      const sz = Number(res.fileSizeBytes) || 0;
+      const mk = res.mediaKind || 'video';
+
+      rows.push(renderCheckRow(
+        'File Size & Readability',
+        res.path || state.fname,
+        sz > 0 ? fmtBytes(sz) : 'Empty (0 B) ✗',
+        sz > 0 ? 'st-ok' : 'st-bad'
+      ));
+
+      rows.push(renderCheckRow(
+        'Binary Magic-Byte Signature',
+        'Detected: ' + (res.detectedSignature || 'Unknown') + ' · Ext: .' + (res.extension || '?'),
+        res.signatureMismatch ? 'Mismatch ✗' : (res.signatureValid ? 'Verified ✓' : 'Unrecognized ⚠'),
+        res.signatureMismatch ? 'st-bad' : (res.signatureValid ? 'st-ok' : 'st-warn')
+      ));
+
+      if (mk === 'video') {
+        rows.push(renderCheckRow(
+          'Video Container & Probe Score',
+          (res.formatName || 'Unknown') + ' · ' + (res.videoStreamCount || 0) + 'V / ' + (res.audioStreamCount || 0) + 'A / ' + (res.subtitleStreamCount || 0) + 'S · ' + (res.chapterCount || 0) + ' ch',
+          res.headerValid ? ('Valid (Score ' + (res.probeScore || '—') + ') ✓') : 'Unreadable Header ✗',
+          res.headerValid ? ((res.probeScore && res.probeScore < 50) ? 'st-warn' : 'st-ok') : 'st-bad'
+        ));
+
+        if (res.isMp4Family) {
+          const moovState = !res.moovFound
+            ? { v: 'Missing moov ✗', c: 'st-bad', s: 'Classic sign of interrupted recording or incomplete download' }
+            : (res.truncatedAtom
+              ? { v: 'Truncated Box ✗', c: 'st-bad', s: 'MP4 atom size exceeds actual file size' }
+              : (res.moovBeforeMdat
+                ? { v: 'Intact (Faststart) ✓', c: 'st-ok', s: 'moov atom at front — instant seek & streaming' }
+                : { v: 'Intact (Tail moov) ✓', c: 'st-info', s: 'moov atom at end of file (valid, non-faststart)' }));
+          rows.push(renderCheckRow('MP4/MOV Box & moov Atom', moovState.s, moovState.v, moovState.c));
+        }
+
+        rows.push(renderCheckRow(
+          'Truncated EOF / Null-Byte Tail',
+          res.nullTailDetected ? 'Trailing 64 bytes are all zeros (0x00) — possible incomplete write' : (res.eofErrors > 0 ? (res.eofErrors + ' EOF/truncation error(s) in decoder') : 'Intact non-zero tail bytes'),
+          (res.nullTailDetected || res.eofErrors > 0 || res.truncatedAtom) ? 'Truncated ✗' : 'Complete EOF ✓',
+          (res.nullTailDetected || res.eofErrors > 0 || res.truncatedAtom) ? 'st-bad' : 'st-ok'
+        ));
+
+        const ratio = Number(res.sizeConsistencyPct) || 0;
+        rows.push(renderCheckRow(
+          'Duration & Bitrate Consistency',
+          'Dur: ' + fmtDur(res.durationSec) + (res.overallBitrate ? (' · ' + Math.round(res.overallBitrate / 1000) + ' kbps') : ''),
+          ratio > 0 ? (ratio + '% match ' + (!res.sizeMismatchWarning ? '✓' : '⚠')) : 'N/A',
+          !res.sizeMismatchWarning ? 'st-ok' : 'st-warn'
+        ));
+
+        const vSub = [res.videoCodec && res.videoCodec.toUpperCase(), res.resolution, res.fps ? (Number(res.fps).toFixed(2).replace(/\.?0+$/, '') + ' fps') : '', res.nbFrames ? (Number(res.nbFrames).toLocaleString() + ' frames') : ''].filter(Boolean).join(' · ');
+        const vErrs = Number(res.videoDecodeErrors) || 0;
+        rows.push(renderCheckRow(
+          'Video Stream Decode (v:0)',
+          vSub || 'Primary video stream',
+          res.deepScan ? (vErrs > 0 ? (vErrs + ' Video Error(s) ✗') : '0 Video Errors ✓') : 'Header OK (Run Deep Scan)',
+          res.deepScan ? (vErrs > 0 ? 'st-bad' : 'st-ok') : 'st-info'
+        ));
+
+        const hasAud = (res.audioStreamCount || 0) > 0;
+        const aErrs = Number(res.audioDecodeErrors) || 0;
+        const aSub = hasAud
+          ? [(res.audioCodec || 'audio').toUpperCase(), res.sampleRate ? (res.sampleRate + ' Hz') : '', res.audioChannels ? (res.audioChannels + ' ch') : ''].filter(Boolean).join(' · ')
+          : 'No embedded audio track (video-only)';
+        rows.push(renderCheckRow(
+          'Embedded Audio Stream Decode (a:0)',
+          aSub,
+          !hasAud ? 'Muted' : (res.deepScan ? (aErrs > 0 ? (aErrs + ' Audio Error(s) ✗') : '0 Audio Errors ✓') : 'Header OK (Run Deep Scan)'),
+          !hasAud ? 'st-info' : (res.deepScan ? (aErrs > 0 ? 'st-bad' : 'st-ok') : 'st-info')
+        ));
+
+        const driftMs = Number(res.avDriftMs) || 0;
+        rows.push(renderCheckRow(
+          'A/V Sync Drift (Video vs Audio)',
+          hasAud ? ('Video vs Audio length delta: ' + driftMs + ' ms') : 'Not applicable (no audio track)',
+          !hasAud ? 'N/A' : (driftMs > 500 ? ('Drift ' + driftMs + 'ms ⚠') : ('Synced (' + driftMs + 'ms) ✓')),
+          !hasAud ? 'st-info' : (driftMs > 500 ? 'st-warn' : 'st-ok')
+        ));
+
+        rows.push(renderCheckRow(
+          'PTS / DTS Timestamp Continuity',
+          res.timestampErrors > 0 ? (res.timestampErrors + ' monotonic/PTS/DTS error(s) across V/A streams') : 'Monotonic video & audio timestamps',
+          res.deepScan ? (res.timestampErrors > 0 ? (res.timestampErrors + ' PTS Errs ⚠') : 'Clean ✓') : 'Quick Mode (Skipped)',
+          res.deepScan ? (res.timestampErrors > 0 ? 'st-warn' : 'st-ok') : 'st-info'
+        ));
+
+      } else if (mk === 'audio') {
+        rows.push(renderCheckRow(
+          'Audio Container & Probe Score',
+          (res.formatName || 'Unknown') + ' · ' + (res.audioStreamCount || 0) + ' audio stream(s)',
+          res.headerValid ? ('Valid (Score ' + (res.probeScore || '—') + ') ✓') : 'Unreadable Header ✗',
+          res.headerValid ? ((res.probeScore && res.probeScore < 50) ? 'st-warn' : 'st-ok') : 'st-bad'
+        ));
+
+        if (res.isMp4Family) {
+          rows.push(renderCheckRow(
+            'M4A / MP4 moov Atom',
+            res.moovFound ? (res.truncatedAtom ? 'Atom box truncated' : 'M4A container atoms intact') : 'Missing M4A moov atom',
+            (res.moovFound && !res.truncatedAtom) ? 'Intact ✓' : 'Broken ✗',
+            (res.moovFound && !res.truncatedAtom) ? 'st-ok' : 'st-bad'
+          ));
+        }
+
+        rows.push(renderCheckRow(
+          'Truncated EOF / Null-Byte Tail',
+          res.nullTailDetected ? 'Trailing 64 bytes are all zeros (0x00)' : (res.eofErrors > 0 ? (res.eofErrors + ' premature EOF error(s)') : 'Intact non-zero tail bytes'),
+          (res.nullTailDetected || res.eofErrors > 0 || res.truncatedAtom) ? 'Truncated ✗' : 'Complete EOF ✓',
+          (res.nullTailDetected || res.eofErrors > 0 || res.truncatedAtom) ? 'st-bad' : 'st-ok'
+        ));
+
+        const ratio = Number(res.sizeConsistencyPct) || 0;
+        rows.push(renderCheckRow(
+          'Duration & Bitrate Consistency',
+          'Dur: ' + fmtDur(res.durationSec) + (res.overallBitrate ? (' · ' + Math.round(res.overallBitrate / 1000) + ' kbps') : ''),
+          ratio > 0 ? (ratio + '% match ' + (!res.sizeMismatchWarning ? '✓' : '⚠')) : 'N/A',
+          !res.sizeMismatchWarning ? 'st-ok' : 'st-warn'
+        ));
+
+        const aErrs = Number(res.audioDecodeErrors) || 0;
+        const aSub = [(res.audioCodec || 'audio').toUpperCase(), res.sampleRate ? (res.sampleRate + ' Hz') : '', res.audioChannels ? (res.audioChannels + ' ch') : '', res.audioSampleFmt || ''].filter(Boolean).join(' · ');
+        rows.push(renderCheckRow(
+          'Audio Packet & CRC Decode (a:0)',
+          aSub || 'Primary audio stream',
+          res.deepScan ? (aErrs > 0 ? (aErrs + ' Audio Error(s) ✗') : '0 Packet Errors ✓') : 'Header OK (Run Deep Scan)',
+          res.deepScan ? (aErrs > 0 ? 'st-bad' : 'st-ok') : 'st-info'
+        ));
+
+        rows.push(renderCheckRow(
+          'Audio Timestamp Continuity (PTS)',
+          res.timestampErrors > 0 ? (res.timestampErrors + ' audio timestamp warning(s)') : 'Monotonic audio packets',
+          res.deepScan ? (res.timestampErrors > 0 ? (res.timestampErrors + ' PTS Errs ⚠') : 'Clean ✓') : 'Quick Mode (Skipped)',
+          res.deepScan ? (res.timestampErrors > 0 ? 'st-warn' : 'st-ok') : 'st-info'
+        ));
+
+        const hasArt = (res.coverArtCount || 0) > 0;
+        rows.push(renderCheckRow(
+          'Embedded Cover Art (attached_pic)',
+          hasArt ? (res.coverArtCount + ' embedded image track(s)') : 'No embedded album art',
+          !hasArt ? 'None' : (res.coverArtValid ? 'Intact ✓' : 'Corrupt Art ⚠'),
+          !hasArt ? 'st-info' : (res.coverArtValid ? 'st-ok' : 'st-warn')
+        ));
+
+        rows.push(renderCheckRow(
+          'Audio Metadata Tags (ID3 / Vorbis)',
+          (res.audioTagCount || 0) + ' embedded tag field(s) readable',
+          'Readable ✓',
+          'st-info'
+        ));
+
+      } else {
+        // PHOTO-ONLY BREAKDOWN (Zero video/audio/duration/PTS rows!)
+        rows.push(renderCheckRow(
+          'Image EOF / Container Integrity',
+          res.imageEofNote || ('Format: ' + (res.extension || 'image').toUpperCase()),
+          res.imageEofValid !== false ? 'Intact EOF ✓' : 'Truncated ✗',
+          res.imageEofValid !== false ? 'st-ok' : 'st-bad'
+        ));
+
+        rows.push(renderCheckRow(
+          'Null-Byte Tail Check',
+          res.nullTailDetected ? 'Trailing 64 bytes are all zeros (0x00) — possible incomplete save' : 'Non-zero intact image tail',
+          res.nullTailDetected ? 'Zero-Padded ✗' : 'Clean Tail ✓',
+          res.nullTailDetected ? 'st-bad' : 'st-ok'
+        ));
+
+        rows.push(renderCheckRow(
+          'Full Pixel Decode (BitmapFactory)',
+          (res.resolution || '—') + (res.bitmapConfig && res.bitmapConfig !== '—' ? (' · ' + res.bitmapConfig) : ''),
+          res.bitmapDecoded ? 'Decoded OK ✓' : 'Corrupt Pixels ✗',
+          res.bitmapDecoded ? 'st-ok' : 'st-bad'
+        ));
+
+        const pErrs = Number(res.photoDecodeErrors) || 0;
+        rows.push(renderCheckRow(
+          'Deep Image Bitstream Scan',
+          'Huffman / DCT / DEFLATE block integrity check',
+          res.deepScan ? (pErrs > 0 ? (pErrs + ' Bitstream Errs ✗') : '0 Bitstream Errors ✓') : 'Quick Mode (Run Deep Scan)',
+          res.deepScan ? (pErrs > 0 ? 'st-bad' : 'st-ok') : 'st-info'
+        ));
+
+        rows.push(renderCheckRow(
+          'EXIF Metadata Block Integrity',
+          res.exifValid ? ((res.exifTagCount || 0) + ' core EXIF tag(s) parsed cleanly') : 'EXIF block unreadable or malformed',
+          res.exifValid ? 'Valid EXIF ✓' : 'EXIF Error ⚠',
+          res.exifValid ? 'st-ok' : 'st-warn'
+        ));
+      }
+
+      document.getElementById('empty-state').classList.add('hidden');
+      document.getElementById('checks-card').classList.remove('hidden');
+      document.getElementById('check-list').innerHTML = rows.join('');
+
+      // SHA-256 Checksum
+      if (res.sha256) {
+        document.getElementById('sha-val').textContent = res.sha256;
+        document.getElementById('sha-box').classList.remove('hidden');
+      }
+
+      // Raw Error Log
+      const errCard = document.getElementById('err-card');
+      const errLog = document.getElementById('err-log');
+      const errCnt = document.getElementById('lbl-err-cnt');
+      if (res.errorSnippet && res.errorSnippet.trim()) {
+        errLog.textContent = res.errorSnippet.trim();
+        errCnt.textContent = (res.decodeErrorCount || 1) + ' ERROR LINE(S)';
+        errCard.classList.remove('hidden');
+      } else {
+        errCard.classList.add('hidden');
+      }
+
+      document.getElementById('btn-export-txt').disabled = false;
+      showToast(verdict === 'HEALTHY' ? 'Healthy: 0 errors ✓' : (verdict + ': ' + (res.decodeErrorCount || 0) + ' error(s)'));
+    };
+
+    function startScan() {
+      if (!state.path) {
+        showToast('Pick a file first');
+        return;
+      }
+      if (state.scanning) return;
+      state.scanning = true;
+      const runBtn = document.getElementById('btn-run');
+      runBtn.disabled = true;
+      runBtn.textContent = state.scan === 'deep' ? '⏳ Deep Scanning Frames...' : '⏳ Checking Header & Atoms...';
+      showToast(state.scan === 'deep' ? 'Running deep frame/packet decode scan...' : 'Running quick header & atom check...');
+
+      const deep = state.scan === 'deep';
+      if (window.AndroidBridge && typeof window.AndroidBridge.runIntegrityCheckAsync === 'function') {
+        window.AndroidBridge.runIntegrityCheckAsync(state.path, deep);
+      } else if (window.AndroidBridge && typeof window.AndroidBridge.runIntegrityCheck === 'function') {
+        setTimeout(() => {
+          try {
+            const res = JSON.parse(window.AndroidBridge.runIntegrityCheck(state.path, deep) || '{}');
+            window.onIntegrityResult(res);
+          } catch (e) {
+            state.scanning = false;
+            runBtn.disabled = false;
+            runBtn.textContent = 'Run Integrity Scan ▶';
+            showToast('Scan error: ' + e.message);
+          }
+        }, 30);
+      } else {
+        state.scanning = false;
+        runBtn.disabled = false;
+        runBtn.textContent = 'Run Integrity Scan ▶';
+        showToast('Integrity scanner runs inside Android APK');
+      }
+    }
+
+    window.syncToolFromNative = function(fileObj, info) {
+      if (!fileObj) return;
+      state.path = fileObj.path || fileObj.uri || (info && info.path) || '';
+      state.fname = (info && info.filename) || fileObj.name || 'media_file';
+      state.sizeBytes = (info && info.sizeBytes) || fileObj.size || 0;
+      document.getElementById('lbl-fname').textContent = state.fname;
+      document.getElementById('lbl-fmeta').textContent = (state.path || state.fname) + (state.sizeBytes ? (' · ' + fmtBytes(state.sizeBytes)) : '');
+      document.getElementById('btn-run').disabled = !state.path;
+      document.getElementById('verdict-box').classList.add('hidden');
+      document.getElementById('checks-card').classList.add('hidden');
+      document.getElementById('err-card').classList.add('hidden');
+      document.getElementById('empty-state').classList.remove('hidden');
+      renderCmd();
+    };
 
     document.getElementById('mode-grid').addEventListener('click', (e) => {
       const b = e.target.closest('.mode-btn');
       if (b) { state.scan = b.getAttribute('data-scan'); renderCmd(); }
     });
-    document.getElementById('btn-pick').addEventListener('click', () => document.getElementById('inp-file').click());
+
+    document.getElementById('btn-pick').addEventListener('click', () => {
+      if (window.AndroidBridge && typeof window.AndroidBridge.pickFile === 'function') {
+        window.AndroidBridge.pickFile('all');
+      } else {
+        document.getElementById('inp-file').click();
+      }
+    });
+
     document.getElementById('inp-file').addEventListener('change', function() {
       if (this.files && this.files[0]) {
         state.fname = this.files[0].name;
+        state.path = this.files[0].name;
+        state.sizeBytes = this.files[0].size;
         document.getElementById('lbl-fname').textContent = state.fname;
-        document.getElementById('lbl-fmeta').textContent = (this.files[0].size / (1024 * 1024)).toFixed(1) + ' MB · Ready to scan';
+        document.getElementById('lbl-fmeta').textContent = fmtBytes(state.sizeBytes) + ' · Ready to scan';
+        document.getElementById('btn-run').disabled = false;
         renderCmd();
       }
     });
-    document.getElementById('btn-run').addEventListener('click', () => showResult(false));
-    document.getElementById('btn-sim-bad').addEventListener('click', () => showResult(true));
-    document.getElementById('btn-repair').addEventListener('click', () => showToast('Remuxing valid packets to /ConversionVault/Repaired/ →'));
-    document.getElementById('btn-copy').addEventListener('click', () => showToast('Copied FFmpeg verification command'));
-    document.getElementById('btn-sh').addEventListener('click', () => showToast('Saved to /ConversionVault/SH_Scripts/verify_file.sh'));
-    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
-    renderCmd();
 
-    window.syncToolFromNative = function(fileObj, info) {
-      if (!fileObj || typeof state === 'undefined') return;
-      state.fname = (info && info.filename) || fileObj.name || state.fname;
-      if (info && info.sizeBytes && 'sizeMB' in state) state.sizeMB = Math.max(0.1, info.sizeBytes / (1024 * 1024));
-      if (info && info.durationSec && info.durationSec > 0) {
-        if ('durSec' in state) state.durSec = info.durationSec;
-        if ('dur' in state) state.dur = info.durationSec;
+    document.getElementById('btn-run').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      startScan();
+    });
+
+    document.getElementById('btn-copy').addEventListener('click', () => {
+      const cmd = (document.getElementById('cmd-box').textContent || '').replace(/^\$\s*/, '');
+      copyText(cmd, 'FFmpeg command');
+    });
+
+    document.getElementById('btn-copy-sha').addEventListener('click', () => {
+      const sha = document.getElementById('sha-val').textContent || '';
+      if (sha && sha !== '—') copyText(sha, 'SHA-256 checksum');
+    });
+
+    document.getElementById('btn-export-txt').addEventListener('click', () => {
+      const r = state.lastReport;
+      if (!r) return;
+      const lines = [
+        '============================================================',
+        'CONVERSION VAULT — INTEGRITY & CORRUPTION REPORT',
+        '============================================================',
+        'File        : ' + (state.fname || r.filename || ''),
+        'Path        : ' + (r.path || state.path || ''),
+        'Verdict     : ' + (r.verdict || '') + ' (' + (r.healthScore || 0) + '/100)',
+        'Scan Mode   : ' + (r.deepScan ? 'Deep Frame/Packet Scan' : 'Quick Header & Atom Check'),
+        'Elapsed     : ' + ((r.elapsedMs || 0) / 1000).toFixed(2) + 's',
+        'Size        : ' + fmtBytes(r.fileSizeBytes),
+        'Signature   : ' + (r.detectedSignature || 'Unknown') + (r.signatureMismatch ? ' (MISMATCH)' : ' (OK)'),
+        'Header      : ' + (r.headerValid ? 'Valid' : 'Invalid') + ' (Probe Score ' + (r.probeScore || '—') + ')',
+        'Decode Errs : ' + (r.decodeErrorCount || 0) + ' (Corrupt frames: ' + (r.corruptFrameErrors || 0) + ', PTS: ' + (r.timestampErrors || 0) + ', EOF: ' + (r.eofErrors || 0) + ')',
+        'SHA-256     : ' + (r.sha256 || '—'),
+        '',
+        'Summary     : ' + (r.summary || '')
+      ];
+      if (r.errorSnippet && r.errorSnippet.trim()) {
+        lines.push('', '--- RAW DECODER ERROR LOG ---', r.errorSnippet.trim());
       }
-      if (info && info.width && info.height && 'srcRes' in state) state.srcRes = info.width + '×' + info.height;
-      if (info && info.bitrate && 'srcVbrK' in state) state.srcVbrK = Math.round(info.bitrate / 1000);
-      if (typeof render === 'function') render();
-      if (typeof updateDestPath === 'function') updateDestPath();
-    };
+      const txt = lines.join('\n');
+      const base = 'integrity_' + (state.fname || 'file').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 32);
+      if (window.AndroidBridge && typeof window.AndroidBridge.exportInspectorReport === 'function') {
+        const res = JSON.parse(window.AndroidBridge.exportInspectorReport(base, 'txt', txt) || '{}');
+        showToast(res.ok ? ('Saved → ' + (res.name || 'Reports/')) : 'Export failed');
+      } else {
+        showToast('Saved to Reports/' + base + '.txt');
+      }
+    });
+
+    document.getElementById('btn-back').addEventListener('click', () => {
+      window.location.href = 'conversion_vault_p1_home.html';
+    });
+
+    renderCmd();
   </script>
   <script src="vault-bridge.js"></script>
 </body>

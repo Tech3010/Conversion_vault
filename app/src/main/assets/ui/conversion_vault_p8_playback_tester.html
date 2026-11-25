@@ -262,7 +262,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--input); border:1px solid var(--border); border-radius:7px; padding:7px 9px;">
           <div style="min-width:0;">
             <span style="font-family:var(--mono); font-size:9.5px; color:var(--muted); display:block; text-transform:uppercase;">Storage Location</span>
-            <span style="font-family:var(--mono); font-size:10.5px; color:var(--text); font-weight:700; word-break:break-all;">/storage/emulated/0/ConversionVault/Samples/</span>
+            <span id="lbl-samples-dir" style="font-family:var(--mono); font-size:10.5px; color:var(--text); font-weight:700; word-break:break-all;">/storage/emulated/0/ConversionVault/Samples/</span>
           </div>
           <button type="button" id="btn-open-fm" class="btn-sm" style="border-color:var(--gold); color:var(--gold-text);">File Manager ↗</button>
         </div>
@@ -320,32 +320,90 @@
       setTimeout(() => t.classList.remove('show'), 1800);
     }
 
+    function getEffectiveVideoContainer() {
+      const v = state.v;
+      // VP9 is not supported in QuickTime .mov -> use .webm automatically
+      if (v.codec === 'libvpx-vp9' && v.container === 'mov') return 'webm';
+      // AV1 is not standard in QuickTime .mov -> use .mp4 automatically
+      if (v.codec === 'libsvtav1' && v.container === 'mov') return 'mp4';
+      return v.container;
+    }
+
     function buildArgsTemplate() {
       if (state.type === 'video') {
         const v = state.v;
-        // Enforce container-valid codec/audio combinations so FFmpeg never errors on WebM/MP4
+        const container = getEffectiveVideoContainer();
         let vcodec = v.codec;
         let acodec = v.audio;
-        if (v.container === 'webm') {
+        let pixfmt = v.pixfmt;
+
+        // Enforce container-valid codec/audio combinations so FFmpeg never rejects the mux
+        if (container === 'webm') {
           if (vcodec !== 'libvpx-vp9' && vcodec !== 'libsvtav1') vcodec = 'libvpx-vp9';
           if (acodec !== 'none' && acodec !== 'libopus') acodec = 'libopus';
+        } else if (container === 'mov') {
+          if (acodec === 'libopus' || acodec === 'flac') acodec = 'aac';
+        } else if (container === 'mp4') {
+          if (acodec === 'flac') acodec = 'aac';
         }
-        const aud = acodec === 'none' ? '-an' : (acodec === 'flac' ? '-c:a flac' : `-c:a ${acodec} -b:a 192k`);
+
+        // Enforce codec-valid pixel formats
+        if (vcodec === 'libsvtav1' && pixfmt === 'yuv422p') pixfmt = 'yuv420p';
+        if (vcodec === 'libvpx-vp9' && pixfmt === 'yuv422p') pixfmt = 'yuv420p';
+
+        const aud = acodec === 'none'
+          ? '-an'
+          : (acodec === 'flac'
+            ? '-ac 2 -c:a flac'
+            : (acodec === 'libopus'
+              ? ((container === 'mp4' ? '-strict -2 ' : '') + '-ac 2 -c:a libopus -b:a 192k')
+              : (acodec === 'ac3'
+                ? '-ac 2 -c:a ac3 -b:a 384k'
+                : `-ac 2 -c:a ${acodec} -b:a 192k`)));
+
         const gop = v.gop === 'auto' ? '' : ` -g ${v.gop}`;
-        const extra = vcodec === 'libx265' && (v.container === 'mp4' || v.container === 'mov') ? ' -tag:v hvc1'
-                    : (vcodec === 'libsvtav1' ? ' -preset 8'
-                    : (vcodec === 'libvpx-vp9' ? ' -b:v 0 -deadline realtime' : ' -preset fast'));
-        const faststart = (v.container === 'mp4' || v.container === 'mov') ? ' -movflags +faststart' : '';
-        return `-y -f lavfi -i testsrc2=size=${v.res}:rate=${v.fps} -f lavfi -i sine=frequency=440:sample_rate=48000 -t ${v.dur} -c:v ${vcodec}${extra} -crf ${v.crf}${gop} -pix_fmt ${v.pixfmt} ${aud}${faststart} {OUTPUT}`;
+        let extra = ' -preset fast';
+        if (vcodec === 'libx265') {
+          extra = ' -preset fast' + ((container === 'mp4' || container === 'mov') ? ' -tag:v hvc1' : '');
+        } else if (vcodec === 'libsvtav1') {
+          extra = ' -preset 8';
+        } else if (vcodec === 'libvpx-vp9') {
+          // Valid fast Constant-Quality VP9 flags (-deadline realtime is incompatible with -b:v 0 -crf)
+          const vp9Prof = pixfmt === 'yuv420p10le' ? ' -profile:v 2' : '';
+          extra = ` -b:v 0 -deadline good -cpu-used 5 -row-mt 1${vp9Prof}`;
+        }
+        const faststart = (container === 'mp4' || container === 'mov') ? ' -movflags +faststart' : '';
+        return `-y -f lavfi -i testsrc2=size=${v.res}:rate=${v.fps} -f lavfi -i sine=frequency=440:sample_rate=48000 -t ${v.dur} -c:v ${vcodec}${extra} -crf ${v.crf}${gop} -pix_fmt ${pixfmt} ${aud}${faststart} {OUTPUT}`;
       }
       if (state.type === 'audio') {
         const a = state.a;
-        const ac = a.ch === '5.1' ? 6 : (a.ch === 'mono' ? 1 : 2);
-        const encMap = { opus: 'libopus', flac: 'flac', mp3: 'libmp3lame', m4a: 'aac', wav: 'pcm_s16le', ac3: 'ac3' };
-        const enc = encMap[a.fmt] || 'aac';
+        // Enforce codec-valid channel count & sample rate so FFmpeg never errors on Opus/MP3/AC3
+        let ac = a.ch === '5.1' ? 6 : (a.ch === 'mono' ? 1 : 2);
+        let ar = a.ar;
+        if (a.fmt === 'mp3') {
+          if (ac > 2) ac = 2;
+          if (ar === '96000') ar = '48000';
+        } else if (a.fmt === 'opus') {
+          if (ar !== '48000') ar = '48000';
+        } else if (a.fmt === 'ac3') {
+          if (ar === '96000') ar = '48000';
+        }
+
+        let enc = 'aac';
+        let sf = '';
+        if (a.fmt === 'opus') enc = 'libopus';
+        else if (a.fmt === 'mp3') enc = 'libmp3lame';
+        else if (a.fmt === 'ac3') enc = 'ac3';
+        else if (a.fmt === 'm4a') enc = 'aac';
+        else if (a.fmt === 'wav') {
+          enc = (a.depth === 's24') ? 'pcm_s24le' : 'pcm_s16le';
+        } else if (a.fmt === 'flac') {
+          enc = 'flac';
+          if (a.depth === 's16') sf = ' -sample_fmt s16';
+          else if (a.depth === 's24') sf = ' -sample_fmt s32 -bits_per_raw_sample 24';
+        }
         const brFlag = (a.fmt === 'flac' || a.fmt === 'wav') ? '' : ` -b:a ${a.br}`;
-        const sf = (a.depth === 'auto' || a.fmt === 'mp3' || a.fmt === 'opus' || a.fmt === 'm4a') ? '' : ` -sample_fmt ${a.depth}`;
-        return `-y -f lavfi -i sine=frequency=440:sample_rate=${a.ar} -t ${a.dur} -ac ${ac} -c:a ${enc}${sf}${brFlag} {OUTPUT}`;
+        return `-y -f lavfi -i sine=frequency=440:sample_rate=${ar} -t ${a.dur} -ac ${ac} -c:a ${enc}${sf}${brFlag} {OUTPUT}`;
       }
       const i = state.i;
       if (i.fmt === 'png') {
@@ -358,13 +416,13 @@
       if (i.fmt === 'webp') {
         return `-y -f lavfi -i smptehdbars=size=${i.res} -frames:v 1 -c:v libwebp -quality ${i.qual} {OUTPUT}`;
       }
-      // avif
+      // avif (automatically falls back to libaom-av1 in Kotlin if libsvtav1 is absent)
       const crfAvif = Math.max(12, Math.min(50, Math.round(52 - (i.qual / 100) * 38)));
       return `-y -f lavfi -i smptehdbars=size=${i.res} -frames:v 1 -c:v libsvtav1 -crf ${crfAvif} -preset 8 -still-picture 1 {OUTPUT}`;
     }
 
     function buildCommand() {
-      const ext = state.type === 'video' ? state.v.container : (state.type === 'audio' ? state.a.fmt : state.i.fmt);
+      const ext = state.type === 'video' ? getEffectiveVideoContainer() : (state.type === 'audio' ? state.a.fmt : state.i.fmt);
       return 'ffmpeg ' + buildArgsTemplate().replace('{OUTPUT}', `test_sample.${ext}`);
     }
 
@@ -583,6 +641,17 @@
         state.type = btn.getAttribute('data-type');
         document.getElementById('test-result').classList.add('hidden');
         renderControls();
+    (function hydrateSamplesDirLabel() {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getSettings === 'function') {
+          const st = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          if (st.defaultVaultFolder) {
+            const el = document.getElementById('lbl-samples-dir');
+            if (el) el.textContent = st.defaultVaultFolder.replace(/\/$/, '') + '/Samples/';
+          }
+        }
+      } catch (_) {}
+    })();
     loadSavedSamplesFromDisk();
       });
     });
@@ -614,14 +683,25 @@
       }
       const sizeStr = res.sizeBytes >= 1048576 ? (res.sizeBytes / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(res.sizeBytes / 1024)) + ' KB';
       state.lastSample = { name: res.name, path: res.path, meta: sizeStr, codec: state.type === 'video' ? state.v.codec : state.type, pixfmt: state.v.pixfmt };
-      loadSavedSamplesFromDisk();
+      (function hydrateSamplesDirLabel() {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getSettings === 'function') {
+          const st = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          if (st.defaultVaultFolder) {
+            const el = document.getElementById('lbl-samples-dir');
+            if (el) el.textContent = st.defaultVaultFolder.replace(/\/$/, '') + '/Samples/';
+          }
+        }
+      } catch (_) {}
+    })();
+    loadSavedSamplesFromDisk();
       document.getElementById('gen-file-lbl').textContent = res.name + ' (' + sizeStr + ')';
       document.getElementById('gen-modal').classList.remove('hidden');
       showToast('Saved to /ConversionVault/Samples/' + res.name);
     };
 
     document.getElementById('btn-generate').addEventListener('click', () => {
-      const ext = state.type === 'video' ? state.v.container : (state.type === 'audio' ? state.a.fmt : state.i.fmt);
+      const ext = state.type === 'video' ? getEffectiveVideoContainer() : (state.type === 'audio' ? state.a.fmt : state.i.fmt);
       const baseName = state.type === 'video'
         ? `sample_${state.v.codec.replace('lib','')}_${state.v.res}_${state.v.fps}fps`
         : (state.type === 'audio' ? `sample_tone_${state.a.br}_${state.a.ch}` : `sample_pattern_q${state.i.qual}`);
@@ -694,7 +774,18 @@
         const rm = state.saved.splice(state.pendingDelIdx, 1);
         state.pendingDelIdx = null;
         if (rm[0] && rm[0].path && window.AndroidBridge && window.AndroidBridge.deleteSample) window.AndroidBridge.deleteSample(rm[0].path);
-        loadSavedSamplesFromDisk();
+        (function hydrateSamplesDirLabel() {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getSettings === 'function') {
+          const st = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          if (st.defaultVaultFolder) {
+            const el = document.getElementById('lbl-samples-dir');
+            if (el) el.textContent = st.defaultVaultFolder.replace(/\/$/, '') + '/Samples/';
+          }
+        }
+      } catch (_) {}
+    })();
+    loadSavedSamplesFromDisk();
         showToast('Deleted ' + (rm[0] ? rm[0].name : 'sample'));
       }
       document.getElementById('del-modal').classList.add('hidden');
@@ -753,6 +844,17 @@
 
     applySuggestorPrefill();
     renderControls();
+    (function hydrateSamplesDirLabel() {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getSettings === 'function') {
+          const st = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          if (st.defaultVaultFolder) {
+            const el = document.getElementById('lbl-samples-dir');
+            if (el) el.textContent = st.defaultVaultFolder.replace(/\/$/, '') + '/Samples/';
+          }
+        }
+      } catch (_) {}
+    })();
     loadSavedSamplesFromDisk();
   </script>
   <script src="vault-bridge.js"></script>

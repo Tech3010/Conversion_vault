@@ -8,9 +8,10 @@
     :root {
       --bg:#090d16; --surface:#0f1624; --card:#131c2e; --card-elev:#172236; --input:#0a0f1a;
       --border:#1e293b; --border-strong:#334155; --text:#f8fafc; --muted:#94a3b8;
-      --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14);
+      --crimson:#db0a40; --crimson-soft:rgba(219,10,64,0.14); --crimson-hover:#be0837;
       --gold:#fcd116; --gold-soft:rgba(252,209,22,0.13); --gold-text:#fcd116;
       --emerald:#10b981; --emerald-soft:rgba(16,185,129,0.14);
+      --sky:#38bdf8; --sky-soft:rgba(56,189,248,0.14);
       --radius:12px; --radius-sm:8px;
       --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
       --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -25,26 +26,46 @@
     .back-btn:hover{border-color:var(--crimson);color:var(--crimson);}
     .page-title{font-size:15px;font-weight:700;line-height:1.2;}
     .page-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
-    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--card-elev);color:var(--gold-text);border:1px solid var(--border-strong);}
+    .badge{font-family:var(--mono);font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;background:var(--card-elev);color:var(--gold-text);border:1px solid var(--border-strong);white-space:nowrap;}
+    .badge.b-video{background:var(--crimson-soft);color:var(--crimson);border-color:rgba(219,10,64,0.45);}
+    .badge.b-audio{background:var(--sky-soft);color:var(--sky);border-color:rgba(56,189,248,0.45);}
+    .badge.b-photo{background:var(--emerald-soft);color:var(--emerald);border-color:rgba(16,185,129,0.45);}
     .content{padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1;}
     .card-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;flex-direction:column;gap:10px;}
-    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .sec-lbl{font-family:var(--mono);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-text);padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;}
+    .sec-cnt{font-size:9.5px;color:var(--muted);font-weight:700;}
     .file-pick{background:var(--card-elev);border:1px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
     .fname{font-family:var(--mono);font-size:12.5px;font-weight:700;word-break:break-all;}
-    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;}
+    .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;word-break:break-all;}
     .btn-sm{padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
     .btn-sm:hover{border-color:var(--crimson);color:var(--crimson);}
+    .empty-state{background:var(--surface);border:1px dashed var(--border-strong);border-radius:var(--radius);padding:26px 18px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center;}
+    .empty-title{font-size:14px;font-weight:800;color:var(--text);}
+    .empty-sub{font-size:12px;color:var(--muted);max-width:340px;line-height:1.5;}
+    .pill-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px;}
+    .pill{font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card);color:var(--muted);}
     .info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;}
-    .info-cell{background:var(--card-elev);border:1px solid var(--border);border-radius:7px;padding:7px 9px;}
-    .info-k{font-family:var(--mono);font-size:9.5px;color:var(--muted);text-transform:uppercase;display:block;}
+    .info-cell{background:var(--card-elev);border:1px solid var(--border);border-radius:7px;padding:7px 9px;min-width:0;}
+    .info-cell.wide{grid-column:1 / -1;}
+    .info-k{font-family:var(--mono);font-size:9.5px;color:var(--muted);text-transform:uppercase;display:block;letter-spacing:0.03em;}
     .info-v{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text);margin-top:2px;display:block;word-break:break-word;}
-    .c-ok{color:var(--emerald);} .c-gold{color:var(--gold-text);}
-    .raw-tags{background:#05070b;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.55;word-break:break-word;}
-    .json-box{background:#05070b;border:1px solid var(--border-strong);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:10.5px;color:var(--emerald);line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;}
-    .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:540px;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:40;}
-    .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;}
+    .c-ok{color:var(--emerald);} .c-gold{color:var(--gold-text);} .c-warn{color:#fda4af;} .c-sky{color:var(--sky);}
+    .raw-tags{background:#05070b;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.55;word-break:break-word;display:flex;flex-direction:column;gap:4px;}
+    .tag-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid rgba(30,41,59,0.55);padding-bottom:3px;}
+    .tag-row:last-child{border-bottom:none;padding-bottom:0;}
+    .tag-k{color:var(--muted);flex-shrink:0;max-width:46%;word-break:break-word;}
+    .tag-v{color:var(--gold-text);text-align:right;word-break:break-word;}
+    .json-box{background:#05070b;border:1px solid var(--border-strong);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--emerald);line-height:1.45;max-height:280px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
+    .export-bar{background:var(--card-elev);border:1px solid rgba(16,185,129,0.45);border-radius:var(--radius-sm);padding:9px 11px;display:flex;flex-direction:column;gap:7px;}
+    .export-bar-meta{font-family:var(--mono);font-size:10.5px;color:var(--emerald);word-break:break-all;}
+    .export-bar-acts{display:flex;gap:7px;}
+    .fmt-sel{padding:9px 8px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--input);color:var(--gold-text);font-family:var(--mono);font-size:11px;font-weight:800;cursor:pointer;}
+    .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:540px;background:var(--surface);border-top:1px solid var(--border);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;z-index:40;}
+    .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 12px;border-radius:var(--radius-sm);font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .btn-primary:hover{background:var(--crimson-hover);}
+    .btn-primary:disabled,.btn-sm:disabled{opacity:0.5;cursor:not-allowed;}
     .hidden{display:none !important;}
-    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;max-width:90vw;text-align:center;}
     .toast.show{opacity:1;}
   </style>
   <script>
@@ -65,113 +86,779 @@
         </button>
         <div>
           <div class="page-title">Stream Inspector</div>
-          <div class="page-sub">28-FIELD DEEP FFPROBE ANALYZER</div>
+          <div class="page-sub" id="hdr-sub">MEDIA-AWARE DEEP FFPROBE + EXIF ANALYZER</div>
         </div>
       </div>
-      <span class="badge">FFPROBE 6.1</span>
+      <span class="badge" id="media-badge">FFPROBE 8.1</span>
     </header>
 
     <main class="content">
       <section class="card-box">
-        <div class="sec-lbl"><span>1. Target Media File</span></div>
+        <div class="sec-lbl"><span>1. Target Media File</span><span class="sec-cnt" id="lbl-field-total">0 FIELDS</span></div>
         <div class="file-pick">
-          <div style="min-width:0;">
+          <div style="min-width:0; flex:1;">
             <div class="fname" id="lbl-fname">No file selected</div>
-            <div class="fmeta" id="lbl-fmeta">No file selected yet — tap Pick File</div>
+            <div class="fmeta" id="lbl-fmeta">Tap Pick File to inspect any Video, Audio, or Photo</div>
           </div>
           <button type="button" id="btn-pick" class="btn-sm">Pick File</button>
           <input type="file" id="inp-file" class="hidden" accept="video/*,audio/*,image/*">
         </div>
       </section>
 
-      <section class="card-box">
-        <div class="sec-lbl"><span>2. Container &amp; Muxer (6 Fields)</span></div>
-        <div class="info-grid">
-          <div class="info-cell"><span class="info-k">Format Name</span><span class="info-v">mov,mp4,m4a,3gp</span></div>
-          <div class="info-cell"><span class="info-k">Major / Brands</span><span class="info-v">mp42 · isommp42</span></div>
-          <div class="info-cell"><span class="info-k">Exact Byte Size</span><span class="info-v">67,318,579 B (64.2M)</span></div>
-          <div class="info-cell"><span class="info-k">Duration / Start</span><span class="info-v">00:30.000 · 0.000s</span></div>
-          <div class="info-cell"><span class="info-k">Overall Bitrate</span><span class="info-v">17.95 Mbps</span></div>
-          <div class="info-cell"><span class="info-k">Moov / Faststart</span><span class="info-v c-ok">Faststart ✓ · 2 Streams</span></div>
+      <div id="empty-state" class="empty-state">
+        <div class="empty-title">Deep Media Stream &amp; EXIF Analyzer</div>
+        <div class="empty-sub">Automatically adapts fields to your file type — zero mismatched specs (never shows video chroma/FPS for Audio, or audio tracks for Photos).</div>
+        <div class="pill-row">
+          <span class="pill">Video · 42 Fields</span>
+          <span class="pill">Audio · 30 Fields</span>
+          <span class="pill">Photo · 24 Fields</span>
         </div>
-      </section>
+      </div>
 
-      <section class="card-box">
-        <div class="sec-lbl"><span>3. Video Stream v:0 (12 Fields)</span></div>
-        <div class="info-grid">
-          <div class="info-cell"><span class="info-k">Codec &amp; Tag</span><span class="info-v">h264 (avc1)</span></div>
-          <div class="info-cell"><span class="info-k">Profile / Level</span><span class="info-v">High @ L4.2</span></div>
-          <div class="info-cell"><span class="info-k">Frame Structure</span><span class="info-v">Inter-Frame (Long-GOP)</span></div>
-          <div class="info-cell"><span class="info-k">GOP Keyint</span><span class="info-v">60 frames (Closed)</span></div>
-          <div class="info-cell"><span class="info-k">B-Frames / Refs</span><span class="info-v">2 B-frames · 4 ref</span></div>
-          <div class="info-cell"><span class="info-k">Pixel Fmt &amp; Depth</span><span class="info-v">yuv420p · 8-bit</span></div>
-          <div class="info-cell"><span class="info-k">Chroma &amp; Sample</span><span class="info-v">4:2:0 · left</span></div>
-          <div class="info-cell"><span class="info-k">Color Primaries</span><span class="info-v">BT.709 / BT.709</span></div>
-          <div class="info-cell"><span class="info-k">Color Space/Range</span><span class="info-v">bt709 · TV Limited</span></div>
-          <div class="info-cell"><span class="info-k">SAR / DAR</span><span class="info-v">1:1 · 9:16 (1080×1920)</span></div>
-          <div class="info-cell"><span class="info-k">FPS &amp; Total Frames</span><span class="info-v">60/1 CFR · 1,800 fr</span></div>
-          <div class="info-cell"><span class="info-k">Entropy / Scan / Rot</span><span class="info-v">CABAC · Prog · 0°</span></div>
-        </div>
-      </section>
+      <div id="inspect-sections" class="hidden" style="display:flex; flex-direction:column; gap:14px;"></div>
 
-      <section class="card-box">
-        <div class="sec-lbl"><span>4. Audio Stream a:0 (6 Fields)</span></div>
-        <div class="info-grid">
-          <div class="info-cell"><span class="info-k">Audio Codec</span><span class="info-v">AAC-LC (mp4a)</span></div>
-          <div class="info-cell"><span class="info-k">Sample Rate / Fmt</span><span class="info-v">48,000 Hz · fltp</span></div>
-          <div class="info-cell"><span class="info-k">Channels &amp; Layout</span><span class="info-v">2 ch · Stereo (FL+FR)</span></div>
-          <div class="info-cell"><span class="info-k">Audio Bitrate</span><span class="info-v">192 kbps CBR</span></div>
-          <div class="info-cell"><span class="info-k">Frame / Timebase</span><span class="info-v">1024 smp · tbn 48000</span></div>
-          <div class="info-cell"><span class="info-k">Language / Delay</span><span class="info-v">und · 0.000s</span></div>
+      <div class="export-bar hidden" id="export-result-bar">
+        <div class="export-bar-meta" id="export-result-lbl">✓ Saved report</div>
+        <div class="export-bar-acts">
+          <button type="button" id="btn-open-exported" class="btn-sm" style="flex:1; border-color:var(--emerald); color:var(--emerald);">Open Report ▶</button>
+          <button type="button" id="btn-open-reports-fm" class="btn-sm" style="flex:1;">File Manager</button>
         </div>
-      </section>
+      </div>
 
-      <section class="card-box">
-        <div class="sec-lbl"><span>5. Subtitles, HW Decode &amp; Tags (4 Fields)</span></div>
-        <div class="info-grid">
-          <div class="info-cell"><span class="info-k">Subtitle Streams</span><span class="info-v">0 Tracks</span></div>
-          <div class="info-cell"><span class="info-k">Data / Timecode</span><span class="info-v">0 Tracks</span></div>
-          <div class="info-cell"><span class="info-k">MediaCodec HW</span><span class="info-v c-ok">Supported ✓</span></div>
-          <div class="info-cell"><span class="info-k">Privacy Risk</span><span class="info-v c-gold">GPS + Model EXIF</span></div>
+      <section class="card-box hidden" id="sec-raw-json">
+        <div class="sec-lbl">
+          <span>Raw FFprobe / EXIF JSON</span>
+          <button type="button" id="btn-toggle-json" class="btn-sm" style="padding:3px 8px; font-size:9.5px;">Expand</button>
         </div>
-        <div class="raw-tags">
-          <strong>Raw Extracted Metadata Tags:</strong><br>
-          encoder: Lavf60.16.100 · creation_time: 2026-11-22T18:14:09.000000Z<br>
-          No file metadata loaded yet
-        </div>
-      </section>
-
-      <section class="card-box">
-        <div class="sec-lbl"><span>6. Raw FFprobe JSON Output</span></div>
-        <div class="json-box" id="json-box">{
-  "format": { "filename": "No file selected", "nb_streams": 2, "format_name": "mov,mp4,m4a,3gp", "duration": "30.000000", "size": "67318579", "bit_rate": "17951621" },
-  "streams": [
-    { "index": 0, "codec_name": "h264", "profile": "High", "level": 42, "width": 1080, "height": 1920, "pix_fmt": "yuv420p", "color_space": "bt709", "color_range": "tv", "has_b_frames": 2, "refs": 4, "r_frame_rate": "60/1", "nb_frames": "1800" },
-    { "index": 1, "codec_name": "aac", "profile": "LC", "sample_fmt": "fltp", "sample_rate": "48000", "channels": 2, "channel_layout": "stereo", "bit_rate": "192000" }
-  ]
-}</div>
+        <div class="json-box hidden" id="json-box">{}</div>
       </section>
     </main>
 
     <footer class="bottom-bar">
-      <button type="button" id="btn-copy-json" class="btn-sm" style="padding:10px 12px;">Copy JSON</button>
-      <button type="button" id="btn-export-json" class="btn-primary">Export Report (.json) ↗</button>
+      <select id="sel-export-fmt" class="fmt-sel" aria-label="Report Format">
+        <option value="txt" selected>.TXT</option>
+        <option value="md">.MD</option>
+        <option value="csv">.CSV</option>
+        <option value="json">.JSON</option>
+        <option value="html">.HTML</option>
+      </select>
+      <button type="button" id="btn-copy-json" class="btn-sm" style="padding:10px 10px;" disabled>Copy</button>
+      <button type="button" id="btn-export-json" class="btn-primary" disabled>Export (.txt) ↗</button>
     </footer>
   </div>
   <div class="toast" id="toast">Ready</div>
+
   <script>
-    function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
-    document.getElementById('btn-pick').addEventListener('click', () => document.getElementById('inp-file').click());
-    document.getElementById('inp-file').addEventListener('change', function() {
-      if (this.files && this.files[0]) {
-        document.getElementById('lbl-fname').textContent = this.files[0].name;
-        document.getElementById('lbl-fmeta').textContent = (this.files[0].size / (1024 * 1024)).toFixed(1) + ' MB · Probed via FFprobe';
-        showToast('Probed ' + this.files[0].name);
+    let lastReportObj = null;
+    let lastReportJson = '';
+    let lastSections = [];
+    let lastAllTags = {};
+    let lastBaseName = 'probe_report';
+    let lastExportedPath = '';
+    let toastTimer = null;
+
+    function showToast(m) {
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.textContent = m;
+      t.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    function esc(s) {
+      return String(s === undefined || s === null || s === '' ? '—' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtBytes(b) {
+      const n = Number(b) || 0;
+      if (!n) return '—';
+      const mb = n / (1024 * 1024);
+      const sz = mb >= 1 ? (mb.toFixed(2) + ' MB') : ((n / 1024).toFixed(1) + ' KB');
+      return n.toLocaleString() + ' B (' + sz + ')';
+    }
+
+    function fmtDuration(sec) {
+      const s = Number(sec);
+      if (!isFinite(s) || s <= 0) return '—';
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const rem = (s % 60).toFixed(3).padStart(6, '0');
+      return (h > 0 ? String(h).padStart(2, '0') + ':' : '') + String(m).padStart(2, '0') + ':' + rem;
+    }
+
+    function fmtBitrate(bps) {
+      const n = Number(bps);
+      if (!isFinite(n) || n <= 0) return '—';
+      if (n >= 1000000) return (n / 1000000).toFixed(2) + ' Mbps';
+      return Math.round(n / 1000) + ' kbps';
+    }
+
+    function parseFrac(str) {
+      if (!str || typeof str !== 'string') return 0;
+      if (str.includes('/')) {
+        const [a, b] = str.split('/').map(Number);
+        return (b && isFinite(a / b)) ? (a / b) : 0;
+      }
+      const v = Number(str);
+      return isFinite(v) ? v : 0;
+    }
+
+    function gcd(a, b) {
+      a = Math.abs(Math.round(a)); b = Math.abs(Math.round(b));
+      while (b) { const t = b; b = a % b; a = t; }
+      return a || 1;
+    }
+
+    function chromaFromPixFmt(pf) {
+      const s = String(pf || '').toLowerCase();
+      if (!s || s === '—') return '—';
+      if (s.includes('444')) return '4:4:4';
+      if (s.includes('422')) return '4:2:2';
+      if (s.includes('420')) return '4:2:0';
+      if (s.includes('411')) return '4:1:1';
+      if (s.includes('rgba') || s.includes('argb') || s.includes('bgra')) return 'RGBA (Alpha)';
+      if (s.includes('rgb') || s.includes('bgr')) return 'RGB (4:4:4)';
+      if (s.includes('gray')) return 'Monochrome';
+      return '—';
+    }
+
+    function bitDepthFromStream(st) {
+      if (!st) return '—';
+      const bprs = parseInt(st.bits_per_raw_sample, 10);
+      if (bprs > 0) return bprs + '-bit';
+      const pf = String(st.pix_fmt || '').toLowerCase();
+      if (pf.includes('16')) return '16-bit';
+      if (pf.includes('12')) return '12-bit';
+      if (pf.includes('10')) return '10-bit';
+      if (pf && pf !== '—') return '8-bit';
+      return '—';
+    }
+
+    function colorRangeLabel(raw) {
+      const r = String(raw || '').toLowerCase();
+      if (r === 'tv' || r === 'mpeg') return 'TV Limited (16–235)';
+      if (r === 'pc' || r === 'jpeg') return 'PC Full (0–255)';
+      return r || '—';
+    }
+
+    function renderSection(title, cells, extraHtml) {
+      lastSections.push({ title, cells });
+      const gridHtml = cells.map(c =>
+        `<div class="info-cell${c.wide ? ' wide' : ''}"><span class="info-k">${esc(c.k)}</span><span class="info-v${c.cls ? ' ' + c.cls : ''}">${esc(c.v)}</span></div>`
+      ).join('');
+      return `
+        <section class="card-box">
+          <div class="sec-lbl"><span>${esc(title)}</span><span class="sec-cnt">${cells.length} FIELDS</span></div>
+          <div class="info-grid">${gridHtml}</div>
+          ${extraHtml || ''}
+        </section>
+      `;
+    }
+
+    function renderRawTagsBlock(tagMap) {
+      const entries = Object.entries(tagMap || {}).filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+      if (entries.length === 0) {
+        return '<div class="raw-tags"><span style="color:var(--muted);">No embedded metadata tags detected.</span></div>';
+      }
+      return '<div class="raw-tags">' +
+        '<div style="color:var(--text); font-weight:800; margin-bottom:2px;">Raw Extracted Tags (' + entries.length + ')</div>' +
+        entries.map(([k, v]) => `<div class="tag-row"><span class="tag-k">${esc(k)}</span><span class="tag-v">${esc(v)}</span></div>`).join('') +
+        '</div>';
+    }
+
+    function collectAllTags(ffprobe, exif) {
+      const out = {};
+      const fmtTags = (ffprobe && ffprobe.format && ffprobe.format.tags) || {};
+      Object.entries(fmtTags).forEach(([k, v]) => { if (v !== undefined && String(v).trim()) out[k] = String(v); });
+      const streams = (ffprobe && Array.isArray(ffprobe.streams)) ? ffprobe.streams : [];
+      streams.forEach((s, idx) => {
+        const stTags = s && s.tags ? s.tags : {};
+        const pfx = (s.codec_type || 's') + ':' + (s.index !== undefined ? s.index : idx);
+        Object.entries(stTags).forEach(([k, v]) => { if (v !== undefined && String(v).trim()) out[pfx + '.' + k] = String(v); });
+      });
+      if (exif && exif.rawTags && typeof exif.rawTags === 'object') {
+        Object.entries(exif.rawTags).forEach(([k, v]) => { if (v !== undefined && String(v).trim()) out['exif.' + k] = String(v); });
+      }
+      return out;
+    }
+
+    function getVideoRotation(vStream) {
+      if (!vStream) return '0°';
+      if (vStream.tags && vStream.tags.rotate) return vStream.tags.rotate + '°';
+      const sdl = Array.isArray(vStream.side_data_list) ? vStream.side_data_list : [];
+      for (const sd of sdl) {
+        if (sd && sd.rotation !== undefined && sd.rotation !== null) return sd.rotation + '°';
+      }
+      return '0°';
+    }
+
+    function renderDeepReport(report) {
+      if (!report || !report.ok) {
+        showToast('Inspect failed: ' + (report && report.error ? report.error : 'Unable to probe file'));
+        return;
+      }
+
+      lastReportObj = report;
+      lastReportJson = JSON.stringify(report, null, 2);
+      lastSections = [];
+      const fname = report.filename || 'media_file';
+      lastBaseName = fname.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 36) || 'probe_report';
+
+      const kind = report.mediaKind || 'video';
+      const ff = report.ffprobe || {};
+      const fmt = ff.format || {};
+      const streams = Array.isArray(ff.streams) ? ff.streams : [];
+      const chapters = Array.isArray(ff.chapters) ? ff.chapters : [];
+      const exif = report.exif || {};
+      const allTags = collectAllTags(ff, exif);
+      lastAllTags = allTags;
+      const tagEntries = Object.entries(allTags);
+
+      // Update header + file bar
+      document.getElementById('lbl-fname').textContent = fname;
+      document.getElementById('lbl-fmeta').textContent = (report.path || fname) + ' · ' + fmtBytes(report.sizeBytes || fmt.size);
+
+      const badge = document.getElementById('media-badge');
+      badge.className = 'badge ' + (kind === 'audio' ? 'b-audio' : (kind === 'photo' ? 'b-photo' : 'b-video'));
+      badge.textContent = kind === 'audio' ? 'AUDIO STREAM' : (kind === 'photo' ? 'PHOTO + EXIF' : 'VIDEO STREAM');
+
+      const sectionsHtml = [];
+      let totalFields = 0;
+
+      if (kind === 'video') {
+        const videoStreams = streams.filter(s => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic === 1));
+        const v = videoStreams.sort((a, b) => ((b.width || 0) * (b.height || 0)) - ((a.width || 0) * (a.height || 0)))[0] || {};
+        const audioStreams = streams.filter(s => s.codec_type === 'audio');
+        const a = audioStreams[0] || null;
+        const subStreams = streams.filter(s => s.codec_type === 'subtitle');
+        const dataStreams = streams.filter(s => s.codec_type === 'data' || s.codec_type === 'attachment');
+
+        const fmtTags = fmt.tags || {};
+        const avgFps = parseFrac(v.avg_frame_rate);
+        const rFps = parseFrac(v.r_frame_rate);
+        const isVfr = avgFps > 0 && rFps > 0 && Math.abs(avgFps - rFps) > 0.35;
+        const w = Number(v.width) || 0;
+        const h = Number(v.height) || 0;
+        const cw = Number(v.coded_width) || w;
+        const ch = Number(v.coded_height) || h;
+        const g = gcd(w, h);
+        const dar = (v.display_aspect_ratio && v.display_aspect_ratio !== '0:1') ? v.display_aspect_ratio : (w && h ? ((w / g) + ':' + (h / g)) : '—');
+        const bitDepth = bitDepthFromStream(v);
+        const chroma = chromaFromPixFmt(v.pix_fmt);
+        const levelNum = Number(v.level);
+        const levelStr = levelNum > 0 ? ('L' + (levelNum / 10).toFixed(1)) : '—';
+        const bFrames = (v.has_b_frames !== undefined && v.has_b_frames !== null) ? Number(v.has_b_frames) : -1;
+        const refs = (v.refs !== undefined && v.refs !== null) ? Number(v.refs) : -1;
+        const vCodecLow = String(v.codec_name || '').toLowerCase();
+        const frameStruct = ['prores', 'mjpeg', 'dnxhd', 'png', 'rawvideo'].includes(vCodecLow)
+          ? 'Intra-Frame (All-I)'
+          : (bFrames === 0 && refs === 1 ? 'Intra / Low-Delay GOP' : (bFrames >= 0 ? ('Inter-Frame (' + bFrames + ' B-fr · ' + (refs > 0 ? refs + ' refs' : 'auto') + ')') : 'Inter-Frame (GOP)'));
+
+        const devCodecs = (report.deviceCodecs && report.deviceCodecs.codecs) || {};
+        let hwLabel = 'Software Decode';
+        let hwCls = 'c-gold';
+        if (vCodecLow === 'h264') {
+          if (bitDepth === '10-bit') {
+            hwLabel = devCodecs.h264_10bitHwDecode ? 'HW Decode ✓ (Hi10P)' : 'Software Only (No Hi10P HW)';
+            hwCls = devCodecs.h264_10bitHwDecode ? 'c-ok' : 'c-warn';
+          } else {
+            hwLabel = devCodecs.h264HwDecode !== false ? 'MediaCodec HW ✓' : 'Software Decode';
+            hwCls = devCodecs.h264HwDecode !== false ? 'c-ok' : 'c-gold';
+          }
+        } else if (vCodecLow === 'hevc' || vCodecLow === 'h265') {
+          if (bitDepth === '10-bit') {
+            hwLabel = devCodecs.hevc10bitHwDecode ? '10-Bit HEVC HW ✓' : 'Software 10-Bit';
+            hwCls = devCodecs.hevc10bitHwDecode ? 'c-ok' : 'c-warn';
+          } else {
+            hwLabel = 'HEVC HW ✓'; hwCls = 'c-ok';
+          }
+        } else if (vCodecLow === 'av1') {
+          hwLabel = devCodecs.av1HwDecode ? 'AV1 HW Decode ✓' : 'Software AV1';
+          hwCls = devCodecs.av1HwDecode ? 'c-ok' : 'c-gold';
+        } else if (vCodecLow === 'vp9') {
+          hwLabel = 'VP9 HW ✓'; hwCls = 'c-ok';
+        }
+
+        const hasGps = tagEntries.some(([k]) => /location|gps/i.test(k));
+        const hasDevice = tagEntries.some(([k]) => /model|make|device|android|apple/i.test(k));
+        const privLbl = hasGps ? 'High (GPS + Tags)' : (hasDevice ? 'Moderate (Device Tags)' : (tagEntries.length > 0 ? 'Low (' + tagEntries.length + ' tags)' : 'Clean ✓'));
+        const privCls = hasGps ? 'c-warn' : (hasDevice ? 'c-gold' : 'c-ok');
+
+        // Section 2: Container & Muxer (10 fields)
+        const secContainer = [
+          { k: 'Format Name', v: fmt.format_name || report.extension || '—' },
+          { k: 'Format Long Name', v: fmt.format_long_name || '—' },
+          { k: 'Major Brand', v: fmtTags.major_brand || '—' },
+          { k: 'Compatible Brands', v: fmtTags.compatible_brands || '—' },
+          { k: 'Exact Byte Size', v: fmtBytes(report.sizeBytes || fmt.size) },
+          { k: 'Duration', v: fmtDuration(fmt.duration || v.duration) },
+          { k: 'Start Time', v: fmt.start_time ? (Number(fmt.start_time).toFixed(3) + 's') : '0.000s' },
+          { k: 'Overall Bitrate', v: fmtBitrate(fmt.bit_rate) },
+          { k: 'Streams (V/A/S/D)', v: `${videoStreams.length}V · ${audioStreams.length}A · ${subStreams.length}S · ${dataStreams.length}D (${streams.length} total)` },
+          { k: 'Chapters / Probe Score', v: `${chapters.length} ch · Score ${fmt.probe_score || '—'}` }
+        ];
+
+        // Section 3: Video Stream v:0 (18 fields)
+        const secVideo = [
+          { k: 'Codec & FourCC Tag', v: (v.codec_name || '—').toUpperCase() + (v.codec_tag_string && v.codec_tag_string !== '[0][0][0][0]' ? ' (' + v.codec_tag_string + ')' : '') },
+          { k: 'Codec Long Name', v: v.codec_long_name || '—' },
+          { k: 'Profile & Level', v: (v.profile || '—') + (levelStr !== '—' ? ' @ ' + levelStr : '') },
+          { k: 'Display Resolution', v: (w && h) ? `${w} × ${h} (${((w * h) / 1e6).toFixed(2)} MP)` : '—' },
+          { k: 'Coded Dimensions', v: (cw && ch) ? `${cw} × ${ch}` : '—' },
+          { k: 'SAR / DAR Aspect', v: `${v.sample_aspect_ratio || '1:1'} · ${dar}` },
+          { k: 'Avg Frame Rate', v: avgFps > 0 ? (avgFps.toFixed(3).replace(/\.?0+$/, '') + ' fps (' + v.avg_frame_rate + ')') : '—' },
+          { k: 'Real Base FPS', v: rFps > 0 ? (rFps.toFixed(3).replace(/\.?0+$/, '') + ' fps (' + v.r_frame_rate + ')') : '—' },
+          { k: 'Frame Rate Mode', v: isVfr ? 'VFR (Variable)' : (avgFps > 0 ? 'CFR (Constant)' : '—'), cls: isVfr ? 'c-gold' : 'c-ok' },
+          { k: 'Total Frames', v: v.nb_frames ? Number(v.nb_frames).toLocaleString() + ' frames' : '—' },
+          { k: 'Pixel Format', v: v.pix_fmt || '—' },
+          { k: 'Bit Depth', v: bitDepth },
+          { k: 'Chroma Subsampling', v: chroma },
+          { k: 'Chroma Location', v: v.chroma_location || '—' },
+          { k: 'Frame Structure', v: frameStruct },
+          { k: 'Scan / Field Order', v: (!v.field_order || v.field_order === 'progressive') ? 'Progressive' : ('Interlaced (' + v.field_order + ')') },
+          { k: 'Rotation Matrix', v: getVideoRotation(v) },
+          { k: 'Video Bitrate / TBN', v: fmtBitrate(v.bit_rate) + ' · tbn ' + (v.time_base || '—') }
+        ];
+
+        // Section 4: Color, HDR & Hardware Decode (6 fields)
+        const isHdr = /smpte2084|arib-std-b67/i.test(String(v.color_transfer || '')) || /bt2020/i.test(String(v.color_primaries || ''));
+        const secColor = [
+          { k: 'Color Primaries', v: v.color_primaries || '—' },
+          { k: 'Transfer (SDR/HDR)', v: (v.color_transfer || '—') + (isHdr ? ' (HDR)' : ''), cls: isHdr ? 'c-gold' : '' },
+          { k: 'Color Space Matrix', v: v.color_space || '—' },
+          { k: 'Color Range', v: colorRangeLabel(v.color_range) },
+          { k: 'Closed Captions / Side Data', v: (v.closed_captions ? 'Yes' : 'None') + ' · ' + ((v.side_data_list && v.side_data_list.length) || 0) + ' side data' },
+          { k: 'MediaCodec HW Decode', v: hwLabel, cls: hwCls }
+        ];
+
+        // Section 5: Audio Track a:0 (8 fields)
+        const secAudio = a ? [
+          { k: 'Audio Codec & Tag', v: (a.codec_name || '—').toUpperCase() + (a.codec_tag_string && a.codec_tag_string !== '[0][0][0][0]' ? ' (' + a.codec_tag_string + ')' : '') },
+          { k: 'Audio Profile', v: a.profile || '—' },
+          { k: 'Sample Rate', v: a.sample_rate ? (Number(a.sample_rate).toLocaleString() + ' Hz') : '—' },
+          { k: 'Sample Fmt / Depth', v: (a.sample_fmt || '—') + (a.bits_per_sample ? (' · ' + a.bits_per_sample + '-bit') : (a.bits_per_raw_sample ? (' · ' + a.bits_per_raw_sample + '-bit') : '')) },
+          { k: 'Channels & Layout', v: (a.channels ? a.channels + ' ch' : '—') + (a.channel_layout ? ' · ' + a.channel_layout : '') },
+          { k: 'Audio Bitrate', v: fmtBitrate(a.bit_rate) },
+          { k: 'Timebase / Packets', v: (a.time_base || '—') + (a.nb_frames ? (' · ' + Number(a.nb_frames).toLocaleString() + ' pkts') : '') },
+          { k: 'Language / Start', v: ((a.tags && a.tags.language) || 'und') + ' · ' + (a.start_time ? Number(a.start_time).toFixed(3) + 's' : '0.000s') }
+        ] : [
+          { k: 'Audio Track', v: 'No audio track detected (Video Only / Muted)', wide: true }
+        ];
+
+        // Section 6: Subtitles, Privacy & Raw Tags
+        const subDesc = subStreams.length > 0
+          ? subStreams.map(s => (s.codec_name || 'sub') + ' (' + ((s.tags && s.tags.language) || 'und') + ')').join(', ')
+          : '0 Tracks';
+        const secExtra = [
+          { k: 'Subtitle Tracks', v: subDesc },
+          { k: 'Encoder Signature', v: fmtTags.encoder || (v.tags && v.tags.encoder) || '—' },
+          { k: 'Creation Time', v: fmtTags.creation_time || (v.tags && v.tags.creation_time) || '—' },
+          { k: 'Privacy Risk', v: privLbl, cls: privCls }
+        ];
+
+        sectionsHtml.push(renderSection('2. Container & Muxer', secContainer));
+        sectionsHtml.push(renderSection('3. Video Stream v:0', secVideo));
+        sectionsHtml.push(renderSection('4. Color, HDR & Hardware Decode', secColor));
+        sectionsHtml.push(renderSection('5. Embedded Audio Stream a:0', secAudio));
+        sectionsHtml.push(renderSection('6. Subtitles, Privacy & Tags', secExtra, renderRawTagsBlock(allTags)));
+        totalFields = secContainer.length + secVideo.length + secColor.length + secAudio.length + secExtra.length;
+
+      } else if (kind === 'audio') {
+        // AUDIO-ONLY MODE: ~30 audio-specific fields, ZERO chroma / FPS / GOP / video resolution!
+        const audioStreams = streams.filter(s => s.codec_type === 'audio');
+        const a = audioStreams[0] || {};
+        const artStreams = streams.filter(s => s.codec_type === 'video' && ((s.disposition && s.disposition.attached_pic === 1) || ['mjpeg', 'png', 'webp'].includes(String(s.codec_name || '').toLowerCase())));
+        const fmtTags = fmt.tags || {};
+        const aTags = a.tags || {};
+        const mergedTags = Object.assign({}, aTags, fmtTags);
+        const getTag = (...keys) => {
+          for (const k of keys) {
+            for (const [tk, tv] of Object.entries(mergedTags)) {
+              if (tk.toLowerCase() === k.toLowerCase() && String(tv).trim()) return String(tv).trim();
+            }
+          }
+          return '—';
+        };
+
+        const sr = Number(a.sample_rate) || 0;
+        const ch = Number(a.channels) || 0;
+        const bps = Number(a.bit_rate) || Number(fmt.bit_rate) || 0;
+        const aCodecLow = String(a.codec_name || '').toLowerCase();
+        const isLossless = ['flac', 'alac', 'wavpack', 'ape', 'tta'].includes(aCodecLow) || aCodecLow.startsWith('pcm_');
+        const pcmRefBps = sr && ch ? (sr * ch * 16) : 0;
+        const compRatio = (pcmRefBps > 0 && bps > 0) ? ((pcmRefBps / bps).toFixed(2) + ':1 (' + Math.round((bps / pcmRefBps) * 100) + '% of PCM)') : '—';
+        const bitDepth = a.bits_per_raw_sample ? (a.bits_per_raw_sample + '-bit') : (a.bits_per_sample ? (a.bits_per_sample + '-bit') : (String(a.sample_fmt || '').includes('32') || String(a.sample_fmt || '').includes('flt') ? '32-bit float' : (String(a.sample_fmt || '').includes('16') ? '16-bit' : '—')));
+
+        const hasPriv = Object.keys(allTags).some(k => /encoder|comment|location|gps|artist|album|copyright|software/i.test(k));
+
+        // Section 2: Audio Container & File (8 fields)
+        const secAudioContainer = [
+          { k: 'Container Format', v: fmt.format_name || report.extension || '—' },
+          { k: 'Format Long Name', v: fmt.format_long_name || '—' },
+          { k: 'Exact Byte Size', v: fmtBytes(report.sizeBytes || fmt.size) },
+          { k: 'Duration', v: fmtDuration(fmt.duration || a.duration) },
+          { k: 'Start Time', v: fmt.start_time ? (Number(fmt.start_time).toFixed(3) + 's') : '0.000s' },
+          { k: 'Overall Bitrate', v: fmtBitrate(fmt.bit_rate) },
+          { k: 'Total Streams', v: `${audioStreams.length} Audio · ${artStreams.length} Cover Art (${streams.length} total)` },
+          { k: 'Embedded Cover Art', v: artStreams.length > 0 ? ('Yes (' + (artStreams[0].codec_name || 'img').toUpperCase() + (artStreams[0].width ? ' · ' + artStreams[0].width + '×' + artStreams[0].height : '') + ')') : 'None', cls: artStreams.length > 0 ? 'c-sky' : '' }
+        ];
+
+        // Section 3: Audio Stream a:0 Technical Specs (14 fields)
+        const secAudioTech = [
+          { k: 'Audio Codec', v: (a.codec_name || '—').toUpperCase(), cls: 'c-sky' },
+          { k: 'Codec Long Name', v: a.codec_long_name || '—' },
+          { k: 'Codec Tag (FourCC)', v: (a.codec_tag_string && a.codec_tag_string !== '[0][0][0][0]') ? a.codec_tag_string : (a.codec_tag || '—') },
+          { k: 'Codec Profile', v: a.profile || (isLossless ? 'Lossless' : 'Standard') },
+          { k: 'Sample Rate', v: sr ? (sr.toLocaleString() + ' Hz') : '—' },
+          { k: 'Sample Format', v: a.sample_fmt || '—' },
+          { k: 'Bit Depth / Precision', v: bitDepth },
+          { k: 'Channel Count', v: ch ? (ch + ' Channel' + (ch === 1 ? ' (Mono)' : (ch === 2 ? 's (Stereo)' : 's'))) : '—' },
+          { k: 'Channel Layout', v: a.channel_layout || (ch === 2 ? 'stereo' : (ch === 1 ? 'mono' : '—')) },
+          { k: 'Stream Bitrate', v: fmtBitrate(a.bit_rate || fmt.bit_rate) },
+          { k: 'Encoding Type', v: isLossless ? 'Bit-Exact Lossless ✓' : 'Lossy Compressed', cls: isLossless ? 'c-ok' : 'c-gold' },
+          { k: 'Compression vs PCM', v: compRatio },
+          { k: 'Timebase / Padding', v: (a.time_base || '—') + ' · pad ' + (a.initial_padding !== undefined ? a.initial_padding : 0) },
+          { k: 'Frames / Start PTS', v: (a.nb_frames ? Number(a.nb_frames).toLocaleString() + ' fr' : '—') + ' · pts ' + (a.start_pts !== undefined ? a.start_pts : '0') }
+        ];
+
+        // Section 4: Audio Track Tags & Privacy (8 fields)
+        const secAudioTags = [
+          { k: 'Track Title', v: getTag('title') },
+          { k: 'Artist / Performer', v: getTag('artist', 'album_artist', 'composer') },
+          { k: 'Album', v: getTag('album') },
+          { k: 'Track / Disc #', v: getTag('track') + (getTag('disc') !== '—' ? (' · Disc ' + getTag('disc')) : '') },
+          { k: 'Release Year / Date', v: getTag('date', 'year', 'creation_time') },
+          { k: 'Genre', v: getTag('genre') },
+          { k: 'Encoder / Software', v: getTag('encoder', 'encoded_by', 'software') },
+          { k: 'Tag Privacy Status', v: hasPriv ? (tagEntries.length + ' Embedded Tags Found') : 'Clean (No Tags) ✓', cls: hasPriv ? 'c-gold' : 'c-ok' }
+        ];
+
+        sectionsHtml.push(renderSection('2. Audio Container & File', secAudioContainer));
+        sectionsHtml.push(renderSection('3. Audio Stream a:0 Technical Specs', secAudioTech));
+        sectionsHtml.push(renderSection('4. ID3 / Vorbis Tags & Privacy', secAudioTags, renderRawTagsBlock(allTags)));
+        totalFields = secAudioContainer.length + secAudioTech.length + secAudioTags.length;
+
+      } else {
+        // PHOTO-ONLY MODE: ~24 photo + EXIF fields, ZERO video FPS / GOP / audio tracks!
+        const imgStream = streams.find(s => s.codec_type === 'video') || {};
+        const w = Number(exif.width) || Number(imgStream.width) || 0;
+        const h = Number(exif.height) || Number(imgStream.height) || 0;
+        const g = gcd(w, h);
+        const mp = (w && h) ? ((w * h) / 1e6).toFixed(2) + ' MP' : '—';
+        const aspect = (w && h) ? ((w / g) + ':' + (h / g)) : '—';
+        const pixFmt = imgStream.pix_fmt || exif.bitmapConfig || '—';
+        const chroma = chromaFromPixFmt(imgStream.pix_fmt);
+        const bitDepth = bitDepthFromStream(imgStream);
+        const hasGps = !!exif.hasGps;
+        const hasCamera = !!(exif.cameraModel && exif.cameraModel !== '—');
+        const privLbl = hasGps ? 'High (GPS + Camera EXIF)' : (hasCamera ? 'Moderate (Camera EXIF)' : (tagEntries.length > 0 ? 'Low (' + tagEntries.length + ' tags)' : 'Clean ✓'));
+        const privCls = hasGps ? 'c-warn' : (hasCamera ? 'c-gold' : 'c-ok');
+
+        // Section 2: Image File & Encoding (8 fields)
+        const secImgFile = [
+          { k: 'MIME / Format', v: (exif.mimeType || ('image/' + (report.extension || 'img'))) + (fmt.format_name ? ' (' + fmt.format_name + ')' : '') },
+          { k: 'Image Codec', v: (imgStream.codec_name || report.extension || '—').toUpperCase(), cls: 'c-ok' },
+          { k: 'Exact Byte Size', v: fmtBytes(report.sizeBytes || fmt.size) },
+          { k: 'Dimensions', v: (w && h) ? `${w} × ${h} px` : '—' },
+          { k: 'Megapixels / Aspect', v: `${mp} · ${aspect}` },
+          { k: 'Pixel Format / Depth', v: pixFmt + (bitDepth !== '—' ? ' · ' + bitDepth : '') },
+          { k: 'Chroma / Alpha', v: chroma !== '—' ? chroma : (exif.hasAlpha ? 'RGBA (Alpha)' : 'Opaque RGB') },
+          { k: 'Color Space / Range', v: (exif.colorSpace || imgStream.color_space || 'sRGB') + (imgStream.color_range ? ' · ' + colorRangeLabel(imgStream.color_range) : '') }
+        ];
+
+        // Section 3: Camera & Optics EXIF (10 fields)
+        const secCamera = [
+          { k: 'Camera Make & Model', v: exif.cameraModel || '—' },
+          { k: 'Lens Model', v: exif.lensModel || '—' },
+          { k: 'Aperture', v: exif.aperture || '—' },
+          { k: 'Shutter Speed', v: exif.shutterSpeed || '—' },
+          { k: 'ISO Sensitivity', v: exif.iso || '—' },
+          { k: 'Focal Length', v: exif.focalLength || '—' },
+          { k: 'Exposure Program / Bias', v: (exif.exposureProgram || '—') + (exif.exposureBias && exif.exposureBias !== '—' ? (' · ' + exif.exposureBias) : '') },
+          { k: 'Metering Mode', v: exif.meteringMode || '—' },
+          { k: 'White Balance', v: exif.whiteBalance || '—' },
+          { k: 'Flash Status', v: exif.flash || '—' }
+        ];
+
+        // Section 4: Orientation, Timestamps & Privacy (6 fields)
+        const secExifMeta = [
+          { k: 'EXIF Orientation', v: exif.orientation || 'Normal (0°)' },
+          { k: 'Date Taken (Original)', v: exif.dateTaken || '—' },
+          { k: 'Digitized / Modified', v: exif.dateDigitized || '—' },
+          { k: 'Software / Editor', v: exif.software || '—' },
+          { k: 'GPS Location & Alt', v: exif.gpsCoords || 'None', cls: hasGps ? 'c-warn' : 'c-ok' },
+          { k: 'Privacy Risk', v: privLbl, cls: privCls }
+        ];
+
+        sectionsHtml.push(renderSection('2. Image File & Encoding', secImgFile));
+        sectionsHtml.push(renderSection('3. Camera & Capture Optics (EXIF)', secCamera));
+        sectionsHtml.push(renderSection('4. Orientation, Timestamps & Privacy', secExifMeta, renderRawTagsBlock(allTags)));
+        totalFields = secImgFile.length + secCamera.length + secExifMeta.length;
+      }
+
+      document.getElementById('empty-state').classList.add('hidden');
+      const secWrap = document.getElementById('inspect-sections');
+      secWrap.innerHTML = sectionsHtml.join('');
+      secWrap.classList.remove('hidden');
+
+      document.getElementById('lbl-field-total').textContent = totalFields + ' FIELDS · ' + tagEntries.length + ' TAGS';
+      document.getElementById('hdr-sub').textContent = kind.toUpperCase() + ' · ' + totalFields + ' FIELDS PROBED';
+
+      const jsonCard = document.getElementById('sec-raw-json');
+      const jsonBox = document.getElementById('json-box');
+      jsonCard.classList.remove('hidden');
+      jsonBox.textContent = lastReportJson;
+      document.getElementById('btn-copy-json').disabled = false;
+      document.getElementById('btn-export-json').disabled = false;
+      document.getElementById('export-result-bar').classList.add('hidden');
+      lastExportedPath = '';
+
+      showToast('Inspected ' + fname + ' (' + totalFields + ' fields)');
+    }
+
+    function inspectFilePath(pathOrUri, fallbackName) {
+      if (!pathOrUri) return;
+      document.getElementById('lbl-fname').textContent = fallbackName || 'Probing...';
+      document.getElementById('lbl-fmeta').textContent = 'Running deep FFprobe + EXIF inspection...';
+
+      if (window.AndroidBridge && typeof window.AndroidBridge.deepInspectFile === 'function') {
+        setTimeout(() => {
+          try {
+            const raw = window.AndroidBridge.deepInspectFile(pathOrUri);
+            const parsed = JSON.parse(raw || '{}');
+            renderDeepReport(parsed);
+          } catch (err) {
+            showToast('Inspect error: ' + err.message);
+          }
+        }, 20);
+      } else {
+        showToast('Deep FFprobe runs inside Android APK');
+      }
+    }
+
+    // Native hook called by vault-bridge.js when a file is picked via Android SAF / Google Files
+    window.syncToolFromNative = function(fileObj, info) {
+      const target = (fileObj && (fileObj.path || fileObj.uri)) || (info && info.path) || '';
+      const nm = (fileObj && fileObj.name) || (info && info.filename) || 'media';
+      if (target) inspectFilePath(target, nm);
+    };
+
+    document.getElementById('btn-pick').addEventListener('click', () => {
+      if (window.AndroidBridge && typeof window.AndroidBridge.pickFile === 'function') {
+        window.AndroidBridge.pickFile('all');
+      } else {
+        document.getElementById('inp-file').click();
       }
     });
-    document.getElementById('btn-copy-json').addEventListener('click', () => showToast('Copied FFprobe JSON'));
-    document.getElementById('btn-export-json').addEventListener('click', () => showToast('Saved to /ConversionVault/Reports/probe_report.json'));
-    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+
+    document.getElementById('inp-file').addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        const f = this.files[0];
+        document.getElementById('lbl-fname').textContent = f.name;
+        document.getElementById('lbl-fmeta').textContent = fmtBytes(f.size) + ' · Browser preview';
+      }
+    });
+
+    document.getElementById('btn-toggle-json').addEventListener('click', function() {
+      const box = document.getElementById('json-box');
+      const isHidden = box.classList.toggle('hidden');
+      this.textContent = isHidden ? 'Expand' : 'Collapse';
+    });
+
+    function buildFormattedReport(fmt) {
+      if (!lastReportObj) return '';
+      if (fmt === 'json') return lastReportJson;
+
+      const fname = lastReportObj.filename || 'media_file';
+      const fpath = lastReportObj.path || fname;
+      const kind = (lastReportObj.mediaKind || 'video').toUpperCase();
+      const tagEntries = Object.entries(lastAllTags || {});
+
+      if (fmt === 'txt') {
+        const lines = [
+          '============================================================',
+          'CONVERSION VAULT — STREAM INSPECTOR REPORT',
+          '============================================================',
+          'File      : ' + fname,
+          'Path      : ' + fpath,
+          'Type      : ' + kind,
+          'Generated : ' + new Date().toISOString(),
+          ''
+        ];
+        lastSections.forEach(sec => {
+          lines.push('--- ' + sec.title.toUpperCase() + ' ---');
+          sec.cells.forEach(c => {
+            const label = String(c.k || '').padEnd(26, ' ');
+            lines.push(label + ': ' + String(c.v === undefined || c.v === null ? '—' : c.v));
+          });
+          lines.push('');
+        });
+        if (tagEntries.length > 0) {
+          lines.push('--- RAW EXTRACTED TAGS (' + tagEntries.length + ') ---');
+          tagEntries.forEach(([k, v]) => lines.push(k + ' = ' + v));
+          lines.push('');
+        }
+        return lines.join('\n');
+      }
+
+      if (fmt === 'md') {
+        const lines = [
+          '# Stream Inspector Report — `' + fname + '`',
+          '',
+          '- **Path:** `' + fpath + '`',
+          '- **Media Type:** ' + kind,
+          '- **Generated:** ' + new Date().toISOString(),
+          ''
+        ];
+        lastSections.forEach(sec => {
+          lines.push('## ' + sec.title);
+          lines.push('| Field | Value |');
+          lines.push('| --- | --- |');
+          sec.cells.forEach(c => {
+            const k = String(c.k || '').replace(/\|/g, '\\|');
+            const v = String(c.v === undefined || c.v === null ? '—' : c.v).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+            lines.push('| ' + k + ' | ' + v + ' |');
+          });
+          lines.push('');
+        });
+        if (tagEntries.length > 0) {
+          lines.push('## Raw Extracted Tags (' + tagEntries.length + ')');
+          lines.push('| Tag | Value |');
+          lines.push('| --- | --- |');
+          tagEntries.forEach(([k, v]) => {
+            lines.push('| `' + String(k).replace(/\|/g, '\\|') + '` | ' + String(v).replace(/\|/g, '\\|').replace(/\n/g, ' ') + ' |');
+          });
+          lines.push('');
+        }
+        return lines.join('\n');
+      }
+
+      if (fmt === 'csv') {
+        const csvEsc = (v) => '"' + String(v === undefined || v === null ? '' : v).replace(/"/g, '""') + '"';
+        const rows = ['Section,Field,Value'];
+        rows.push([csvEsc('File'), csvEsc('Filename'), csvEsc(fname)].join(','));
+        rows.push([csvEsc('File'), csvEsc('Path'), csvEsc(fpath)].join(','));
+        rows.push([csvEsc('File'), csvEsc('Media Type'), csvEsc(kind)].join(','));
+        lastSections.forEach(sec => {
+          sec.cells.forEach(c => {
+            rows.push([csvEsc(sec.title), csvEsc(c.k), csvEsc(c.v)].join(','));
+          });
+        });
+        tagEntries.forEach(([k, v]) => {
+          rows.push([csvEsc('Raw Tags'), csvEsc(k), csvEsc(v)].join(','));
+        });
+        return rows.join('\n');
+      }
+
+      // Standalone printable HTML report
+      const secBlocks = lastSections.map(sec =>
+        '<h2>' + esc(sec.title) + '</h2><table><tbody>' +
+        sec.cells.map(c => '<tr><th>' + esc(c.k) + '</th><td>' + esc(c.v) + '</td></tr>').join('') +
+        '</tbody></table>'
+      ).join('');
+      const tagBlock = tagEntries.length > 0
+        ? '<h2>Raw Extracted Tags (' + tagEntries.length + ')</h2><table><tbody>' +
+          tagEntries.map(([k, v]) => '<tr><th>' + esc(k) + '</th><td>' + esc(v) + '</td></tr>').join('') +
+          '</tbody></table>'
+        : '';
+      return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+        '<title>Stream Inspector — ' + esc(fname) + '</title>' +
+        '<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#090d16;color:#f8fafc;padding:20px;max-width:780px;margin:0 auto;line-height:1.45;}' +
+        'h1{font-size:18px;margin-bottom:4px;color:#fcd116;} .meta{font-family:monospace;font-size:12px;color:#94a3b8;margin-bottom:18px;word-break:break-all;}' +
+        'h2{font-size:13px;text-transform:uppercase;letter-spacing:0.05em;color:#fcd116;margin:18px 0 8px;border-bottom:1px solid #1e293b;padding-bottom:4px;}' +
+        'table{width:100%;border-collapse:collapse;background:#0f1624;border:1px solid #1e293b;border-radius:8px;overflow:hidden;}' +
+        'th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #1e293b;font-family:monospace;font-size:12px;word-break:break-word;}' +
+        'th{color:#94a3b8;width:38%;background:#131c2e;} td{color:#f8fafc;}</style></head><body>' +
+        '<h1>Stream Inspector Report — ' + esc(fname) + '</h1>' +
+        '<div class="meta">Type: ' + esc(kind) + ' · Path: ' + esc(fpath) + ' · Generated: ' + esc(new Date().toISOString()) + '</div>' +
+        secBlocks + tagBlock + '</body></html>';
+    }
+
+    const selFmt = document.getElementById('sel-export-fmt');
+    selFmt.addEventListener('change', () => {
+      const f = selFmt.value || 'txt';
+      document.getElementById('btn-export-json').textContent = 'Export (.' + f + ') ↗';
+    });
+
+    document.getElementById('btn-copy-json').addEventListener('click', () => {
+      if (!lastReportObj) return;
+      const fmt = selFmt.value || 'txt';
+      const content = buildFormattedReport(fmt);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(content).then(() => showToast('Copied ' + fmt.toUpperCase() + ' report ✓')).catch(() => fallbackCopy(content, fmt));
+      } else {
+        fallbackCopy(content, fmt);
+      }
+    });
+
+    function fallbackCopy(text, fmt) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Copied ' + (fmt || 'report').toUpperCase() + ' ✓');
+      } catch (_) {
+        showToast('Copy failed');
+      }
+    }
+
+    document.getElementById('btn-export-json').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!lastReportObj) {
+        showToast('Pick a file first');
+        return;
+      }
+      const fmt = selFmt.value || 'txt';
+      const content = buildFormattedReport(fmt);
+      const base = 'inspect_' + lastBaseName;
+
+      if (window.AndroidBridge && typeof window.AndroidBridge.exportInspectorReport === 'function') {
+        try {
+          const res = JSON.parse(window.AndroidBridge.exportInspectorReport(base, fmt, content) || '{}');
+          if (res && res.ok) {
+            lastExportedPath = res.path || '';
+            const bar = document.getElementById('export-result-bar');
+            const lbl = document.getElementById('export-result-lbl');
+            if (lbl) lbl.textContent = '✓ Saved ' + (res.name || (base + '.' + fmt)) + ' → Reports/';
+            if (bar) bar.classList.remove('hidden');
+            showToast('Saved ' + (res.name || ('.' + fmt)) + ' ✓');
+          } else {
+            showToast('Export failed: ' + (res.error || 'Unknown error'));
+          }
+        } catch (err) {
+          showToast('Export error: ' + err.message);
+        }
+      } else if (fmt === 'json' && window.AndroidBridge && typeof window.AndroidBridge.exportReportJson === 'function') {
+        const res = JSON.parse(window.AndroidBridge.exportReportJson(base, content) || '{}');
+        showToast(res.ok ? ('Saved → ' + res.path) : 'Export failed');
+      } else {
+        showToast('Saved to /ConversionVault/Reports/' + base + '.' + fmt);
+      }
+    });
+
+    document.getElementById('btn-open-exported').addEventListener('click', () => {
+      if (lastExportedPath && window.AndroidBridge && typeof window.AndroidBridge.openFile === 'function') {
+        window.AndroidBridge.openFile(lastExportedPath);
+      }
+    });
+    document.getElementById('btn-open-reports-fm').addEventListener('click', () => {
+      const dir = lastExportedPath && lastExportedPath.includes('/') ? lastExportedPath.slice(0, lastExportedPath.lastIndexOf('/')) : '';
+      if (window.AndroidBridge && typeof window.AndroidBridge.openFolder === 'function') {
+        window.AndroidBridge.openFolder(dir);
+      }
+    });
+
+    document.getElementById('btn-back').addEventListener('click', () => {
+      window.location.href = 'conversion_vault_p1_home.html';
+    });
   </script>
   <script src="vault-bridge.js"></script>
 </body>

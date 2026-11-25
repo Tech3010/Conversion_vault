@@ -575,6 +575,7 @@
       } catch(e) {}
     })();
   </script>
+  <script src="vault-presets.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -907,7 +908,7 @@
     };
 
     function cloneDef(cat) {
-      return Object.assign({}, PRESET_LIBRARY[cat].builtin[0].cfg);
+      const _first = (PRESET_LIBRARY[cat].builtin[0] || PRESET_LIBRARY[cat].saved[0]); return Object.assign({}, _first ? _first.cfg : ((window.VaultPresets && window.VaultPresets.DEFAULT_CFG[cat]) || {}));
     }
 
     const state = {
@@ -2061,7 +2062,7 @@
         const chk = window.validateVaultTrimRange(draft.trimStart, draft.trimEnd);
         if (!chk.ok) { showToast('⚠ ' + chk.msg); return; }
       }
-      const defaultName = PRESET_LIBRARY[cat].builtin[0].cfg.presetName;
+      const _f0 = (PRESET_LIBRARY[cat].builtin[0] || PRESET_LIBRARY[cat].saved[0]); const defaultName = _f0 ? _f0.cfg.presetName : 'Custom';
       targetIds.forEach(id => {
         const f = state.files.find(x => x.id === id);
         if (f) {
@@ -2296,35 +2297,33 @@
         renderAll();
       }
     };
+    const DEFAULT_BATCH_CFG = {
+      video: Object.assign({}, PRESET_LIBRARY.video.builtin[0].cfg),
+      audio: Object.assign({}, PRESET_LIBRARY.audio.builtin[0].cfg),
+      image: Object.assign({}, PRESET_LIBRARY.image.builtin[0].cfg)
+    };
     function syncBatchSavedPresetsFromRoom() {
-      if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
+      if (!window.VaultPresets || !window.VaultPresets.hasBridge()) return;
       try {
-        const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
-        PRESET_LIBRARY.video.saved = [];
-        PRESET_LIBRARY.audio.saved = [];
-        PRESET_LIBRARY.image.saved = [];
-        list.forEach(p => {
-          const cRaw = String(p.category || 'Video').toLowerCase();
-          const cat = cRaw.includes('aud') ? 'audio' : (cRaw.includes('ima') ? 'image' : 'video');
-          if (!PRESET_LIBRARY[cat] || PRESET_LIBRARY[cat].saved.some(x => x.name === p.name)) return;
-          let parsed = {};
-          try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
-          const baseCfg = Object.assign({}, PRESET_LIBRARY[cat].builtin[0].cfg, parsed.cfg || {});
-          baseCfg.presetName = p.name;
-          if (cat === 'video') {
-            if (p.codec) baseCfg.codec = p.codec;
-            if (p.container) baseCfg.container = p.container;
-            if (p.crfOrBitrate && !parsed.cfg) baseCfg.crf = parseInt(p.crfOrBitrate, 10) || 18;
-          } else if (cat === 'audio') {
-            if (p.container) baseCfg.fmt = p.container;
-            if (p.crfOrBitrate && !parsed.cfg) baseCfg.br = p.crfOrBitrate;
-          } else {
-            if (p.container) baseCfg.fmt = p.container;
-            if (p.crfOrBitrate && !parsed.cfg) baseCfg.qual = parseInt(p.crfOrBitrate, 10) || 88;
-          }
-          PRESET_LIBRARY[cat].saved.push({ name: p.name, meta: parsed.specs || shortTagLine(cat, baseCfg), cfg: baseCfg });
+        ['video', 'audio', 'image'].forEach(cat => {
+          PRESET_LIBRARY[cat].builtin = [];
+          PRESET_LIBRARY[cat].saved = [];
+          const list = window.VaultPresets.listActive(cat);
+          list.forEach(p => {
+            const baseCfg = Object.assign({}, DEFAULT_BATCH_CFG[cat], p.cfg || {});
+            baseCfg.presetName = p.name;
+            const entry = { roomId: p.roomId, name: p.name, meta: p.specs || shortTagLine(cat, baseCfg), cfg: baseCfg };
+            if (p.isBuiltIn) PRESET_LIBRARY[cat].builtin.push(entry);
+            else PRESET_LIBRARY[cat].saved.push(entry);
+          });
         });
       } catch (_) {}
+    }
+    if (window.VaultPresets) {
+      window.VaultPresets.bindAutoSync(() => {
+        syncBatchSavedPresetsFromRoom();
+        if (state.modal && state.modal.open) renderModal();
+      });
     }
 
     syncBatchSavedPresetsFromRoom();

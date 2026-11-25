@@ -383,6 +383,7 @@
       } catch(e) {}
     })();
   </script>
+  <script src="vault-presets.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -1175,27 +1176,27 @@
       }
     });
 
+    const DEFAULT_VIDEO_FALLBACK_CFG = Object.assign({}, PRESETS.builtin[0].cfg);
     function syncSavedPresetsFromRoom() {
-      if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
+      if (!window.VaultPresets || !window.VaultPresets.hasBridge()) return;
       try {
-        const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+        const list = window.VaultPresets.listActive('video');
+        PRESETS.builtin = [];
         PRESETS.saved = [];
         list.forEach(p => {
-          const catLow = String(p.category || 'Video').toLowerCase();
-          if (catLow.includes('aud') || catLow.includes('ima')) return;
-          if (PRESETS.saved.some(x => x.name === p.name)) return;
-          let parsed = {};
-          try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
-          const baseCfg = Object.assign({}, PRESETS.builtin[0].cfg, parsed.cfg || {
-            presetName: p.name,
-            codec: p.codec || 'libx264',
-            container: p.container || 'mp4',
-            crf: parseInt(p.crfOrBitrate, 10) || 18
-          });
+          const baseCfg = Object.assign({}, DEFAULT_VIDEO_FALLBACK_CFG, p.cfg || {});
           baseCfg.presetName = p.name;
-          PRESETS.saved.push({ name: p.name, meta: parsed.specs || shortTag(baseCfg), cfg: baseCfg });
+          const entry = { roomId: p.roomId, name: p.name, meta: p.specs || shortTag(baseCfg), cfg: baseCfg };
+          if (p.isBuiltIn) PRESETS.builtin.push(entry);
+          else PRESETS.saved.push(entry);
         });
       } catch (_) {}
+    }
+    if (window.VaultPresets) {
+      window.VaultPresets.bindAutoSync(() => {
+        syncSavedPresetsFromRoom();
+        if (state.modal && state.modal.open) renderModal();
+      });
     }
     window.getSingleVideoConfig = function() {
       return state.hasPreset ? Object.assign({}, state.cfg, { threads: state.threads }) : null;

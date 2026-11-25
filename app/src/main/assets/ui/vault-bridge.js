@@ -12,10 +12,7 @@
     converter: 'conversion_vault_p2_select.html',
     metadata: 'conversion_vault_t1_metadata.html',
     compressor: 'conversion_vault_t2_compressor.html',
-    audio_tools: 'conversion_vault_t3_audio.html',
     inspector: 'conversion_vault_t4_inspector.html',
-    trim_gif: 'conversion_vault_t5_trim_gif.html',
-    thumbnail: 'conversion_vault_t6_thumbnail.html',
     suggestor: 'conversion_vault_t7_suggestor.html',
     integrity: 'conversion_vault_t8_integrity.html',
     playback_tester: 'conversion_vault_p8_playback_tester.html'
@@ -462,8 +459,8 @@
         }
       }
 
-      // Hydrate every .info-cell dynamically from real FFprobe data
-      document.querySelectorAll('.info-cell').forEach(cell => {
+      // Hydrate every .info-cell dynamically from real FFprobe data (skip on Stream Inspector which owns full media-aware rendering)
+      if (currentPage() !== 'conversion_vault_t4_inspector.html') document.querySelectorAll('.info-cell').forEach(cell => {
         const k = (cell.querySelector('.info-k')?.textContent || '').toLowerCase();
         const v = cell.querySelector('.info-v');
         if (!v || v.id === 'perf-size' || v.id === 'perf-res') return;
@@ -514,6 +511,7 @@
 
     if (window.__pickingCustomDest && mode === 'folder') {
       window.__pickingCustomDest = false;
+      try { window.dispatchEvent(new CustomEvent('cv_custom_folder_picked', { detail: { path: pickedDir } })); } catch (_) {}
       const folderPath = (payload.folderPath && payload.folderPath.trim())
         || ((files[0] && files[0].path) ? files[0].path.substring(0, files[0].path.lastIndexOf('/')) : ('/storage/emulated/0/' + (payload.folderName || 'ConversionVault')));
       if (page === 'conversion_vault_p6_settings.html') {
@@ -1158,12 +1156,9 @@
             const cntEl = document.getElementById('lbl-sp-presets-cnt');
             const arrEl = document.getElementById('lbl-sp-presets-arrow');
             if (!wrap) return;
-            const roomList = getRoomPresetsForCat('image');
-            const merged = [];
-            const seen = new Set();
-            roomList.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
-            const hiddenB = new Set([].concat(JSON.parse(safeGet('cv_deleted_builtins', '[]') || '[]'), JSON.parse(safeGet('cv_perm_deleted_builtins', '[]') || '[]')));
-            BUILTIN_IMG_PRESETS.forEach(s => { if (!hiddenB.has(s.raw.name) && !seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
+            const merged = (window.VaultPresets && window.VaultPresets.hasBridge())
+              ? window.VaultPresets.listActive('image')
+              : getRoomPresetsForCat('image');
             if (cntEl) cntEl.textContent = 'Presets (' + merged.length + ')';
             if (arrEl) arrEl.textContent = spPresetsOpen ? '▴' : '▾';
             wrap.style.display = spPresetsOpen ? 'flex' : 'none';
@@ -1441,12 +1436,9 @@
             const cntEl = document.getElementById('lbl-sa-presets-cnt');
             const arrEl = document.getElementById('lbl-sa-presets-arrow');
             if (!wrap) return;
-            const roomList = getRoomPresetsForCat('audio');
-            const merged = [];
-            const seen = new Set();
-            roomList.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
-            const hiddenB = new Set([].concat(JSON.parse(safeGet('cv_deleted_builtins', '[]') || '[]'), JSON.parse(safeGet('cv_perm_deleted_builtins', '[]') || '[]')));
-            BUILTIN_AUD_PRESETS.forEach(s => { if (!hiddenB.has(s.raw.name) && !seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
+            const merged = (window.VaultPresets && window.VaultPresets.hasBridge())
+              ? window.VaultPresets.listActive('audio')
+              : getRoomPresetsForCat('audio');
             if (cntEl) cntEl.textContent = 'Presets (' + merged.length + ')';
             if (arrEl) arrEl.textContent = saPresetsOpen ? '▴' : '▾';
             wrap.style.display = saPresetsOpen ? 'flex' : 'none';
@@ -1990,7 +1982,21 @@
         }
       }, true);
 
-      // Live-sync Settings Presets 100% from Room SQLite (both Built-in and Custom presets, zero hardcoding)
+      // Live-sync Settings Presets 100% from Room SQLite (checkbox selection, Delete Duplicates, Export Selected)
+      const selectedPresetIds = new Set();
+      let cachedSettingsPresets = [];
+
+      function updatePresetSelectionUI() {
+        const selCount = selectedPresetIds.size;
+        const total = cachedSettingsPresets.length;
+        const lbl = document.getElementById('lbl-preset-sel-count');
+        const btnAll = document.getElementById('btn-preset-sel-all');
+        const btnExpSel = document.getElementById('btn-export-selected-presets');
+        if (lbl) lbl.textContent = selCount + ' selected';
+        if (btnAll) btnAll.textContent = (total > 0 && selCount === total) ? 'Clear All' : 'Select All';
+        if (btnExpSel) btnExpSel.textContent = 'Export Selected (' + selCount + ')';
+      }
+
       function renderSettingsSavedPresets() {
         const listEl = document.getElementById('settings-saved-presets-list');
         const subEl = document.getElementById('lbl-saved-presets-sub');
@@ -2000,6 +2006,7 @@
         const items = [];
         let customCount = 0;
         let builtinCount = 0;
+        const activeIds = new Set();
         if (hasBridge && typeof window.AndroidBridge.getPresets === 'function') {
           try {
             const roomList = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
@@ -2011,38 +2018,104 @@
               const isB = !!p.isBuiltIn;
               if (isB) builtinCount++; else customCount++;
               const summary = parsed.specs || (cat.toUpperCase() + ' · .' + (p.container || 'mp4') + ' · ' + (p.codec || 'libx264') + (p.crfOrBitrate ? ' · ' + p.crfOrBitrate : ''));
-              items.push({ name: nm, sub: summary, origin: isB ? 'BUILT-IN' : 'CUSTOM' });
+              const pid = String(p.id || '');
+              activeIds.add(pid);
+              items.push({ id: pid, name: nm, category: cat, container: p.container || 'mp4', codec: p.codec || 'libx264', crfOrBitrate: p.crfOrBitrate || '', isBuiltIn: isB, sub: summary, origin: isB ? 'BUILT-IN' : 'CUSTOM' });
             });
           } catch (_) {}
         }
 
+        cachedSettingsPresets = items;
+        Array.from(selectedPresetIds).forEach(id => { if (!activeIds.has(id)) selectedPresetIds.delete(id); });
+
         const count = items.length;
         if (subEl) subEl.textContent = count === 0
-          ? 'No active presets · Open Presets Hub to create or restore'
-          : (count + ' preset' + (count === 1 ? '' : 's') + ' (' + builtinCount + ' built-in · ' + customCount + ' custom) · Live Room Sync');
+          ? 'No active presets · Open Presets tab to create or restore'
+          : (count + ' preset' + (count === 1 ? '' : 's') + ' (' + builtinCount + ' built-in · ' + customCount + ' custom) · Select to export');
         if (badgeEl) badgeEl.textContent = count + ' PRESETS';
 
-        const esc = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const esc = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         listEl.innerHTML = count === 0
-          ? '<div class="cap-row"><div class="cap-l"><span class="cap-name">No active presets</span><span class="cap-sub">Open Presets Hub to create or restore presets.</span></div><button type="button" class="btn-sm" data-open-presets="1">Open Presets</button></div>'
-          : items.map(it =>
-              '<div class="cap-row">' +
-                '<div class="cap-l">' +
+          ? '<div class="cap-row"><div class="cap-l"><span class="cap-name">No active presets</span><span class="cap-sub">Open the Presets tab to create or restore presets.</span></div></div>'
+          : items.map(it => {
+              const checked = selectedPresetIds.has(it.id);
+              return '<label class="cap-row" style="cursor:pointer; align-items:flex-start; gap:10px;' + (checked ? ' border-color:var(--gold); background:rgba(252,209,22,0.06);' : '') + '">' +
+                '<input type="checkbox" class="preset-sel-chk" data-preset-id="' + esc(it.id) + '" ' + (checked ? 'checked' : '') + ' style="margin-top:3px; accent-color:var(--gold); width:16px; height:16px; flex-shrink:0;">' +
+                '<div class="cap-l" style="flex:1; min-width:0;">' +
                   '<span class="cap-name">' + esc(it.name) + ' <span style="font-size:9.5px; font-family:var(--mono); padding:1px 5px; border-radius:4px; margin-left:4px; background:' + (it.origin === 'CUSTOM' ? 'var(--gold-soft)' : 'var(--card-elev)') + '; color:' + (it.origin === 'CUSTOM' ? 'var(--gold-text)' : 'var(--muted)') + ';">' + it.origin + '</span></span>' +
                   '<span class="cap-sub">' + esc(it.sub) + '</span>' +
                 '</div>' +
-                '<button type="button" class="btn-sm" data-open-presets="1">' + (it.origin === 'CUSTOM' ? 'Edit' : 'Open') + '</button>' +
-              '</div>'
-            ).join('');
+              '</label>';
+            }).join('');
+
+        updatePresetSelectionUI();
       }
 
       const presetsListWrap = document.getElementById('settings-saved-presets-list');
       if (presetsListWrap) {
-        presetsListWrap.addEventListener('click', (e) => {
-          const btn = e.target.closest('[data-open-presets]');
-          if (!btn) return;
+        presetsListWrap.addEventListener('change', (e) => {
+          const chk = e.target.closest('.preset-sel-chk');
+          if (!chk) return;
+          const pid = chk.getAttribute('data-preset-id') || '';
+          if (!pid) return;
+          if (chk.checked) selectedPresetIds.add(pid);
+          else selectedPresetIds.delete(pid);
+          const row = chk.closest('.cap-row');
+          if (row) {
+            row.style.borderColor = chk.checked ? 'var(--gold)' : '';
+            row.style.background = chk.checked ? 'rgba(252,209,22,0.06)' : '';
+          }
+          updatePresetSelectionUI();
+        });
+      }
+
+      const bSelAllPresets = document.getElementById('btn-preset-sel-all');
+      if (bSelAllPresets) {
+        bSelAllPresets.addEventListener('click', (e) => {
           e.preventDefault(); e.stopImmediatePropagation();
-          navigateTo('conversion_vault_p7_presets.html');
+          if (cachedSettingsPresets.length === 0) return;
+          if (selectedPresetIds.size === cachedSettingsPresets.length) {
+            selectedPresetIds.clear();
+          } else {
+            cachedSettingsPresets.forEach(p => { if (p.id) selectedPresetIds.add(p.id); });
+          }
+          renderSettingsSavedPresets();
+        }, true);
+      }
+
+      const bDedupePresets = document.getElementById('btn-dedupe-presets');
+      if (bDedupePresets) {
+        bDedupePresets.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          if (!window.VaultPresets || !window.VaultPresets.hasBridge()) return;
+          const r = window.VaultPresets.dedupe();
+          (r.removedIds || []).forEach(id => selectedPresetIds.delete(id));
+          renderSettingsSavedPresets();
+          toast(r.removed > 0 ? ('Removed ' + r.removed + ' duplicate preset' + (r.removed === 1 ? '' : 's') + ' ✓') : 'No duplicate presets found');
+        }, true);
+      }
+
+      const bExportSelPresets = document.getElementById('btn-export-selected-presets');
+      if (bExportSelPresets) {
+        bExportSelPresets.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          const ids = Array.from(selectedPresetIds);
+          if (ids.length === 0) {
+            toast('Select at least 1 preset to export');
+            return;
+          }
+          if (hasBridge && typeof window.AndroidBridge.exportSelectedPresetsJson === 'function') {
+            try {
+              const res = JSON.parse(window.AndroidBridge.exportSelectedPresetsJson(JSON.stringify(ids)) || '{}');
+              if (res && res.ok) {
+                toast('Exported ' + (res.count || ids.length) + ' selected preset' + (ids.length === 1 ? '' : 's') + ' → ' + (res.path || 'Presets'));
+              } else {
+                toast('Export failed: ' + (res.error || 'Unknown error'));
+              }
+            } catch (_) {
+              toast('Export selected failed');
+            }
+          }
         }, true);
       }
 
@@ -2197,7 +2270,7 @@
           } else {
             toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
           }
-        } else if (['conversion_vault_t2_compressor.html','conversion_vault_t3_audio.html','conversion_vault_t5_trim_gif.html','conversion_vault_t6_thumbnail.html'].includes(page)) {
+        } else if (['conversion_vault_t3_audio.html','conversion_vault_t5_trim_gif.html','conversion_vault_t6_thumbnail.html'].includes(page)) {
           const files = getActiveFiles();
           if (!files.length) { toast('Pick a file first'); window.AndroidBridge.pickFile(); return; }
           const modMap = {
@@ -2244,34 +2317,23 @@
           } else {
             toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
           }
-        } else if (page === 'conversion_vault_t8_integrity.html') {
-          const files = getActiveFiles();
-          if (!files.length) { toast('Pick a file first'); window.AndroidBridge.pickFile(); return; }
-          const deep = (document.querySelector('[data-scan].active')?.getAttribute('data-scan') || 'deep') === 'deep';
-          toast('Scanning file...');
-          const res = JSON.parse(window.AndroidBridge.runIntegrityCheck(files[0].path, deep));
-          toast(res.ok ? 'File healthy: 0 decode errors ✓' : 'Corrupt/Incomplete: ' + res.decodeErrorCount + ' errors');
-          if (typeof window.showResult === 'function') window.showResult(!res.ok);
         }
       }, true);
 
-      if (page === 'conversion_vault_t4_inspector.html') {
-        const bExp = document.getElementById('btn-export-json');
-        if (bExp) bExp.addEventListener('click', (e) => {
-          if (!hasBridge) return;
-          e.preventDefault(); e.stopImmediatePropagation();
-          const probe = safeGet('cv_last_probe', '{}') || '{}';
-          const res = JSON.parse(window.AndroidBridge.exportReportJson('probe_report', probe));
-          toast('Saved: ' + (res.path || 'Reports'));
-        }, true);
-      }
+      // Stream Inspector (t4_inspector.html) handles its own deepInspectFile & exportReportJson
 
       if (page === 'conversion_vault_t8_integrity.html') {
         const bRepair = document.getElementById('btn-repair');
         if (bRepair) bRepair.addEventListener('click', (e) => {
           if (!hasBridge) return;
           e.preventDefault(); e.stopImmediatePropagation();
-          enqueueSimpleToolJob('Vault_Core', 'Video', 'mp4', '-y -err_detect ignore_err -i {INPUT} -c copy {OUTPUT}', 'repaired_output');
+          const files = getActiveFiles();
+          const f0 = files[0] || {};
+          const rawExt = String(f0.name || f0.path || '').split('.').pop().toLowerCase();
+          const isAud = A_EXT.has(rawExt);
+          const outExt = isAud ? (['mp3','flac','opus','m4a','wav','ogg'].includes(rawExt) ? rawExt : 'm4a') : (['mkv','mov','webm','mp4'].includes(rawExt) ? rawExt : 'mp4');
+          const faststart = (outExt === 'mp4' || outExt === 'mov' || outExt === 'm4a') ? ' -movflags +faststart' : '';
+          enqueueSimpleToolJob('Vault_Core', isAud ? 'Audio' : 'Video', outExt, '-y -err_detect ignore_err -i {INPUT} -c copy' + faststart + ' {OUTPUT}', 'repaired_output');
         }, true);
       }
     }

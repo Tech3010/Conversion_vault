@@ -250,6 +250,59 @@ object NativePhotoEngine {
 
             val finalW = workingBitmap.width
             val finalH = workingBitmap.height
+            val targetBytesMatch = Regex("targetBytes=(\\d+)").find(commandArgs)
+            val targetBytes = targetBytesMatch?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
+
+            if (targetBytes > 0L && fmt in setOf("jpg", "jpeg", "webp")) {
+                onProgress(70, "Fitting .$fmt under ${targetBytes / 1024} KB (binary search)...")
+                val compressFmt = when (fmt) {
+                    "jpg", "jpeg" -> Bitmap.CompressFormat.JPEG
+                    else -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Bitmap.CompressFormat.WEBP_LOSSY else @Suppress("DEPRECATION") Bitmap.CompressFormat.WEBP
+                }
+                var curBmp = if (fmt == "jpg" || fmt == "jpeg") flattenAlphaForJpeg(workingBitmap) else workingBitmap
+                var bestBytes: ByteArray? = null
+                try {
+                    for (scaleStep in 0..3) {
+                        var lo = 12
+                        var hi = 95
+                        var stepBest: ByteArray? = null
+                        for (iter in 0..5) {
+                            val mid = (lo + hi) / 2
+                            val baos = ByteArrayOutputStream()
+                            curBmp.compress(compressFmt, mid, baos)
+                            val arr = baos.toByteArray()
+                            if (arr.size.toLong() <= targetBytes) {
+                                stepBest = arr
+                                lo = mid + 1
+                            } else {
+                                hi = mid - 1
+                            }
+                        }
+                        if (stepBest != null) {
+                            bestBytes = stepBest
+                            break
+                        }
+                        // Even Q12 exceeded targetBytes -> scale dimensions down 0.78x and retry
+                        val nextW = (curBmp.width * 0.78f).toInt().coerceAtLeast(320)
+                        val nextH = (curBmp.height * 0.78f).toInt().coerceAtLeast(320)
+                        if (nextW == curBmp.width && nextH == curBmp.height) break
+                        val shrunk = Bitmap.createScaledBitmap(curBmp, nextW, nextH, true)
+                        if (curBmp !== workingBitmap) curBmp.recycle()
+                        curBmp = shrunk
+                    }
+                    if (bestBytes == null) {
+                        val baos = ByteArrayOutputStream()
+                        curBmp.compress(compressFmt, 12, baos)
+                        bestBytes = baos.toByteArray()
+                    }
+                    FileOutputStream(outFile).use { fos -> fos.write(bestBytes) }
+                } finally {
+                    if (curBmp !== workingBitmap) curBmp.recycle()
+                }
+                onProgress(100, "Compressed to ${outFile.length() / 1024} KB")
+                return Result.Success(outFile.absolutePath, outFile.length())
+            }
+
             onProgress(70, "Encoding .$fmt (${finalW}×${finalH}, q=$quality)...")
 
             val encodedOk = when (fmt) {
