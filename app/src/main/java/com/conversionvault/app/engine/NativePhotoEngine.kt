@@ -128,13 +128,7 @@ object NativePhotoEngine {
         val fmt = spec.format.lowercase(Locale.US).removePrefix(".")
         val quality = spec.quality.coerceIn(15, 100)
 
-        // Formats not natively encoded by Android Skia / HeifWriter -> seamless FFmpeg fallback
-        if (fmt !in setOf("jpg", "jpeg", "png", "webp", "heic", "heif")) {
-            val ffArgs = buildFfmpegImageFallback(inputPath, outputPath, spec)
-            return Result.FallbackToFfmpeg(ffArgs, "Format .$fmt routed to FFmpeg codec")
-        }
-
-        onProgress(10, "Reading EXIF & decoding image...")
+        onProgress(10, "Reading EXIF & decoding full-res image...")
 
         val srcExif: ExifInterface? = try {
             ExifInterface(inFile.absolutePath)
@@ -149,20 +143,29 @@ object NativePhotoEngine {
         var workingBitmap: Bitmap? = null
         try {
             var usedImageDecoder = false
+            val fullResOpts = BitmapFactory.Options().apply {
+                inScaled = false
+                inSampleSize = 1
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
             workingBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 try {
                     val src = ImageDecoder.createSource(inFile)
-                    val bmp = ImageDecoder.decodeBitmap(src) { decoder, _, _ ->
+                    val bmp = ImageDecoder.decodeBitmap(src) { decoder, info, _ ->
                         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                         decoder.isMutableRequired = true
+                        decoder.setTargetSampleSize(1)
+                        if (info.size.width > 0 && info.size.height > 0) {
+                            decoder.setTargetSize(info.size.width, info.size.height)
+                        }
                     }
                     usedImageDecoder = true
                     bmp
                 } catch (_: Throwable) {
-                    BitmapFactory.decodeFile(inFile.absolutePath)
+                    BitmapFactory.decodeFile(inFile.absolutePath, fullResOpts)
                 }
             } else {
-                BitmapFactory.decodeFile(inFile.absolutePath)
+                BitmapFactory.decodeFile(inFile.absolutePath, fullResOpts)
             }
 
             if (workingBitmap == null) {
@@ -236,14 +239,21 @@ object NativePhotoEngine {
                         encodeHeif(workingBitmap, outFile.absolutePath, quality)
                         outFile.exists() && outFile.length() > 0
                     } catch (heifErr: Throwable) {
-                        val ffArgs = buildFfmpegImageFallback(inputPath, outputPath, spec)
+                        val staged = stageFullResPng(context, workingBitmap)
+                        val ffArgs = buildFfmpegImageFallback(staged ?: inputPath, outputPath, spec, alreadyTransformed = (staged != null))
                         return Result.FallbackToFfmpeg(
                             ffArgs,
                             "HeifWriter unavailable (${heifErr.message}); using FFmpeg fallback"
                         )
                     }
                 }
-                else -> false
+                else -> {
+                    // Format not natively written by Skia (e.g., .avif, .tiff, .bmp, .gif):
+                    // Feed the full-resolution decoded Bitmap via lossless PNG so FFmpeg never grabs a low-res EXIF/HEIC thumbnail
+                    val staged = stageFullResPng(context, workingBitmap)
+                    val ffArgs = buildFfmpegImageFallback(staged ?: inputPath, outputPath, spec, alreadyTransformed = (staged != null))
+                    return Result.FallbackToFfmpeg(ffArgs, "Format .$fmt routed to FFmpeg at ${finalW}x${finalH}")
+                }
             }
 
             if (!encodedOk || !outFile.exists() || outFile.length() <= 0L) {
@@ -280,6 +290,7 @@ object NativePhotoEngine {
                 targetBmp.height,
                 HeifWriter.INPUT_MODE_BITMAP
             )
+                .setGridEnabled(true)
                 .setQuality(quality.coerceIn(15, 100))
                 .setMaxImages(1)
                 .build()
@@ -415,15 +426,39 @@ object NativePhotoEngine {
         )
     }
 
-    private fun buildFfmpegImageFallback(inputPath: String, outputPath: String, spec: PhotoSpec): String {
+    private fun stageFullResPng(context: Context, bmp: Bitmap): String? {
+        return try {
+            val dir = File(context.cacheDir, "photo_stage").apply { mkdirs() }
+            // Clean up any previous staged PNGs older than 5 minutes
+            dir.listFiles()?.forEach { f ->
+                if (System.currentTimeMillis() - f.lastModified() > 5 * 60 * 1000L) f.delete()
+            }
+            val tmp = File(dir, "stage_${System.currentTimeMillis()}.png")
+            FileOutputStream(tmp).use { fos ->
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, fos)
+            }
+            if (tmp.exists() && tmp.length() > 0L) tmp.absolutePath else null
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun buildFfmpegImageFallback(
+        inputPath: String,
+        outputPath: String,
+        spec: PhotoSpec,
+        alreadyTransformed: Boolean = false
+    ): String {
         val fmt = spec.format.lowercase(Locale.US).removePrefix(".")
         val vfParts = mutableListOf<String>()
-        if (spec.maxWidth > 0) vfParts.add("scale='min(${spec.maxWidth},iw)':-2")
-        when (spec.orient) {
-            "90cw" -> vfParts.add("transpose=1")
-            "90ccw" -> vfParts.add("transpose=2")
-            "180" -> vfParts.add("transpose=1,transpose=1")
-            "hflip" -> vfParts.add("hflip")
+        if (!alreadyTransformed) {
+            if (spec.maxWidth > 0) vfParts.add("scale='min(${spec.maxWidth},iw)':-2")
+            when (spec.orient) {
+                "90cw" -> vfParts.add("transpose=1")
+                "90ccw" -> vfParts.add("transpose=2")
+                "180" -> vfParts.add("transpose=1,transpose=1")
+                "hflip" -> vfParts.add("hflip")
+            }
         }
         val vfFlag = if (vfParts.isNotEmpty()) "-vf \"${vfParts.joinToString(",")}\" " else ""
         val metaFlag = if (spec.meta == "deep") "-map_metadata -1 -fflags +bitexact " else if (spec.meta == "wipe") "-map_metadata -1 " else ""
@@ -431,6 +466,10 @@ object NativePhotoEngine {
             "avif" -> {
                 val crf = (63 - (spec.quality * 0.55)).roundToInt().coerceIn(8, 55)
                 "-c:v libaom-av1 -still-picture 1 -crf $crf -cpu-used 6 "
+            }
+            "heic", "heif" -> {
+                val crf = (51 - (spec.quality * 0.45)).roundToInt().coerceIn(10, 42)
+                "-c:v libx265 -tag:v hvc1 -crf $crf "
             }
             "webp" -> "-c:v libwebp -quality ${spec.quality} "
             "jpg", "jpeg" -> {

@@ -1612,7 +1612,7 @@
           </div>
           <div class="field full">
             <label class="lbl-row"><span>Image Quality</span><span class="lbl-right"><span class="field-val-pill">${touched ? (draft.qual + "%") : "—"}</span><button type="button" class="i-btn" data-info="Image Quality">i</button></span></label>
-            <input type="range" min="15" max="100" value="${touched ? draft.qual : 15}" data-mf="qual">
+            <input type="range" min="15" max="100" value="${touched ? draft.qual : (draft.qual || 88)}" data-mf="qual">
           </div>
           <div class="field full"><label class="lbl-row"><span>EXIF &amp; GPS Privacy</span><button type="button" class="i-btn" data-info="EXIF & GPS Privacy" aria-label="Info about EXIF & GPS Privacy">i</button></label>
             <select data-mf="meta">
