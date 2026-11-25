@@ -937,30 +937,47 @@
     }
 
     function estimateFile(item) {
-      const cfg = item.cfg;
+      const cfg = item.cfg || cloneDef(item.cat);
       const cMultCore = state.cores === '0-3' ? 0.62 : (state.cores === '7' ? 0.35 : (state.cores === '4-7' ? 0.78 : 1.0));
       const tMult = (state.threads === 8 ? 1.0 : (state.threads === 6 ? 0.82 : 0.58)) * cMultCore;
+      const srcMB = item.sizeMB > 0 ? item.sizeMB : 0.1;
       if (item.cat === 'video') {
-        if (cfg.codec === 'copy') return { sec: Math.max(0.2, item.sizeMB / 1600), outMB: item.sizeMB, speedLbl: 'Fast Stream Copy' };
-        const is4k = item.res.includes('3840') && cfg.scale === 'original';
-        const preFps = { ultrafast: 280, fast: 122, medium: 92, slow: 62, slower: 44, veryslow: 25 }[cfg.preset] || 62;
-        const cMult = cfg.codec === 'libx265' ? 0.52 : (cfg.codec === 'libsvtav1' ? 0.34 : (cfg.codec === 'libvpx-vp9' ? 0.45 : 1.0));
-        const rMult = is4k ? 0.28 : (cfg.scale === '720' ? 1.9 : 1.0);
-        const fps = Math.max(3, preFps * cMult * rMult * tMult);
-        const sec = (item.durSec * item.fps) / fps;
-        const intraMult = cfg.gop === '1' ? 1.8 : 1.0;
-        const cSize = cfg.codec === 'libx265' ? 0.44 : (cfg.codec === 'libsvtav1' ? 0.38 : 0.62);
-        const outMB = Math.max(1.2, item.sizeMB * cSize * intraMult * Math.pow(2, (18 - cfg.crf) / 8));
+        if (cfg.codec === 'copy') return { sec: Math.max(0.2, srcMB / 180), outMB: srcMB, speedLbl: 'Stream Copy' };
+        const preFps = { ultrafast: 260, fast: 115, medium: 85, slow: 56, slower: 38, veryslow: 20 }[cfg.preset] || 60;
+        const cMult = cfg.codec === 'libx265' ? 0.48 : (cfg.codec === 'libsvtav1' ? 0.30 : (cfg.codec === 'libvpx-vp9' ? 0.42 : 1.0));
+        const srcPx = (item.width > 0 && item.height > 0) ? (item.width * item.height) : (1920 * 1080);
+        const targetPx = cfg.scale === '720' ? (1280 * 720) : (cfg.scale === '480' ? (854 * 480) : (cfg.scale === '1080_v' ? (1080 * 1920) : srcPx));
+        const resFactor = Math.max(0.22, Math.min(3.0, (1920 * 1080) / Math.max(1, targetPx)));
+        const fps = Math.max(2, preFps * cMult * resFactor * tMult);
+        const srcFps = item.fps > 0 ? item.fps : 30;
+        const durSec = item.durSec > 0 ? item.durSec : Math.max(1, srcMB * 0.8);
+        const sec = Math.max(0.3, (durSec * srcFps) / fps);
+        const intraMult = cfg.gop === '1' ? 1.75 : 1.0;
+        const cSize = cfg.codec === 'libx265' ? 0.46 : (cfg.codec === 'libsvtav1' ? 0.38 : (cfg.codec === 'libvpx-vp9' ? 0.50 : 0.68));
+        const scaleRatio = Math.min(1.0, Math.sqrt(targetPx / Math.max(1, srcPx)));
+        const outMB = Math.max(0.1, srcMB * cSize * scaleRatio * intraMult * Math.pow(2, (20 - (cfg.crf || 20)) / 8));
         return { sec, outMB, speedLbl: '~' + Math.round(fps) + ' fps' };
       }
       if (item.cat === 'audio') {
-        const sec = Math.max(0.4, (item.durSec / 130) / tMult);
-        const brNum = cfg.fmt === 'flac' ? 850 : (cfg.fmt === 'wav' ? 1536 : parseInt(cfg.br, 10) || 192);
-        return { sec, outMB: Math.max(0.3, (brNum * item.durSec) / 8000), speedLbl: '~130x RT' };
+        const durSec = item.durSec > 0 ? item.durSec : Math.max(1, (srcMB * 8000) / 192);
+        const sec = Math.max(0.25, (durSec / 120) / tMult);
+        const brNum = cfg.fmt === 'flac' ? 850 : (cfg.fmt === 'wav' ? 1411 : (parseInt(cfg.br, 10) || 192));
+        return { sec, outMB: Math.max(0.05, (brNum * durSec) / 8000), speedLbl: '~120x RT' };
       }
-      const sec = Math.max(0.25, (item.sizeMB / (cfg.fmt === 'avif' ? 4 : 12)) / tMult);
-      const qFac = cfg.fmt === 'png' ? 1.15 : (cfg.fmt === 'avif' ? 0.16 : (cfg.fmt === 'webp' ? 0.24 : 0.38)) * (cfg.qual / 85);
-      return { sec, outMB: Math.max(0.15, item.sizeMB * qFac), speedLbl: 'Single Pass' };
+      const mp = (item.width > 0 && item.height > 0) ? ((item.width * item.height) / 1000000) : Math.max(1, srcMB * 3);
+      const maxW = parseInt(cfg.scale, 10) || 0;
+      const scaleArea = (maxW > 0 && item.width > maxW) ? Math.pow(maxW / item.width, 2) : 1.0;
+      const outMp = mp * scaleArea;
+      const fmt = (cfg.fmt || 'webp').toLowerCase();
+      const q = (cfg.qual || 85) / 100;
+      const sec = fmt === 'avif' ? Math.max(0.6, outMp * 0.22) : Math.max(0.12, outMp * 0.035);
+      const outMB = fmt === 'png'
+        ? Math.max(0.05, outMp * 0.95)
+        : (fmt === 'avif' ? Math.max(0.02, outMp * 0.09 * q)
+        : (fmt === 'heic' ? Math.max(0.02, outMp * 0.13 * q)
+        : (fmt === 'webp' ? Math.max(0.03, outMp * 0.16 * q)
+                          : Math.max(0.04, outMp * 0.28 * q))));
+      return { sec, outMB, speedLbl: fmt === 'avif' ? 'FFmpeg AVIF' : 'Native Skia' };
     }
 
     function renderDeepProbeHTML(item) {
@@ -1817,7 +1834,7 @@
       }
     });
 
-        window.setBatchFilesFromNative = function(nativeFiles) {
+    window.setBatchFilesFromNative = function(nativeFiles) {
       const V = new Set(['mp4','mkv','webm','mov','avi','ts','flv','ogv','3gp','m4v']);
       const A = new Set(['mp3','flac','opus','m4a','wav','ogg','ac3','aac','wma']);
       const I = new Set(['jpg','jpeg','png','webp','gif','bmp','tiff','avif','heic']);
@@ -1831,20 +1848,76 @@
           cat: cat,
           name: f.name || 'file',
           path: f.path || '',
-          sizeMB: f.sizeBytes ? (f.sizeBytes / (1024 * 1024)) : 1.0,
-          durSec: 10,
-          res: 'Source',
-          fps: 30,
-          bitrate: 'Auto',
+          sizeMB: f.sizeBytes ? (f.sizeBytes / (1024 * 1024)) : 0,
+          durSec: 0,
+          width: 0,
+          height: 0,
+          res: 'Probing...',
+          fps: 0,
+          bitrate: '—',
           codec: ext.toUpperCase(),
           selected: true,
           skipped: false,
           drawerOpen: false,
           preset: null,
-          cfg: null
+          cfg: null,
+          probe: {}
         });
       });
       renderAll();
+
+      if (window.AndroidBridge && typeof window.AndroidBridge.probeFile === 'function') {
+        let idx = 0;
+        const probeNext = () => {
+          if (idx >= state.files.length) return;
+          const item = state.files[idx++];
+          if (item && item.path) {
+            try {
+              const info = JSON.parse(window.AndroidBridge.probeFile(item.path) || '{}');
+              if (info && info.ok) {
+                if (info.sizeBytes > 0) item.sizeMB = info.sizeBytes / (1024 * 1024);
+                if (info.durationSec > 0) item.durSec = info.durationSec;
+                if (info.width > 0) item.width = info.width;
+                if (info.height > 0) item.height = info.height;
+                if (info.fps > 0) item.fps = Math.round(info.fps * 100) / 100;
+                item.res = (item.width > 0 && item.height > 0) ? (item.width + '×' + item.height) : (item.cat === 'audio' ? (info.sampleRate && info.sampleRate !== '—' ? info.sampleRate + ' Hz' : 'Audio') : '—');
+                if (item.cat === 'audio') {
+                  item.codec = (info.audioCodec && info.audioCodec !== 'None') ? info.audioCodec.toUpperCase() : item.codec;
+                  item.bitrate = info.audioBitrate > 0 ? Math.round(info.audioBitrate / 1000) + ' kbps' : (info.bitrate > 0 ? Math.round(info.bitrate / 1000) + ' kbps' : '—');
+                } else if (item.cat === 'image') {
+                  item.codec = (info.videoCodec && info.videoCodec !== 'None') ? info.videoCodec.toUpperCase() : item.codec;
+                  item.bitrate = item.sizeMB > 0 ? item.sizeMB.toFixed(2) + ' MB' : '—';
+                } else {
+                  item.codec = (info.videoCodec && info.videoCodec !== 'None') ? info.videoCodec.toUpperCase() : item.codec;
+                  item.bitrate = info.bitrate > 0 ? (info.bitrate / 1000000).toFixed(2) + ' Mbps' : '—';
+                }
+                item.probe = {
+                  frameStruct: info.videoProfile || '—',
+                  gop: info.fps > 0 ? (Math.round(info.fps) + ' fps') : '—',
+                  chroma: info.pixFmt || '—',
+                  color: info.colorSpace || '—',
+                  profile: info.videoProfile || '—',
+                  frames: info.fps > 0 ? (Math.round(info.fps * 100) / 100) + ' fps' : '—',
+                  aspect: (item.width && item.height) ? (item.width + '×' + item.height) : '—',
+                  container: info.format || '—',
+                  audio: (info.audioCodec && info.audioCodec !== 'None') ? info.audioCodec.toUpperCase() : 'None',
+                  subs: (info.subtitleCount || 0) + ' Sub Streams',
+                  sampleFmt: info.audioCodec || '—',
+                  chLayout: info.channels ? (info.channels + ' ch') : '—',
+                  encoder: info.format || '—',
+                  samples: info.sampleRate ? (info.sampleRate + ' Hz') : '—',
+                  loudness: '—',
+                  padding: '—',
+                  raw: info.tagsSummary || 'No metadata tags detected'
+                };
+              }
+            } catch (_) {}
+          }
+          renderAll();
+          if (idx < state.files.length) setTimeout(probeNext, 20);
+        };
+        setTimeout(probeNext, 30);
+      }
     };
     function syncBatchSavedPresetsFromRoom() {
       if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;

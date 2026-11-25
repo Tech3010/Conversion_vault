@@ -410,6 +410,12 @@
       if (typeof window.applyMetadataFileFromNative === 'function') {
         window.applyMetadataFileFromNative(fileObj, info);
       }
+      if (typeof window.updateSingleFileFromProbe === 'function') {
+        window.updateSingleFileFromProbe(fileObj, info);
+      }
+      if (typeof window.refreshSinglePhotoAudioPerf === 'function') {
+        window.refreshSinglePhotoAudioPerf(fileObj, info);
+      }
       if (typeof window.syncToolFromNative === 'function') {
         window.syncToolFromNative(fileObj, info);
       }
@@ -662,9 +668,12 @@
       const perfSec = document.getElementById('sec-perf');
 
       if (fileCat === 'i') {
-        // PHOTO MODE: hide video format selector completely & show dedicated Photo Format + Saved Image Presets
+        // PHOTO MODE: hide video format selector completely & show dedicated Photo Format + real Photo Performance Estimation
         if (presetBox) presetBox.style.display = 'none';
-        if (perfSec) perfSec.style.display = 'none';
+        if (perfSec) {
+          perfSec.classList.remove('is-untouched');
+          perfSec.querySelectorAll('.field, #core-cmd-pill, #core-warn-note').forEach(el => { el.style.display = 'none'; });
+        }
         const badgeEl = document.querySelector('.single-badge');
         if (badgeEl) badgeEl.textContent = 'PHOTO';
         singlePhotoCfg = { format: 'webp', quality: 88, scale: 'original', orient: 'auto', meta: 'wipe', colorSpace: 'srgb_444' };
@@ -736,7 +745,40 @@
             if (footS) footS.textContent = '.' + singlePhotoCfg.format.toUpperCase() + (singlePhotoCfg.format === 'png' ? ' · Lossless' : (' · Q' + singlePhotoCfg.quality)) + ' · ' + singlePhotoCfg.meta;
             const mvBtn = document.getElementById('btn-move-convert');
             if (mvBtn) mvBtn.disabled = false;
+            updatePhotoPerf();
           };
+          const updatePhotoPerf = () => {
+            let pInfo = {};
+            try { pInfo = JSON.parse(safeGet('cv_last_probe', '{}') || '{}'); } catch (_) {}
+            const bytes = pInfo.sizeBytes || (firstFile && firstFile.sizeBytes) || 0;
+            const srcMB = bytes > 0 ? (bytes / (1024 * 1024)) : 0;
+            const w = pInfo.width || 0;
+            const h = pInfo.height || 0;
+            const mp = (w > 0 && h > 0) ? ((w * h) / 1000000) : Math.max(1, srcMB * 3);
+            const maxW = parseInt(singlePhotoCfg.scale, 10) || 0;
+            const scaleArea = (maxW > 0 && w > maxW) ? Math.pow(maxW / w, 2) : 1.0;
+            const outMp = mp * scaleArea;
+            const fmt = singlePhotoCfg.format;
+            const q = (singlePhotoCfg.quality || 88) / 100;
+            const estSec = fmt === 'avif' ? Math.max(0.6, outMp * 0.22) : Math.max(0.12, outMp * 0.035);
+            const estMB = fmt === 'png' ? Math.max(0.05, outMp * 0.95)
+                        : (fmt === 'avif' ? Math.max(0.02, outMp * 0.09 * q)
+                        : (fmt === 'heic' ? Math.max(0.02, outMp * 0.13 * q)
+                        : (fmt === 'webp' ? Math.max(0.03, outMp * 0.16 * q)
+                                          : Math.max(0.04, outMp * 0.28 * q))));
+            const delta = srcMB > 0 ? Math.round(((estMB - srcMB) / srcMB) * 100) : 0;
+            const sign = delta <= 0 ? delta + '%' : '+' + delta + '%';
+            const ramMB = Math.max(24, Math.round((w > 0 && h > 0 ? (w * h * 4) / (1024 * 1024) : srcMB * 8) * 1.4));
+            const tEl = document.getElementById('perf-time');
+            const fEl = document.getElementById('perf-fps');
+            const sEl = document.getElementById('perf-size');
+            const rEl = document.getElementById('perf-res');
+            if (tEl) tEl.textContent = estSec < 1 ? '<1s' : ('~' + estSec.toFixed(1) + 's');
+            if (fEl) fEl.textContent = fmt === 'avif' ? 'FFmpeg AVIF · Single Pass' : ('Native Skia · ' + (w && h ? (w + '×' + h) : 'Full Res'));
+            if (sEl) sEl.textContent = srcMB > 0 ? (srcMB.toFixed(2) + ' → ' + estMB.toFixed(2) + ' MB (' + sign + ')') : 'Probing size...';
+            if (rEl) rEl.textContent = '~' + ramMB + ' MB RAM · <0.1% Batt';
+          };
+          window.refreshSinglePhotoAudioPerf = updatePhotoPerf;
 
           let spPresetsOpen = false;
           const BUILTIN_IMG_PRESETS = [
@@ -809,9 +851,12 @@
           syncPhotoSummary();
         }
       } else if (fileCat === 'a') {
-        // AUDIO MODE: hide video format selector completely & show dedicated Audio Format + Saved Audio Presets
+        // AUDIO MODE: hide video format selector completely & show dedicated Audio Format + real Audio Performance Estimation
         if (presetBox) presetBox.style.display = 'none';
-        if (perfSec) perfSec.style.display = 'none';
+        if (perfSec) {
+          perfSec.classList.remove('is-untouched');
+          perfSec.querySelectorAll('.field, #core-cmd-pill, #core-warn-note').forEach(el => { el.style.display = 'none'; });
+        }
         const badgeEl = document.querySelector('.single-badge');
         if (badgeEl) badgeEl.textContent = 'AUDIO';
         singleAudioCfg = { fmt: 'm4a', br: '192k', ar: 'keep', ch: 'keep', filter: 'none', meta: 'wipe' };
@@ -890,7 +935,30 @@
             if (footS) footS.textContent = '.' + singleAudioCfg.fmt.toUpperCase() + (isLossless ? ' · Lossless' : (' · ' + singleAudioCfg.br));
             const mvBtn = document.getElementById('btn-move-convert');
             if (mvBtn) mvBtn.disabled = false;
+            updateAudioPerf();
           };
+          const updateAudioPerf = () => {
+            let pInfo = {};
+            try { pInfo = JSON.parse(safeGet('cv_last_probe', '{}') || '{}'); } catch (_) {}
+            const bytes = pInfo.sizeBytes || (firstFile && firstFile.sizeBytes) || 0;
+            const srcMB = bytes > 0 ? (bytes / (1024 * 1024)) : 0;
+            const durSec = pInfo.durationSec || (srcMB > 0 ? (srcMB * 8000) / 192 : 0);
+            const fmt = singleAudioCfg.fmt;
+            const brKbps = fmt === 'flac' ? 850 : (fmt === 'wav' ? 1411 : (parseInt(singleAudioCfg.br, 10) || 192));
+            const estMB = durSec > 0 ? Math.max(0.05, (brKbps * durSec) / 8000) : srcMB;
+            const estSec = durSec > 0 ? Math.max(0.25, durSec / 120) : 0.5;
+            const delta = srcMB > 0 ? Math.round(((estMB - srcMB) / srcMB) * 100) : 0;
+            const sign = delta <= 0 ? delta + '%' : '+' + delta + '%';
+            const tEl = document.getElementById('perf-time');
+            const fEl = document.getElementById('perf-fps');
+            const sEl = document.getElementById('perf-size');
+            const rEl = document.getElementById('perf-res');
+            if (tEl) tEl.textContent = estSec < 1 ? '<1s' : ('~' + estSec.toFixed(1) + 's');
+            if (fEl) fEl.textContent = '~120x RT · ' + (durSec > 0 ? Math.round(durSec) + 's audio' : 'Audio');
+            if (sEl) sEl.textContent = srcMB > 0 ? (srcMB.toFixed(2) + ' → ' + estMB.toFixed(2) + ' MB (' + sign + ')') : 'Probing size...';
+            if (rEl) rEl.textContent = '~65 MB RAM · <0.1% Batt';
+          };
+          window.refreshSinglePhotoAudioPerf = updateAudioPerf;
 
           let saPresetsOpen = false;
           const BUILTIN_AUD_PRESETS = [
