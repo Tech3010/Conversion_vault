@@ -410,82 +410,9 @@
   };
 
   function renderNativeJobs() {
-    if (!hasBridge || typeof window.AndroidBridge.getJobs !== 'function') return;
-    try {
-      const jobs = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL'));
-      const qBox = document.getElementById('view-queue');
-      const hBox = document.getElementById('hist-list');
-      const cntQ = document.getElementById('cnt-queue');
-      const cntH = document.getElementById('cnt-hist');
-      if (!qBox && !hBox) return;
-
-      const active = jobs.filter(j => j.status === 'RUNNING' || j.status === 'QUEUED');
-      const finished = jobs.filter(j => j.status !== 'RUNNING' && j.status !== 'QUEUED');
-
-      if (cntQ) cntQ.textContent = String(active.length);
-      if (cntH) cntH.textContent = String(finished.length);
-
-      const renderCard = (j) => {
-        const fname = (j.outputPath || j.inputPath || 'job').split('/').pop();
-        const badgeColor = j.status === 'DONE' ? 'var(--emerald)' : (j.status === 'FAILED' ? 'var(--crimson)' : 'var(--gold-text)');
-        const safeOut = (j.outputPath || '').replace(/"/g, '&quot;');
-        const errHtml = j.errorLog
-          ? '<div style="font-family:var(--mono);font-size:10.5px;color:var(--crimson);margin-top:6px;padding:6px 8px;border-radius:6px;background:rgba(219,10,64,0.1);word-break:break-word;">' + String(j.errorLog).replace(/</g, '&lt;').slice(0, 320) + '</div>'
-          : '';
-        return '<div class="card" style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
-            '<strong style="font-size:13px;word-break:break-all;">' + fname + '</strong>' +
-            '<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:' + badgeColor + ';">' + j.status + (j.status === 'RUNNING' ? ' ' + j.progressPct + '%' : '') + '</span>' +
-          '</div>' +
-          '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + j.module + ' · ' + j.mediaType + (j.speed ? ' · ' + j.speed : '') + '</div>' +
-          '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;word-break:break-all;">' + safeOut + '</div>' +
-          errHtml +
-          '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;">' +
-            (j.status === 'DONE' ? '<button type="button" class="btn-open-native" data-path="' + safeOut + '" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--emerald);background:transparent;color:var(--emerald);">Open ▶</button>' : '') +
-            (j.status === 'DONE' ? '<button type="button" class="btn-share-native" data-path="' + safeOut + '" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);">Share ↗</button>' : '') +
-            (j.status === 'RUNNING' || j.status === 'QUEUED' ? '<button type="button" class="btn-cancel-native" data-id="' + j.id + '" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--crimson);background:transparent;color:var(--crimson);">Cancel</button>' : '') +
-            '<button type="button" class="btn-del-native" data-id="' + j.id + '" style="padding:6px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);">Remove</button>' +
-          '</div>' +
-        '</div>';
-      };
-
-      if (qBox) {
-        qBox.innerHTML = active.length
-          ? active.map(renderCard).join('')
-          : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;">No active jobs running right now. Check the <strong>History</strong> tab for completed or failed conversions.</div>';
-      }
-      if (hBox) {
-        hBox.innerHTML = finished.length
-          ? finished.map(renderCard).join('')
-          : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;">No conversion history yet. Pick a file and run any tool to see outputs here.</div>';
-      }
-
-      // If no active jobs are running but history has entries, auto-open History tab on first load
-      if (!window.__autoSwitchedHist && active.length === 0 && finished.length > 0) {
-        window.__autoSwitchedHist = true;
-        const histBtn = document.querySelector('[data-view="history"]');
-        if (histBtn) histBtn.click();
-      }
-
-      document.querySelectorAll('.btn-open-native').forEach(b => {
-        b.addEventListener('click', () => window.AndroidBridge.openFile(b.getAttribute('data-path')));
-      });
-      document.querySelectorAll('.btn-share-native').forEach(b => {
-        b.addEventListener('click', () => window.AndroidBridge.shareFile(b.getAttribute('data-path')));
-      });
-      document.querySelectorAll('.btn-cancel-native').forEach(b => {
-        b.addEventListener('click', () => {
-          window.AndroidBridge.cancelJob(b.getAttribute('data-id'));
-          setTimeout(renderNativeJobs, 250);
-        });
-      });
-      document.querySelectorAll('.btn-del-native').forEach(b => {
-        b.addEventListener('click', () => {
-          window.AndroidBridge.deleteJob(b.getAttribute('data-id'), false);
-          renderNativeJobs();
-        });
-      });
-    } catch (_) {}
+    if (typeof window.refreshVaultQueueHistory === 'function') {
+      window.refreshVaultQueueHistory();
+    }
   }
 
   function enqueueSimpleToolJob(moduleName, mediaType, ext, commandArgs, baseNameOverride) {

@@ -323,15 +323,95 @@
       filter: 'all',
       subFilter: 'all',
       pendingConfirm: null,
+      openIds: new Set(),
+      userPickedTab: false,
       queue: [],
       history: []
     };
 
     function showToast(msg) {
       const t = document.getElementById('toast');
+      if (!t) return;
       t.textContent = msg;
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function esc(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function mapModuleKey(mod) {
+      const m = String(mod || '').toLowerCase();
+      if (m.includes('metadata')) return ['metadata', 'Metadata Modifier'];
+      if (m.includes('compress')) return ['compressor', 'Target Compressor'];
+      if (m.includes('audio')) return ['audio', 'Audio Extract & Mute'];
+      if (m.includes('trim') || m.includes('gif')) return ['trim', 'Trim & GIF'];
+      if (m.includes('thumb')) return ['thumb', 'Thumbnail Capturer'];
+      return ['vault_core', 'Vault Core'];
+    }
+
+    function fmtWhen(ts) {
+      if (!ts) return 'Recently';
+      try {
+        const d = new Date(ts);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      } catch (_) { return 'Recently'; }
+    }
+
+    function loadJobsFromNative() {
+      if (!window.AndroidBridge || typeof window.AndroidBridge.getJobs !== 'function') {
+        render();
+        return;
+      }
+      try {
+        const raw = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL') || '[]');
+        const q = [];
+        const h = [];
+        raw.forEach(j => {
+          const id = String(j.id);
+          const [modKey, modLabel] = mapModuleKey(j.module);
+          const cat = String(j.mediaType || 'Video').toLowerCase();
+          const outPath = j.outputPath || '';
+          const title = (outPath || j.inputPath || 'Media Job').split('/').pop();
+          const st = String(j.status || '').toUpperCase();
+
+          if (st === 'RUNNING' || st === 'QUEUED') {
+            q.push({
+              id: id,
+              title: title,
+              sub: modLabel + ' · ' + (j.mediaType || 'Media'),
+              dest: outPath,
+              status: st === 'RUNNING' ? 'running' : 'queued',
+              pct: j.progressPct || 0,
+              speed: st === 'RUNNING' ? ((j.fps ? Math.round(j.fps) + ' fps · ' : '') + (j.speed || 'Encoding...')) : 'Waiting in queue'
+            });
+          } else {
+            h.push({
+              id: id,
+              mod: modKey,
+              modLabel: modLabel,
+              cat: cat.includes('aud') ? 'audio' : (cat.includes('img') || cat.includes('ima') ? 'image' : 'video'),
+              status: st === 'DONE' ? 'done' : (st === 'CANCELLED' ? 'cancelled' : 'failed'),
+              open: state.openIds.has(id),
+              title: title,
+              when: fmtWhen(j.createdAt),
+              preset: modLabel + ' · ' + (j.mediaType || 'Media'),
+              delta: st === 'DONE' ? 'Saved cleanly ✓' : (st === 'CANCELLED' ? 'Cancelled by user' : 'Failed — tap Details ▾'),
+              dest: outPath,
+              inputPath: j.inputPath || '',
+              cmd: j.errorLog ? ('ERROR: ' + j.errorLog) : ('Output: ' + outPath)
+            });
+          }
+        });
+        state.queue = q;
+        state.history = h;
+
+        if (!state.userPickedTab) {
+          state.view = (q.length > 0) ? 'queue' : (h.length > 0 ? 'history' : 'queue');
+        }
+      } catch (_) {}
+      render();
     }
 
     function render() {
@@ -345,7 +425,7 @@
       // Render Active Queue
       const qWrap = document.getElementById('view-queue');
       if (state.queue.length === 0) {
-        qWrap.innerHTML = '<div class="empty-box">No active conversions running right now.</div>';
+        qWrap.innerHTML = '<div class="empty-box">No active conversions running right now.' + (state.history.length ? ' Tap <strong>History</strong> above to see your finished files.' : '') + '</div>';
       } else {
         qWrap.innerHTML = state.queue.map(q => {
           const isRun = q.status === 'running';
@@ -354,24 +434,19 @@
               <div class="job-main">
                 <div class="job-top">
                   <div style="min-width:0;">
-                    <div class="job-title">${q.title}</div>
-                    <div class="job-sub">${q.sub}</div>
+                    <div class="job-title">${esc(q.title)}</div>
+                    <div class="job-sub">${esc(q.sub)}</div>
                   </div>
-                  <span class="status-pill ${isRun ? 'sp-run' : 'sp-wait'}">${isRun ? (q.paused ? 'PAUSED' : q.pct + '%') : 'QUEUED'}</span>
+                  <span class="status-pill ${isRun ? 'sp-run' : 'sp-wait'}">${isRun ? (q.pct + '%') : 'QUEUED'}</span>
                 </div>
-                ${isRun ? `<div class="prog-track"><div class="prog-fill" style="width:${q.pct}%;"></div></div>` : ''}
+                ${isRun ? `<div class="prog-track"><div class="prog-fill" style="width:${Math.max(4, q.pct)}%;"></div></div>` : ''}
                 <div class="job-metrics">
-                  <span>${q.speed}</span>
-                  <span>→ ${q.dest}</span>
+                  <span>${esc(q.speed)}</span>
+                  <span style="word-break:break-all;">→ ${esc(q.dest)}</span>
                 </div>
                 <div class="job-actions">
-                  ${isRun ? `
-                    <button type="button" class="btn-sm primary" data-qact="open" data-id="${q.id}">View Engine ↗</button>
-                    <button type="button" class="btn-sm" data-qact="pause" data-id="${q.id}">${q.paused ? '▶ Resume' : '⏸ Pause'}</button>
-                    <button type="button" class="btn-sm" data-qact="cancel" data-id="${q.id}">■ Cancel</button>
-                  ` : `
-                    <button type="button" class="btn-sm" data-qact="remove" data-id="${q.id}">× Remove</button>
-                  `}
+                  <button type="button" class="btn-sm" data-qact="cancel" data-id="${esc(q.id)}">■ Cancel</button>
+                  <button type="button" class="btn-sm" data-qact="remove" data-id="${esc(q.id)}">× Remove</button>
                 </div>
               </div>
             </div>
@@ -403,28 +478,29 @@
             <div class="job-main">
               <div class="job-top">
                 <div style="min-width:0;">
-                  <span class="mod-tag">${h.modLabel || "Vault Core"}</span><div class="job-title">${h.title}</div>
-                  <div class="job-sub">${h.preset} · ${h.when}</div>
+                  <span class="mod-tag">${esc(h.modLabel)}</span>
+                  <div class="job-title">${esc(h.title)}</div>
+                  <div class="job-sub">${esc(h.preset)} · ${esc(h.when)}</div>
                 </div>
-                <span class="status-pill ${h.status === 'done' ? 'sp-done' : 'sp-fail'}">${h.status === 'done' ? 'DONE' : 'CANCELLED'}</span>
+                <span class="status-pill ${h.status === 'done' ? 'sp-done' : 'sp-fail'}">${h.status.toUpperCase()}</span>
               </div>
               <div class="job-metrics">
-                <span class="${h.status === 'done' ? 'c-emerald' : 'c-gold'}">${h.delta}</span>
-                <span>Time: ${h.dur}</span>
+                <span class="${h.status === 'done' ? 'c-emerald' : 'c-gold'}">${esc(h.delta)}</span>
               </div>
               <div class="job-actions">
-                ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="folder" data-id="${h.id}">File Manager ↗</button>` : ''}
-                <button type="button" class="btn-sm" data-hact="rerun" data-id="${h.id}">${h.status === 'done' ? 'Edit &amp; Re-run ↻' : 'Re-queue Now ↻'}</button>
-                <button type="button" class="btn-sm" data-hact="toggle" data-id="${h.id}">${h.open ? 'Hide Details ▴' : 'Details ▾'}</button>
+                ${h.status === 'done' ? `<button type="button" class="btn-sm primary" data-hact="open" data-id="${esc(h.id)}">Open ▶</button>` : ''}
+                ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="share" data-id="${esc(h.id)}">Share ↗</button>` : ''}
+                ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="folder" data-id="${esc(h.id)}">Folder ↗</button>` : ''}
+                <button type="button" class="btn-sm" data-hact="toggle" data-id="${esc(h.id)}">${h.open ? 'Hide ▴' : 'Details ▾'}</button>
               </div>
             </div>
             ${h.open ? `
               <div class="hist-drawer">
-                <div><strong>Saved To:</strong> ${h.dest}</div>
-                <div class="cmd-box">${h.cmd}</div>
+                <div style="word-break:break-all;"><strong>Saved To:</strong> ${esc(h.dest)}</div>
+                <div class="cmd-box" style="word-break:break-word;">${esc(h.cmd)}</div>
                 <div style="display:flex; justify-content:flex-end; gap:8px;">
-                  <button type="button" class="btn-sm" data-hact="delete" data-id="${h.id}">Remove Log</button>
-                  ${h.status === 'done' ? `<button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-hact="delfile" data-id="${h.id}">Delete File</button>` : ''}
+                  <button type="button" class="btn-sm" data-hact="delete" data-id="${esc(h.id)}">Remove Log</button>
+                  ${h.status === 'done' ? `<button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-hact="delfile" data-id="${esc(h.id)}">Delete File</button>` : ''}
                 </div>
               </div>
             ` : ''}
@@ -433,18 +509,23 @@
       }
     }
 
-    // Live gentle progress tick for running queue item
+    window.refreshVaultQueueHistory = function() {
+      loadJobsFromNative();
+    };
+
+    // Poll Room DB every 1s while any job is running/queued so progress bars & completion transition smoothly
     setInterval(() => {
-      const r = state.queue.find(q => q.status === 'running' && !q.paused);
-      if (r) {
-        r.pct = r.pct >= 99 ? 12 : r.pct + 1;
-        render();
-      }
-    }, 900);
+      if (state.queue.length > 0) loadJobsFromNative();
+    }, 1000);
 
     document.addEventListener('click', (e) => {
       const st = e.target.closest('.seg-tab');
-      if (st) { state.view = st.getAttribute('data-view'); render(); return; }
+      if (st) {
+        state.userPickedTab = true;
+        state.view = st.getAttribute('data-view');
+        loadJobsFromNative();
+        return;
+      }
 
       const fc = e.target.closest('.f-chip');
       if (fc) { state.filter = fc.getAttribute('data-filter'); state.subFilter = 'all'; render(); return; }
@@ -454,28 +535,15 @@
       const qa = e.target.closest('[data-qact]');
       if (qa) {
         const act = qa.getAttribute('data-qact');
-        const id = parseInt(qa.getAttribute('data-id'), 10);
-        const job = state.queue.find(q => q.id === id);
-        if (!job) return;
-        if (act === 'open') showToast('Opening Live Engine Telemetry →');
-        else if (act === 'pause') { job.paused = !job.paused; render(); }
-        else if (act === 'cancel' || act === 'remove') {
-          state.queue = state.queue.filter(q => q.id !== id);
-          state.history.unshift({
-            id: Date.now(),
-            cat: job.title.toLowerCase().includes('.wav') || job.title.toLowerCase().includes('opus') ? 'audio' : 'video',
-            status: 'cancelled',
-            open: false,
-            title: job.title,
-            when: 'Just now',
-            preset: job.sub,
-            delta: act === 'cancel' ? ('Cancelled at ' + job.pct + '%') : 'Removed from queue',
-            dur: '—',
-            dest: 'Not saved (Cancelled)',
-            cmd: 'Cancelled by user before completion'
-          });
-          showToast('Moved to History (Cancelled)');
-          render();
+        const id = qa.getAttribute('data-id');
+        if (act === 'cancel' && window.AndroidBridge && window.AndroidBridge.cancelJob) {
+          window.AndroidBridge.cancelJob(id);
+          showToast('Cancelled job');
+          setTimeout(loadJobsFromNative, 250);
+        } else if (act === 'remove' && window.AndroidBridge && window.AndroidBridge.deleteJob) {
+          window.AndroidBridge.deleteJob(id, false);
+          showToast('Removed from queue');
+          loadJobsFromNative();
         }
         return;
       }
@@ -483,58 +551,39 @@
       const ha = e.target.closest('[data-hact]');
       if (ha) {
         const act = ha.getAttribute('data-hact');
-        const id = parseInt(ha.getAttribute('data-id'), 10);
+        const id = ha.getAttribute('data-id');
         const item = state.history.find(h => h.id === id);
         if (!item) return;
-        if (act === 'toggle') { item.open = !item.open; render(); }
-        else if (act === 'folder') showToast('Opening ' + item.dest + ' in File Manager →');
-        else if (act === 'rerun') {
-          if (item.status === 'done') {
-            showToast('Opening Format Selection with "' + item.preset + '" loaded →');
-          } else {
-            state.queue.push({
-              id: Date.now(),
-              title: item.title,
-              sub: item.preset + ' · Re-queued from stopped',
-              dest: '/ConversionVault/Videos/' + item.title,
-              status: 'queued',
-              paused: false,
-              pct: 0,
-              speed: 'Waiting in queue'
-            });
-            state.view = 'queue';
-            render();
-            showToast('Re-queued "' + item.title + '" into Active Queue');
-          }
-        }
-        else if (act === 'delete') {
-          state.history = state.history.filter(h => h.id !== id);
-          showToast('Log removed');
+        if (act === 'toggle') {
+          if (state.openIds.has(id)) state.openIds.delete(id); else state.openIds.add(id);
+          item.open = state.openIds.has(id);
           render();
+        } else if (act === 'open' && window.AndroidBridge && window.AndroidBridge.openFile) {
+          window.AndroidBridge.openFile(item.dest);
+        } else if (act === 'share' && window.AndroidBridge && window.AndroidBridge.shareFile) {
+          window.AndroidBridge.shareFile(item.dest);
+        } else if (act === 'folder' && window.AndroidBridge && window.AndroidBridge.openFolder) {
+          const dir = item.dest.lastIndexOf('/') > 0 ? item.dest.substring(0, item.dest.lastIndexOf('/')) : '';
+          window.AndroidBridge.openFolder(dir);
+        } else if (act === 'delete' && window.AndroidBridge && window.AndroidBridge.deleteJob) {
+          window.AndroidBridge.deleteJob(id, false);
+          showToast('Log removed');
+          loadJobsFromNative();
         } else if (act === 'delfile') {
-          state.pendingConfirm = { type: 'delfile', id: item.id, title: item.title };
+          state.pendingConfirm = { type: 'delfile', id: id, title: item.title };
           document.getElementById('confirm-title').textContent = 'Delete Output File?';
-          document.getElementById('confirm-desc').textContent =
-            'This will permanently delete "' + item.title + '" from device storage (' + item.dest + ') and remove this log entry.';
+          document.getElementById('confirm-desc').textContent = 'Permanently delete "' + item.title + '" from storage and remove this log?';
           document.getElementById('btn-confirm-yes').textContent = 'Yes, Delete File';
           document.getElementById('confirm-modal').classList.remove('hidden');
         }
         return;
-      }
-
-      const nav = e.target.closest('[data-nav]');
-      if (nav) {
-        const target = nav.getAttribute('data-nav');
-        if (target === 'home') showToast('Navigating to Home →');
-        else if (target === 'settings') showToast('Navigating to Settings →');
       }
     });
 
     document.getElementById('btn-clear-hist').addEventListener('click', () => {
       state.pendingConfirm = { type: 'clear' };
       document.getElementById('confirm-title').textContent = 'Clear Conversion History?';
-      document.getElementById('confirm-desc').textContent =
-        'This will permanently remove all ' + state.history.length + ' conversion log(s) from History. Your converted files on storage will not be deleted.';
+      document.getElementById('confirm-desc').textContent = 'This removes all finished logs from History. Your converted files on storage will not be deleted.';
       document.getElementById('btn-confirm-yes').textContent = 'Yes, Clear History';
       document.getElementById('confirm-modal').classList.remove('hidden');
     });
@@ -543,21 +592,21 @@
       document.getElementById('confirm-modal').classList.add('hidden');
     });
     document.getElementById('btn-confirm-yes').addEventListener('click', () => {
-      if (state.pendingConfirm && state.pendingConfirm.type === 'delfile') {
-        const delId = state.pendingConfirm.id;
-        const delName = state.pendingConfirm.title;
-        state.history = state.history.filter(h => h.id !== delId);
-        showToast('Deleted file: ' + delName);
-      } else {
-        state.history = [];
-        showToast('History cleared');
-      }
+      const p = state.pendingConfirm;
       state.pendingConfirm = null;
       document.getElementById('confirm-modal').classList.add('hidden');
-      render();
+      if (!p || !window.AndroidBridge) return;
+      if (p.type === 'clear' && window.AndroidBridge.clearHistory) {
+        window.AndroidBridge.clearHistory(false);
+        showToast('History cleared');
+      } else if (p.type === 'delfile' && window.AndroidBridge.deleteJob) {
+        window.AndroidBridge.deleteJob(p.id, true);
+        showToast('Deleted ' + p.title);
+      }
+      loadJobsFromNative();
     });
 
-    render();
+    loadJobsFromNative();
   </script>
   <script src="vault-bridge.js"></script>
 </body>

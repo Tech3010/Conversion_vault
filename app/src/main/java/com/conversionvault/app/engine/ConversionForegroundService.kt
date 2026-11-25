@@ -48,6 +48,7 @@ class ConversionForegroundService : Service() {
     private var activeSession: FFmpegSession? = null
     private var activeJobId: String? = null
     private var isProcessing = false
+    private var lastDbTickMs = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -214,6 +215,20 @@ class ConversionForegroundService : Service() {
                         val speed = String.format(Locale.US, "%.2fx", stats.speed)
                         nm.notify(JOB_NOTIFICATION_ID, buildJobNotification("Encoding ${File(job.outputPath).name}", "$pct% · ${fps.toInt()} fps · $speed", pct, false))
                         emitEvent("job_progress", job.id, pct, fps, speed)
+                        val now = System.currentTimeMillis()
+                        if (now - lastDbTickMs >= 900L) {
+                            lastDbTickMs = now
+                            serviceScope.launch {
+                                try {
+                                    val dao = VaultDatabase.getInstance(applicationContext).jobDao()
+                                    dao.getJobById(job.id)?.let { cur ->
+                                        if (cur.status == "RUNNING") {
+                                            dao.upsertJob(cur.copy(progressPct = pct, fps = fps, speed = speed, updatedAt = now))
+                                        }
+                                    }
+                                } catch (_: Throwable) {}
+                            }
+                        }
                     } catch (_: Throwable) {}
                 }
             )
