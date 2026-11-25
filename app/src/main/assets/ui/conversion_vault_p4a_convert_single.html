@@ -479,9 +479,24 @@
       if (fRun) fRun.classList.toggle('hidden', !isActive);
       if (fDone) fDone.classList.toggle('hidden', isActive);
 
-      if (!isActive && pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
+      if (!isActive) {
+        // Check if more jobs are still RUNNING or QUEUED in a multi-file batch; if so, auto-advance to the next active job!
+        let nextActive = null;
+        try {
+          if (window.AndroidBridge && window.AndroidBridge.getJobs) {
+            const all = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL') || '[]');
+            nextActive = all.find(x => x.status === 'RUNNING') || all.find(x => x.status === 'QUEUED') || null;
+          }
+        } catch (_) {}
+        if (nextActive && nextActive.id && nextActive.id !== activeJobId) {
+          activeJobId = String(nextActive.id);
+          try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', activeJobId); } catch (_) {}
+          return;
+        }
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
       }
     }
 

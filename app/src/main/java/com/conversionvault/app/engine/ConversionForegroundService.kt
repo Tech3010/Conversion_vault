@@ -24,6 +24,7 @@ import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ConversionForegroundService : Service() {
 
@@ -47,7 +48,7 @@ class ConversionForegroundService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var activeSession: FFmpegSession? = null
     private var activeJobId: String? = null
-    private var isProcessing = false
+    private val isProcessing = AtomicBoolean(false)
     private var lastDbTickMs = 0L
 
     override fun onCreate() {
@@ -113,8 +114,7 @@ class ConversionForegroundService : Service() {
             }
             ACTION_START_QUEUE, null -> {
                 startForegroundSafe("Engine session active · Processing queue")
-                if (!isProcessing) {
-                    isProcessing = true
+                if (isProcessing.compareAndSet(false, true)) {
                     processNextInQueue()
                 }
             }
@@ -127,64 +127,99 @@ class ConversionForegroundService : Service() {
             val dao = VaultDatabase.getInstance(applicationContext).jobDao()
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             try {
+                // Recover any orphaned RUNNING jobs from a previous OS-killed session
+                try {
+                    dao.getAllJobs().filter { it.status == "RUNNING" }.forEach { stale ->
+                        dao.upsertJob(stale.copy(status = "QUEUED", progressPct = 0, updatedAt = System.currentTimeMillis()))
+                    }
+                } catch (_: Throwable) {}
+
+                var completedInRun = 0
                 while (true) {
                     val job = dao.getNextQueuedJob() ?: break
                     activeJobId = job.id
-                    try { if (wakeLock?.isHeld == false) wakeLock?.acquire(60 * 60 * 1000L) } catch (_: Throwable) {}
-
-                    val running = job.copy(status = "RUNNING", updatedAt = System.currentTimeMillis())
-                    dao.upsertJob(running)
-                    emitEvent("job_started", job.id, 0, 0f, "")
-                    updateSessionNotification("Engine session active · Encoding 1 job")
                     try {
-                        nm.notify(JOB_NOTIFICATION_ID, buildJobNotification("Encoding ${File(job.outputPath).name}", "Starting FFmpeg...", 0, true))
-                    } catch (_: Throwable) {}
-
-                    val result = executeJobBlocking(running)
-                    val finished = dao.getJobById(job.id) ?: running
-                    if (finished.status != "CANCELLED") {
-                        val finalStatus = if (result.first) "DONE" else "FAILED"
-                        dao.upsertJob(
-                            finished.copy(
-                                status = finalStatus,
-                                progressPct = if (result.first) 100 else finished.progressPct,
-                                errorLog = if (result.first) "" else result.second,
-                                updatedAt = System.currentTimeMillis()
+                        try { if (wakeLock?.isHeld == false) wakeLock?.acquire(60 * 60 * 1000L) } catch (_: Throwable) {}
+                        val remaining = try { dao.getAllJobs().count { it.status == "QUEUED" || it.status == "RUNNING" } } catch (_: Throwable) { 1 }
+                        val running = job.copy(status = "RUNNING", updatedAt = System.currentTimeMillis())
+                        dao.upsertJob(running)
+                        emitEvent("job_started", job.id, 0, 0f, "")
+                        updateSessionNotification("Batch active · ${completedInRun + 1} of ${completedInRun + remaining}")
+                        try {
+                            nm.notify(
+                                JOB_NOTIFICATION_ID,
+                                buildJobNotification("(${completedInRun + 1}/${completedInRun + remaining}) ${File(job.outputPath).name}", "Starting engine...", 0, true)
                             )
-                        )
-                        if (result.first) {
-                            try {
-                                MediaScannerConnection.scanFile(applicationContext, arrayOf(job.outputPath), null, null)
-                            } catch (_: Throwable) {}
-                        }
-                        emitEvent(if (result.first) "job_done" else "job_failed", job.id, if (result.first) 100 else finished.progressPct, 0f, result.second)
+                        } catch (_: Throwable) {}
 
-                        if (result.first && job.originalPolicy == "DELETE_AFTER_VERIFY") {
-                            try {
-                                val outFile = File(job.outputPath)
-                                val inFile = File(job.inputPath)
-                                if (outFile.exists() && outFile.length() > 0 && inFile.exists() && inFile.absolutePath != outFile.absolutePath) {
-                                    inFile.delete()
-                                }
-                            } catch (_: Throwable) {}
+                        val result = executeJobBlocking(running)
+                        val finished = dao.getJobById(job.id) ?: running
+                        val outFile = File(job.outputPath)
+
+                        if (finished.status == "CANCELLED") {
+                            // Remove incomplete partial output on cancel
+                            try { if (outFile.exists() && outFile.absolutePath != File(job.inputPath).absolutePath) outFile.delete() } catch (_: Throwable) {}
+                        } else {
+                            val verifiedOk = result.first && outFile.exists() && outFile.length() > 0L
+                            if (!verifiedOk) {
+                                // Remove incomplete/corrupt partial output so unplayable files are never left behind
+                                try { if (outFile.exists() && outFile.absolutePath != File(job.inputPath).absolutePath) outFile.delete() } catch (_: Throwable) {}
+                            }
+                            val finalStatus = if (verifiedOk) "DONE" else "FAILED"
+                            val errText = if (verifiedOk) "" else (result.second.ifBlank { "Output file empty or incomplete" })
+                            dao.upsertJob(
+                                finished.copy(
+                                    status = finalStatus,
+                                    progressPct = if (verifiedOk) 100 else finished.progressPct,
+                                    errorLog = errText,
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                            if (verifiedOk) {
+                                try {
+                                    MediaScannerConnection.scanFile(applicationContext, arrayOf(job.outputPath), null, null)
+                                } catch (_: Throwable) {}
+                            }
+                            emitEvent(if (verifiedOk) "job_done" else "job_failed", job.id, if (verifiedOk) 100 else finished.progressPct, 0f, errText)
+
+                            if (verifiedOk && job.originalPolicy == "DELETE_AFTER_VERIFY") {
+                                try {
+                                    val inFile = File(job.inputPath)
+                                    if (inFile.exists() && inFile.absolutePath != outFile.absolutePath) {
+                                        inFile.delete()
+                                    }
+                                } catch (_: Throwable) {}
+                            }
                         }
+                        completedInRun++
+                    } catch (jobErr: Throwable) {
+                        // Per-job catch: mark THIS job failed, delete partial file, and CONTINUE to all remaining queued jobs!
+                        try {
+                            val outFile = File(job.outputPath)
+                            if (outFile.exists() && outFile.absolutePath != File(job.inputPath).absolutePath) outFile.delete()
+                        } catch (_: Throwable) {}
+                        try {
+                            dao.getJobById(job.id)?.let { j ->
+                                dao.upsertJob(j.copy(status = "FAILED", errorLog = "${jobErr.javaClass.simpleName}: ${jobErr.message}", updatedAt = System.currentTimeMillis()))
+                            }
+                            emitEvent("job_failed", job.id, 0, 0f, jobErr.message ?: "Job error")
+                        } catch (_: Throwable) {}
+                    } finally {
+                        activeJobId = null
+                        activeSession = null
                     }
-                    activeJobId = null
-                    activeSession = null
-                }
-            } catch (t: Throwable) {
-                activeJobId?.let { id ->
-                    try {
-                        dao.getJobById(id)?.let { j ->
-                            dao.upsertJob(j.copy(status = "FAILED", errorLog = "${t.javaClass.simpleName}: ${t.message}", updatedAt = System.currentTimeMillis()))
-                        }
-                    } catch (_: Throwable) {}
                 }
             } finally {
                 try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Throwable) {}
-                isProcessing = false
+                isProcessing.set(false)
                 try { nm.cancel(JOB_NOTIFICATION_ID) } catch (_: Throwable) {}
                 updateSessionNotification("Engine session active · Ready")
+                // Safety re-check: if new jobs arrived right as we exited the loop, re-trigger once!
+                try {
+                    if (dao.getNextQueuedJob() != null && isProcessing.compareAndSet(false, true)) {
+                        processNextInQueue()
+                    }
+                } catch (_: Throwable) {}
             }
         }
     }

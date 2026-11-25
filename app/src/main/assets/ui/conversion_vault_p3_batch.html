@@ -1866,15 +1866,21 @@
       });
       renderAll();
 
-      if (window.AndroidBridge && typeof window.AndroidBridge.probeFile === 'function') {
+      const probeFn = (window.AndroidBridge && typeof window.AndroidBridge.quickProbeFile === 'function')
+        ? (p) => window.AndroidBridge.quickProbeFile(p)
+        : ((window.AndroidBridge && typeof window.AndroidBridge.probeFile === 'function') ? (p) => window.AndroidBridge.probeFile(p) : null);
+      if (probeFn) {
         let idx = 0;
         const probeNext = () => {
-          if (idx >= state.files.length) return;
+          if (idx >= state.files.length) { renderAll(); return; }
           const item = state.files[idx++];
-          if (item && item.path) {
-            try {
-              const info = JSON.parse(window.AndroidBridge.probeFile(item.path) || '{}');
-              if (info && info.ok) {
+          if (item) {
+            let ok = false;
+            if (item.path) {
+              try {
+                const info = JSON.parse(probeFn(item.path) || '{}');
+                if (info && info.ok) {
+                  ok = true;
                 if (info.sizeBytes > 0) item.sizeMB = info.sizeBytes / (1024 * 1024);
                 if (info.durationSec > 0) item.durSec = info.durationSec;
                 if (info.width > 0) item.width = info.width;
@@ -1910,13 +1916,20 @@
                   padding: '—',
                   raw: info.tagsSummary || 'No metadata tags detected'
                 };
-              }
-            } catch (_) {}
+                }
+              } catch (_) {}
+            }
+            if (!ok) {
+              item.res = item.sizeMB > 0 ? (item.sizeMB.toFixed(1) + ' MB') : 'Ready';
+            }
           }
-          renderAll();
-          if (idx < state.files.length) setTimeout(probeNext, 20);
+          if (idx % 5 === 0 || idx >= state.files.length) renderAll();
+          if (idx < state.files.length) setTimeout(probeNext, 5);
         };
-        setTimeout(probeNext, 30);
+        setTimeout(probeNext, 10);
+      } else {
+        state.files.forEach(it => { it.res = it.sizeMB > 0 ? (it.sizeMB.toFixed(1) + ' MB') : 'Ready'; });
+        renderAll();
       }
     };
     function syncBatchSavedPresetsFromRoom() {

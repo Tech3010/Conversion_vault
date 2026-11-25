@@ -3,6 +3,7 @@ package com.conversionvault.app.bridge
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import androidx.exifinterface.media.ExifInterface
 import android.media.MediaScannerConnection
 import android.net.Uri
@@ -104,10 +105,122 @@ class AndroidBridge(
     }
 
     @JavascriptInterface
+    fun quickProbeFile(uriOrPath: String): String {
+        return try {
+            val path = VaultStorageManager.resolveInputPath(context, uriOrPath)
+            val file = File(path)
+            val ext = file.extension.lowercase(Locale.US)
+            val sizeBytes = if (file.exists()) file.length() else 0L
+
+            if (NativePhotoEngine.isImageExtension(ext)) {
+                var w = 0
+                var h = 0
+                try {
+                    val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(file.absolutePath, opts)
+                    w = opts.outWidth.coerceAtLeast(0)
+                    h = opts.outHeight.coerceAtLeast(0)
+                } catch (_: Throwable) {}
+                var cameraModel = ""
+                var hasGps = false
+                var exifOrient = "Normal (0°)"
+                try {
+                    val ex = ExifInterface(file.absolutePath)
+                    val mk = ex.getAttribute(ExifInterface.TAG_MAKE) ?: ""
+                    val md = ex.getAttribute(ExifInterface.TAG_MODEL) ?: ""
+                    cameraModel = listOf(mk, md).filter { it.isNotBlank() }.joinToString(" ").trim()
+                    if (!ex.getAttribute(ExifInterface.TAG_GPS_LATITUDE).isNullOrBlank()) hasGps = true
+                    val oInt = ex.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+                    exifOrient = when (oInt) {
+                        ExifInterface.ORIENTATION_ROTATE_90 -> "90° CW"
+                        ExifInterface.ORIENTATION_ROTATE_180 -> "180°"
+                        ExifInterface.ORIENTATION_ROTATE_270 -> "270° CW"
+                        else -> "Normal (0°)"
+                    }
+                    if (oInt == ExifInterface.ORIENTATION_ROTATE_90 || oInt == ExifInterface.ORIENTATION_ROTATE_270) {
+                        val tmp = w; w = h; h = tmp
+                    }
+                } catch (_: Throwable) {}
+                return JSONObject().apply {
+                    put("ok", true)
+                    put("path", path)
+                    put("filename", file.name)
+                    put("format", ext.uppercase(Locale.US))
+                    put("durationSec", 0.0)
+                    put("sizeBytes", sizeBytes)
+                    put("bitrate", 0L)
+                    put("streamCount", 1)
+                    put("subtitleCount", 0)
+                    put("videoCodec", ext.uppercase(Locale.US))
+                    put("videoProfile", "—")
+                    put("pixFmt", "sRGB")
+                    put("width", w)
+                    put("height", h)
+                    put("fps", 0.0)
+                    put("colorSpace", "sRGB")
+                    put("audioCodec", "None")
+                    put("sampleRate", "—")
+                    put("channels", 0)
+                    put("audioBitrate", 0L)
+                    put("cameraModel", cameraModel)
+                    put("exifOrientation", exifOrient)
+                    put("hasGps", hasGps)
+                    put("tagsSummary", if (cameraModel.isNotBlank()) "Camera: $cameraModel" else "No metadata tags detected")
+                }.toString()
+            }
+
+            val mmr = MediaMetadataRetriever()
+            try {
+                mmr.setDataSource(file.absolutePath)
+                val durMs = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                val w = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+                val h = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+                val br = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull() ?: 0L
+                val fps = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toDoubleOrNull() ?: 0.0
+                val mime = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE) ?: ext
+                val sr = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE) ?: "—"
+                val isAudio = mime.startsWith("audio/", true) || w == 0
+                JSONObject().apply {
+                    put("ok", true)
+                    put("path", path)
+                    put("filename", file.name)
+                    put("format", ext.uppercase(Locale.US))
+                    put("durationSec", durMs / 1000.0)
+                    put("sizeBytes", sizeBytes)
+                    put("bitrate", br)
+                    put("streamCount", if (isAudio) 1 else 2)
+                    put("subtitleCount", 0)
+                    put("videoCodec", if (isAudio) "None" else ext.uppercase(Locale.US))
+                    put("videoProfile", "—")
+                    put("pixFmt", "—")
+                    put("width", w)
+                    put("height", h)
+                    put("fps", if (fps > 0.0) fps else if (!isAudio) 30.0 else 0.0)
+                    put("colorSpace", "—")
+                    put("audioCodec", if (isAudio) ext.uppercase(Locale.US) else "AAC")
+                    put("sampleRate", sr)
+                    put("channels", if (isAudio) 2 else 0)
+                    put("audioBitrate", if (isAudio) br else 0L)
+                    put("hasGps", false)
+                    put("tagsSummary", "MIME: $mime")
+                }.toString()
+            } finally {
+                try { mmr.release() } catch (_: Throwable) {}
+            }
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", "${t.javaClass.simpleName}: ${t.message}").toString()
+        }
+    }
+
+    @JavascriptInterface
     fun probeFile(uriOrPath: String): String {
         return try {
         val path = VaultStorageManager.resolveInputPath(context, uriOrPath)
         val file = File(path)
+        if (NativePhotoEngine.isImageExtension(file.extension)) {
+            val fastPhoto = quickProbeFile(path)
+            if (JSONObject(fastPhoto).optBoolean("ok", false)) return fastPhoto
+        }
         val infoSession = FFprobeKit.getMediaInformation(path)
         val info = infoSession.mediaInformation
         return if (info != null) {
@@ -217,7 +330,8 @@ class AndroidBridge(
                 put("raw", rawProps)
             }.toString()
         } else {
-            JSONObject().apply {
+            val fallback = quickProbeFile(path)
+            if (JSONObject(fallback).optBoolean("ok", false)) fallback else JSONObject().apply {
                 put("ok", false)
                 put("path", path)
                 put("filename", file.name)
@@ -296,6 +410,101 @@ class AndroidBridge(
             put("jobId", id)
             put("outputPath", outFile.absolutePath)
         }.toString()
+        } catch (t: Throwable) {
+            JSONObject().apply {
+                put("ok", false)
+                put("error", "${t.javaClass.simpleName}: ${t.message}")
+            }.toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun enqueueBatchJobs(jobsJsonArrayStr: String): String {
+        return try {
+            val arr = JSONArray(jobsJsonArrayStr)
+            val defThreads = prefs.getString("default_threads", "auto") ?: "auto"
+            val defPolicy = prefs.getString("original_source_policy", "KEEP") ?: "KEEP"
+            val reservedPaths = mutableSetOf<String>()
+            val entities = mutableListOf<JobEntity>()
+            var firstJobId = ""
+
+            for (i in 0 until arr.length()) {
+                val req = arr.optJSONObject(i) ?: continue
+                val id = req.optString("id", "").ifBlank { UUID.randomUUID().toString() }
+                val module = req.optString("module", "Vault_Core")
+                val mediaType = req.optString("mediaType", "Video")
+                val inputPath = VaultStorageManager.resolveInputPath(context, req.getString("inputPath"))
+                val inFile = File(inputPath)
+
+                val customSubBucket = req.optString("subBucket", "")
+                val customOutDir = req.optString("outputDir", "")
+                val outDir = if (customOutDir.isNotBlank()) File(customOutDir).apply { mkdirs() }
+                else VaultStorageManager.getModuleDir(context, module, customSubBucket.ifBlank { null })
+
+                val baseName = req.optString("outputBaseName", inFile.nameWithoutExtension).ifBlank { inFile.nameWithoutExtension }
+                val ext = req.optString("outputExt", inFile.extension).ifBlank { "mp4" }
+
+                // Prevent two jobs in the same batch from colliding on the same outputPath before files exist
+                var outFile = VaultStorageManager.resolveNonConflictingFile(outDir, baseName, ext)
+                var suffixIdx = 1
+                while (outFile.absolutePath in reservedPaths) {
+                    outFile = File(outDir, "${baseName}_${suffixIdx}.${ext}")
+                    suffixIdx++
+                }
+                reservedPaths.add(outFile.absolutePath)
+
+                val templateArgs = req.optString("commandArgs", "-y -i {INPUT} -c copy {OUTPUT}")
+                val isNativePhotoCmd = templateArgs.trim().startsWith("NATIVE_PHOTO:")
+                val threadsPrefix = if (!isNativePhotoCmd && defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else ""
+                val resolvedArgs = if (isNativePhotoCmd) {
+                    templateArgs.trim()
+                } else {
+                    (threadsPrefix + templateArgs)
+                        .replace("{INPUT}", "\"${inFile.absolutePath}\"")
+                        .replace("{OUTPUT}", "\"${outFile.absolutePath}\"")
+                }
+
+                val policy = req.optString("originalPolicy", defPolicy)
+                val durationMs = req.optLong("durationMs", 0L)
+                val now = System.currentTimeMillis() + i
+                entities.add(
+                    JobEntity(
+                        id = id,
+                        module = module,
+                        mediaType = mediaType,
+                        inputPath = inFile.absolutePath,
+                        outputPath = outFile.absolutePath,
+                        commandArgs = resolvedArgs,
+                        status = "QUEUED",
+                        durationMs = durationMs,
+                        originalPolicy = policy,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+                if (firstJobId.isEmpty()) firstJobId = id
+            }
+
+            if (entities.isNotEmpty()) {
+                runBlocking {
+                    entities.forEach { db.jobDao().upsertJob(it) }
+                }
+                val svcIntent = Intent(context, ConversionForegroundService::class.java).apply {
+                    action = ConversionForegroundService.ACTION_START_QUEUE
+                }
+                try {
+                    ContextCompat.startForegroundService(context, svcIntent)
+                } catch (_: Throwable) {
+                    try { context.startService(svcIntent) } catch (_: Throwable) {}
+                }
+            }
+
+            JSONObject().apply {
+                put("ok", entities.isNotEmpty())
+                put("count", entities.size)
+                put("firstJobId", firstJobId)
+                if (entities.isEmpty()) put("error", "No valid files to queue")
+            }.toString()
         } catch (t: Throwable) {
             JSONObject().apply {
                 put("ok", false)

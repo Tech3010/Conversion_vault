@@ -604,7 +604,7 @@
     syncEmptyFileState(page);
 
     const activeFiles = getActiveFiles();
-    if (activeFiles.length > 0 && page !== 'conversion_vault_p1_home.html' && page !== 'conversion_vault_p2_select.html') {
+    if (activeFiles.length > 0 && page !== 'conversion_vault_p1_home.html' && page !== 'conversion_vault_p2_select.html' && page !== 'conversion_vault_p2a_single.html' && page !== 'conversion_vault_p3_batch.html') {
       probeAndHydrateSingleFile(activeFiles[0]);
     }
 
@@ -1033,6 +1033,15 @@
         }
       }
 
+      if (firstFile) {
+        if (typeof window.updateSingleFileFromProbe === 'function') {
+          window.updateSingleFileFromProbe(firstFile, null);
+        }
+        setTimeout(() => {
+          probeAndHydrateSingleFile(firstFile);
+        }, 15);
+      }
+
       const bMove = document.getElementById('btn-move-convert');
       if (bMove) bMove.addEventListener('click', (e) => {
         e.preventDefault(); e.stopImmediatePropagation();
@@ -1076,8 +1085,7 @@
         const probe = JSON.parse(safeGet('cv_last_probe', '{}') || '{}');
         let pendingCfg = {};
         try { pendingCfg = JSON.parse(safeGet('cv_pending_convert_cfg', '{}') || '{}'); } catch (_) {}
-        let queuedCount = 0;
-        let lastErr = '';
+        const jobSpecs = [];
         files.forEach((f, idx) => {
           const c = classifyExt(f.name);
           const bucket = c === 'a' ? 'Audios' : (c === 'i' ? 'Images' : 'Videos');
@@ -1128,19 +1136,35 @@
               : ('-y -i {INPUT} -c:v ' + vCodec + ' -pix_fmt yuv420p -crf ' + crf + ' -preset ' + preset + ' ' + aPart + fastPart + ' {OUTPUT}');
           }
 
-          const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify({
+          jobSpecs.push({
             module: 'Vault_Core',
             subBucket: bucket,
             mediaType: mType,
             inputPath: f.path,
-            outputBaseName: (idx === 0 && outNameEl) ? outNameEl.value : '',
+            outputBaseName: (files.length === 1 && outNameEl) ? outNameEl.value : '',
             outputExt: ext,
-            durationMs: idx === 0 ? Math.round((probe.durationSec || 0) * 1000) : 0,
+            durationMs: (files.length === 1) ? Math.round((probe.durationSec || 0) * 1000) : 0,
             commandArgs: args
-          })));
-          if (res && res.ok) { queuedCount++; if (idx === 0 && res.jobId) safeSet('cv_active_job_id', res.jobId); }
-          else lastErr = (res && res.error) || 'Failed to queue job';
+          });
         });
+
+        let queuedCount = 0;
+        let lastErr = '';
+        if (typeof window.AndroidBridge.enqueueBatchJobs === 'function') {
+          const res = JSON.parse(window.AndroidBridge.enqueueBatchJobs(JSON.stringify(jobSpecs)) || '{}');
+          if (res && res.ok) {
+            queuedCount = res.count || jobSpecs.length;
+            if (res.firstJobId) safeSet('cv_active_job_id', res.firstJobId);
+          } else {
+            lastErr = (res && res.error) || 'Failed to queue batch';
+          }
+        } else {
+          jobSpecs.forEach((spec, idx) => {
+            const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify(spec)) || '{}');
+            if (res && res.ok) { queuedCount++; if (idx === 0 && res.jobId) safeSet('cv_active_job_id', res.jobId); }
+            else lastErr = (res && res.error) || 'Failed to queue job';
+          });
+        }
         if (queuedCount > 0) {
           toast('Starting Engine...');
           navigateTo('conversion_vault_p4a_convert_single.html');
