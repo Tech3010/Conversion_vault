@@ -175,6 +175,14 @@
       background: var(--card-elev); color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
     }
 
+        .prefill-banner {
+      background: linear-gradient(135deg, var(--gold-soft), var(--emerald-soft));
+      border: 1px solid rgba(252, 209, 22, 0.5); border-radius: 10px;
+      padding: 9px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .prefill-title { font-family: var(--mono); font-size: 10.5px; font-weight: 800; color: var(--gold-text); }
+    .prefill-sub { font-size: 11px; color: var(--text); margin-top: 2px; word-break: break-word; }
+
     .hidden { display: none !important; }
     .toast {
       position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
@@ -210,6 +218,13 @@
     </header>
 
     <main class="content">
+      <div id="prefill-banner" class="prefill-banner hidden" role="status">
+        <div style="min-width:0;">
+          <div class="prefill-title">★ PRE-FILLED FROM SUGGESTOR</div>
+          <div class="prefill-sub" id="prefill-lbl"></div>
+        </div>
+        <button type="button" id="btn-prefill-dismiss" class="btn-sm">✕</button>
+      </div>
       <div class="type-tabs" role="tablist">
         <button type="button" class="t-tab active" data-type="video">Video Sample</button>
         <button type="button" class="t-tab" data-type="audio">Audio Sample</button>
@@ -685,9 +700,60 @@
       document.getElementById('del-modal').classList.add('hidden');
     });
 
-    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Settings'));
+    function applySuggestorPrefill() {
+      let raw = '';
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getAppState === 'function') {
+          raw = window.AndroidBridge.getAppState('cv_sample_prefill') || '';
+        }
+      } catch (_) {}
+      if (!raw) {
+        try { raw = localStorage.getItem('cv_sample_prefill') || ''; } catch (_) {}
+      }
+      if (!raw) return;
+      try {
+        const pf = JSON.parse(raw);
+        if (pf && pf.type && ['video', 'audio', 'image'].includes(pf.type)) {
+          state.type = pf.type;
+          if (pf.v && typeof pf.v === 'object') Object.assign(state.v, pf.v);
+          if (pf.a && typeof pf.a === 'object') Object.assign(state.a, pf.a);
+          if (pf.i && typeof pf.i === 'object') Object.assign(state.i, pf.i);
+          const banner = document.getElementById('prefill-banner');
+          const lbl = document.getElementById('prefill-lbl');
+          if (banner && lbl && pf.presetName) {
+            lbl.textContent = pf.presetName + (pf.spec ? ' — ' + pf.spec : '');
+            banner.classList.remove('hidden');
+          }
+          showToast('Loaded preset into Sample Generator ✓');
+        }
+      } catch (_) {}
+      try { localStorage.removeItem('cv_sample_prefill'); } catch (_) {}
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.setAppState === 'function') {
+          window.AndroidBridge.setAppState('cv_sample_prefill', '');
+        }
+      } catch (_) {}
+    }
 
+    const dismissBtn = document.getElementById('btn-prefill-dismiss');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        const b = document.getElementById('prefill-banner');
+        if (b) b.classList.add('hidden');
+      });
+    }
+
+    document.getElementById('btn-back').addEventListener('click', () => {
+      if (window.location.search.includes('from=suggestor')) {
+        window.location.href = 'conversion_vault_t7_suggestor.html';
+      } else {
+        window.location.href = 'conversion_vault_p1_home.html';
+      }
+    });
+
+    applySuggestorPrefill();
     renderControls();
+    loadSavedSamplesFromDisk();
   </script>
   <script src="vault-bridge.js"></script>
 </body>

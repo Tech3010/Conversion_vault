@@ -1,5 +1,6 @@
 package com.conversionvault.app.storage
 
+import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
@@ -114,6 +115,40 @@ object VaultStorageManager {
         } catch (_: Throwable) { null }
     }
 
+    private fun queryRealPathFromMediaStore(
+        context: Context,
+        contentUri: Uri,
+        selection: String? = null,
+        selectionArgs: Array<String>? = null
+    ): String? {
+        val cols = mutableListOf(MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.DISPLAY_NAME)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            cols.add(MediaStore.MediaColumns.RELATIVE_PATH)
+        }
+        try {
+            context.contentResolver.query(contentUri, cols.toTypedArray(), selection, selectionArgs, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val dataIdx = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                    if (dataIdx >= 0) {
+                        val p = cursor.getString(dataIdx)
+                        if (!p.isNullOrBlank() && File(p).exists()) return p
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val relIdx = cursor.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
+                        val nameIdx = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                        val rel = if (relIdx >= 0) cursor.getString(relIdx) else null
+                        val name = if (nameIdx >= 0) cursor.getString(nameIdx) else null
+                        if (!rel.isNullOrBlank() && !name.isNullOrBlank()) {
+                            val candidate = File(Environment.getExternalStorageDirectory(), "${rel.trimEnd('/')}/$name")
+                            if (candidate.exists()) return candidate.absolutePath
+                        }
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
+        return null
+    }
+
     fun resolveInputPath(context: Context, uriOrPath: String): String {
         if (!uriOrPath.startsWith("content://") && !uriOrPath.startsWith("file://")) {
             return uriOrPath
@@ -123,42 +158,103 @@ object VaultStorageManager {
             return uri.path ?: uriOrPath
         }
 
-        // Try direct DocumentsContract externalstorage mapping when MANAGE_EXTERNAL_STORAGE is active
+        // 1. DocumentsContract URIs (Internal Storage, Recent, Photos, Videos, Audios, Downloads)
         if (DocumentsContract.isDocumentUri(context, uri)) {
             val docId = DocumentsContract.getDocumentId(uri)
-            if ("com.android.externalstorage.documents" == uri.authority) {
-                val split = docId.split(":")
-                if (split.size >= 2) {
-                    val direct = if ("primary".equals(split[0], ignoreCase = true)) {
-                        File(Environment.getExternalStorageDirectory(), split[1])
-                    } else {
-                        File("/storage/${split[0]}/${split[1]}")
+            when (uri.authority) {
+                "com.android.externalstorage.documents" -> {
+                    val split = docId.split(":")
+                    if (split.size >= 2) {
+                        val direct = if ("primary".equals(split[0], ignoreCase = true)) {
+                            File(Environment.getExternalStorageDirectory(), split[1])
+                        } else {
+                            File("/storage/${split[0]}/${split[1]}")
+                        }
+                        if (direct.exists()) return direct.absolutePath
                     }
-                    if (direct.exists()) return direct.absolutePath
+                }
+                "com.android.providers.media.documents" -> {
+                    val split = docId.split(":")
+                    if (split.size >= 2) {
+                        val type = split[0].lowercase()
+                        val mediaId = split[1]
+                        val mediaUri = when (type) {
+                            "image" -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                            "video" -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                            "audio" -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                            else -> MediaStore.Files.getContentUri("external")
+                        }
+                        queryRealPathFromMediaStore(
+                            context,
+                            mediaUri,
+                            "${MediaStore.MediaColumns._ID} = ?",
+                            arrayOf(mediaId)
+                        )?.let { return it }
+                    }
+                }
+                "com.android.providers.downloads.documents" -> {
+                    if (docId.startsWith("raw:")) {
+                        val rawPath = docId.removePrefix("raw:")
+                        if (File(rawPath).exists()) return rawPath
+                    }
+                    val numId = docId.removePrefix("msf:").toLongOrNull()
+                    if (numId != null) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            queryRealPathFromMediaStore(
+                                context,
+                                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                                "${MediaStore.MediaColumns._ID} = ?",
+                                arrayOf(numId.toString())
+                            )?.let { return it }
+                        }
+                        queryRealPathFromMediaStore(
+                            context,
+                            MediaStore.Files.getContentUri("external"),
+                            "${MediaStore.MediaColumns._ID} = ?",
+                            arrayOf(numId.toString())
+                        )?.let { return it }
+                        try {
+                            val dlUri = ContentUris.withAppendedId(Uri.parse("content://downloads/public_downloads"), numId)
+                            queryRealPathFromMediaStore(context, dlUri)?.let { return it }
+                        } catch (_: Throwable) {}
+                    }
                 }
             }
         }
 
-        // Query MediaStore _data column
+        // 2. Direct MediaStore / File-provider _data or RELATIVE_PATH lookup
+        queryRealPathFromMediaStore(context, uri)?.let { return it }
+
+        // 3. Google Files / third-party provider URI: match exact DISPLAY_NAME + SIZE in MediaStore.Files
+        var displayName = "media_file"
+        var fileSize = -1L
         try {
-            context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val idx = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
-                    if (idx >= 0) {
-                        val p = cursor.getString(idx)
-                        if (!p.isNullOrBlank() && File(p).exists()) return p
-                    }
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+                if (c.moveToFirst()) {
+                    val nIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sIdx = c.getColumnIndex(OpenableColumns.SIZE)
+                    if (nIdx >= 0) displayName = c.getString(nIdx) ?: displayName
+                    if (sIdx >= 0 && !c.isNull(sIdx)) fileSize = c.getLong(sIdx)
                 }
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
 
-        // Fallback: copy to app cache staging file
-        val displayName = getFileNameFromUri(context, uri)
+        if (displayName != "media_file" && fileSize > 0L) {
+            queryRealPathFromMediaStore(
+                context,
+                MediaStore.Files.getContentUri("external"),
+                "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.SIZE} = ?",
+                arrayOf(displayName, fileSize.toString())
+            )?.let { return it }
+        }
+
+        // 4. Fallback: copy cloud/virtual-only stream to app cache staging file
+        val finalName = if (displayName == "media_file") getFileNameFromUri(context, uri) else displayName
         val cacheDir = File(context.cacheDir, "staged_inputs").apply { mkdirs() }
         val stagedFile = resolveNonConflictingFile(
             cacheDir,
-            File(displayName).nameWithoutExtension,
-            File(displayName).extension
+            File(finalName).nameWithoutExtension,
+            File(finalName).extension
         )
         context.contentResolver.openInputStream(uri)?.use { input ->
             FileOutputStream(stagedFile).use { output ->

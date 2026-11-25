@@ -45,7 +45,6 @@
     }
     .s-chip:hover{border-color:var(--gold);color:var(--text);}
     .s-chip.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
-    .s-chip.is-none.active{border-color:var(--border-strong);background:var(--card-elev);color:var(--muted);}
 
     .rec-head-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:-4px;flex-wrap:wrap;}
     .rec-list{display:flex;flex-direction:column;gap:10px;}
@@ -59,7 +58,7 @@
     .rec-card.rank-4{box-shadow:inset 3px 0 0 #38bdf8;}
 
     .rec-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
-    .rank-pill{font-family:var(--mono);font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:4px;}
+    .rank-pill{font-family:var(--mono);font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:4px;white-space:nowrap;}
     .rp-1{background:var(--emerald-soft);color:var(--emerald);}
     .rp-2{background:var(--gold-soft);color:var(--gold-text);}
     .rp-3{background:var(--crimson-soft);color:var(--crimson);}
@@ -67,22 +66,27 @@
 
     .rec-name{font-size:14px;font-weight:800;color:var(--text);}
     .rec-why{font-size:12px;color:var(--muted);line-height:1.45;}
-    .spec-pill{background:#05070b;border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.45;}
+    .spec-pill{background:#05070b;border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-family:var(--mono);font-size:10.5px;color:var(--gold-text);line-height:1.45;word-break:break-word;}
 
-    .rec-actions{display:flex;flex-wrap:wrap;gap:6px;padding-top:2px;}
-    .btn-use{
-      flex:1;padding:7px 12px;border-radius:7px;border:1px solid var(--crimson);
-      background:var(--crimson);color:#ffffff;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+    .rec-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:2px;}
+    .rec-actions.single{grid-template-columns:1fr;}
+    .btn-save{
+      padding:8px 10px;border-radius:7px;border:1px solid var(--crimson);
+      background:var(--crimson);color:#ffffff;font-family:var(--mono);
+      font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;text-align:center;
+      transition:background 0.12s ease, border-color 0.12s ease;
     }
-    .btn-use:hover{background:var(--crimson-hover);}
-    .btn-sec{
-      padding:7px 10px;border-radius:7px;border:1px solid var(--border-strong);
+    .btn-save:hover{background:var(--crimson-hover);}
+    .btn-save.is-saved{border-color:var(--emerald);background:var(--emerald-soft);color:var(--emerald);}
+    .btn-test{
+      padding:8px 10px;border-radius:7px;border:1px solid var(--border-strong);
       background:var(--card-elev);color:var(--text);font-family:var(--mono);
-      font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+      font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;text-align:center;
+      transition:border-color 0.12s ease, color 0.12s ease;
     }
-    .btn-sec:hover{border-color:var(--gold);color:var(--gold-text);}
+    .btn-test:hover{border-color:var(--gold);color:var(--gold-text);}
 
-    .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
+    .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;max-width:90vw;text-align:center;}
     .toast.show{opacity:1;}
   </style>
   <script>
@@ -117,7 +121,7 @@
           <span class="sec-note">Pick any 1 across all groups</span>
         </div>
         <div class="chip-wrap" id="grp-device">
-          <button type="button" class="s-chip active" data-val="poco">This Device (Detecting...)</button>
+          <button type="button" id="chip-this-device" class="s-chip active" data-val="this_device">This Device (Detecting...)</button>
           <button type="button" class="s-chip" data-val="android">Android Phone (General)</button>
           <button type="button" class="s-chip" data-val="apple">iPhone / iPad</button>
           <button type="button" class="s-chip" data-val="pc">Mac / Windows PC</button>
@@ -175,6 +179,13 @@
   <script>
     let activeChoice = 'this_device';
     let deviceTel = null;
+    let currentRecs = [];
+    const savedNames = new Set();
+    let toastTimer = null;
+
+    function escHtml(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
     function loadDeviceTelemetry() {
       try {
@@ -188,12 +199,24 @@
       } catch (_) {}
     }
 
+    function hydrateSavedNames() {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getPresets === 'function') {
+          const rows = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+          if (Array.isArray(rows)) {
+            rows.forEach(r => { if (r && r.name) savedNames.add(String(r.name).trim().toLowerCase()); });
+          }
+        }
+      } catch (_) {}
+    }
+
     function showToast(m) {
       const t = document.getElementById('toast');
       if (!t) return;
       t.textContent = m;
       t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 1800);
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
     }
 
     function buildThisDeviceRecs() {
@@ -382,26 +405,286 @@
       { rank: '4 · SAFE OPTION', cls: 'rank-4', rp: 'rp-4' }
     ];
 
+    function snapAudioBitrate(rawBr) {
+      const n = parseInt(String(rawBr || '192'), 10);
+      if (isNaN(n)) return '192k';
+      if (n <= 112) return '96k';
+      if (n <= 160) return '128k';
+      if (n <= 256) return '192k';
+      return '320k';
+    }
+
+    function parseRecSpec(rec) {
+      const s = String(rec.spec || '');
+      const sl = s.toLowerCase();
+      const nl = String(rec.name || '').toLowerCase();
+      const combined = nl + ' ' + sl;
+
+      const isVideo = /\.(mp4|mkv|mov|webm)\b|libx264|libx265|libsvtav1|libvpx-vp9|-c copy/.test(sl);
+      const isAudioOnly = !isVideo && (/\.(opus|flac|mp3|m4a|wav)\b|libopus|libmp3lame|aac-lc|pcm s16le|-vn/.test(sl));
+      const isImageOnly = !isVideo && !isAudioOnly && (/\.(webp|png|avif|jpg|jpeg)\b|webp|avif|png|jpg/.test(sl));
+      const category = isAudioOnly ? 'Audio' : (isImageOnly ? 'Image' : 'Video');
+
+      if (category === 'Audio') {
+        let fmt = 'opus';
+        let codec = 'libopus';
+        if (/\.flac\b|flac/.test(sl)) { fmt = 'flac'; codec = 'flac'; }
+        else if (/\.mp3\b|libmp3lame|mp3/.test(sl)) { fmt = 'mp3'; codec = 'libmp3lame'; }
+        else if (/\.m4a\b|aac/.test(sl)) { fmt = 'm4a'; codec = 'aac'; }
+        else if (/\.wav\b|pcm/.test(sl)) { fmt = 'wav'; codec = 'pcm_s16le'; }
+
+        const brMatch = s.match(/(\d{2,3})\s*(?:k|kbps)/i);
+        const br = (fmt === 'flac' || fmt === 'wav') ? 'Lossless' : ((brMatch ? brMatch[1] : '192') + 'k');
+        const srMatch = s.match(/(44\.1|48|96)\s*khz/i);
+        const ar = srMatch ? (srMatch[1] === '44.1' ? '44100' : (srMatch[1] === '96' ? '96000' : '48000')) : '48000';
+        const depth = /24-bit/i.test(combined) ? 's24' : (/16-bit/i.test(combined) ? 's16' : 'auto');
+        const loudnorm = /r128|lufs/i.test(s);
+        const scrub = /map_metadata -1|bitexact/i.test(s);
+
+        return {
+          category: 'Audio',
+          type: 'audio',
+          container: fmt,
+          codec: codec,
+          crfOrBitrate: br,
+          cfg: {
+            presetName: rec.name,
+            fmt: fmt,
+            codec: codec,
+            br: br,
+            ar: ar,
+            ch: '2',
+            loudnorm: loudnorm,
+            metaPolicy: scrub ? 'deep' : 'keep'
+          },
+          testerPrefill: {
+            type: 'audio',
+            a: {
+              fmt: fmt,
+              br: snapAudioBitrate(brMatch ? brMatch[1] : '192'),
+              ar: ar,
+              ch: /5\.1/i.test(combined) ? '5.1' : 'stereo',
+              depth: depth,
+              dur: 3
+            }
+          }
+        };
+      }
+
+      if (category === 'Image') {
+        let fmt = 'webp';
+        if (/\.png\b|rgb24/i.test(sl)) fmt = 'png';
+        else if (/\.avif\b|avif/i.test(sl)) fmt = 'avif';
+        else if (/\.jpg\b|\.jpeg\b|jpg/i.test(sl)) fmt = 'jpg';
+
+        const qMatch = s.match(/Q(\d{2,3})/i);
+        const qual = fmt === 'png' ? 100 : Math.max(15, Math.min(100, qMatch ? parseInt(qMatch[1], 10) : 85));
+        const scrub = /map_metadata -1/i.test(s);
+
+        return {
+          category: 'Image',
+          type: 'image',
+          container: fmt,
+          codec: fmt === 'webp' ? 'libwebp' : fmt,
+          crfOrBitrate: fmt === 'png' ? 'Lossless' : ('Q' + qual),
+          cfg: {
+            presetName: rec.name,
+            fmt: fmt,
+            qual: qual,
+            scale: /1920px/i.test(s) ? '1920' : 'keep',
+            metaPolicy: scrub ? 'deep' : 'keep'
+          },
+          testerPrefill: {
+            type: 'image',
+            i: {
+              fmt: fmt,
+              qual: qual,
+              res: /4k|3840/i.test(combined) ? '3840x2160' : '1920x1080'
+            }
+          }
+        };
+      }
+
+      // Video
+      let container = 'mp4';
+      if (/\.mkv\b/.test(sl) && !/\.mp4\b/.test(sl)) container = 'mkv';
+      else if (/\.mov\b/.test(sl)) container = 'mov';
+      else if (/\.webm\b/.test(sl)) container = 'webm';
+
+      let codec = 'libx264';
+      if (/-c copy/.test(sl)) codec = 'copy';
+      else if (/libx265/.test(sl)) codec = 'libx265';
+      else if (/libsvtav1/.test(sl)) codec = 'libsvtav1';
+      else if (/libvpx-vp9/.test(sl)) codec = 'libvpx-vp9';
+
+      const crfMatch = s.match(/CRF\s*(\d{1,2})/i);
+      const crfNum = Math.max(12, Math.min(34, crfMatch ? parseInt(crfMatch[1], 10) : 19));
+
+      let pixfmt = 'yuv420p';
+      if (/yuv420p10le/.test(sl)) pixfmt = 'yuv420p10le';
+      else if (/yuv422p/.test(sl)) pixfmt = 'yuv422p';
+
+      let acodec = 'aac';
+      let abr = '192k';
+      if (/opus/i.test(s)) { acodec = 'libopus'; const m = s.match(/Opus\s*(\d{2,3})k/i); abr = m ? (m[1] + 'k') : '160k'; }
+      else if (/flac|pcm/i.test(s)) { acodec = 'flac'; abr = 'Lossless'; }
+      else if (/ac3/i.test(s)) { acodec = 'ac3'; abr = '384k'; }
+      else { const m = s.match(/AAC\s*(\d{2,3})k/i); if (m) abr = m[1] + 'k'; }
+
+      const is4k = /\b4k\b/i.test(combined);
+      const is720 = /720p/i.test(combined);
+      const is60 = /60fps|1080p60/i.test(combined);
+      const gop = /-g\s*1\b|Intra/i.test(s) ? '1' : (/-g\s*15\b/i.test(s) ? '15' : 'auto');
+      const presetMatch = s.match(/\b(ultrafast|superfast|veryfast|faster|fast|medium|slow|slower)\b/i);
+      const encPreset = presetMatch ? presetMatch[1].toLowerCase() : 'fast';
+      const scrub = /map_metadata -1|bitexact/i.test(s);
+
+      return {
+        category: 'Video',
+        type: 'video',
+        container: container,
+        codec: codec,
+        crfOrBitrate: codec === 'copy' ? 'Stream Copy' : ('CRF ' + crfNum),
+        cfg: {
+          presetName: rec.name,
+          container: container,
+          codec: codec,
+          crf: codec === 'copy' ? 18 : crfNum,
+          pixfmt: pixfmt,
+          preset: encPreset,
+          acodec: acodec,
+          abr: abr,
+          gop: gop,
+          res: is720 ? '720p' : 'source',
+          fps: is60 ? '60' : (/30fps|720p30|1080p30/i.test(s) ? '30' : 'source'),
+          metaPolicy: scrub ? 'deep' : 'keep'
+        },
+        testerPrefill: {
+          type: 'video',
+          v: {
+            container: container,
+            codec: codec === 'copy' ? 'libx264' : codec,
+            crf: crfNum,
+            res: is4k ? '3840x2160' : (is720 ? '1280x720' : '1920x1080'),
+            fps: is60 ? 60 : 30,
+            pixfmt: pixfmt,
+            gop: gop,
+            dur: 3,
+            audio: container === 'webm' ? 'libopus' : acodec
+          }
+        }
+      };
+    }
+
+    // Only offer "Test Sample" for presets where codec/container/bit-depth/modern-format compatibility
+    // actually benefits from synthetic playback testing (excludes stream-copy, dual-format bundles,
+    // privacy-scrub presets, and universal legacy formats like JPG/PNG/MP3/WAV/AAC).
+    function isTestablePreset(rec) {
+      const s = String(rec.spec || '');
+      const n = String(rec.name || '');
+      const both = (n + ' ' + s).toLowerCase();
+
+      if (/-c copy/.test(both)) return false;
+      if (/map_metadata -1|bitexact|forensic|scrub/.test(both)) return false;
+      if (/\s\+\s|\sor\s|for audio\s*·|for stills|for images|\(\.opus \/ \.mp3\)|\(\.webp \/ \.jpg\)/.test(both)) return false;
+
+      const parsed = parseRecSpec(rec);
+      if (parsed.category === 'Audio') {
+        return parsed.container === 'opus' || parsed.container === 'flac';
+      }
+      if (parsed.category === 'Image') {
+        return parsed.container === 'webp' || parsed.container === 'avif';
+      }
+      // Video: testable when codec is a real encoder (H.264/HEVC/AV1/VP9)
+      return parsed.codec !== 'copy';
+    }
+
+    function saveSuggestedPreset(rec, btnEl) {
+      const parsed = parseRecSpec(rec);
+      const bars = { qual: 85, comp: 78, speed: 75, compat: 86, edit: 72, batt: 76 };
+      const payload = {
+        name: rec.name,
+        category: parsed.category,
+        codec: parsed.codec,
+        container: parsed.container,
+        crfOrBitrate: parsed.crfOrBitrate,
+        extraFlags: JSON.stringify({
+          desc: rec.why,
+          specs: rec.spec,
+          bars: bars,
+          cfg: parsed.cfg
+        })
+      };
+
+      if (window.AndroidBridge && typeof window.AndroidBridge.savePreset === 'function') {
+        try {
+          const res = JSON.parse(window.AndroidBridge.savePreset(JSON.stringify(payload)) || '{}');
+          if (res && res.ok) {
+            savedNames.add(String(rec.name).trim().toLowerCase());
+            if (btnEl) {
+              btnEl.classList.add('is-saved');
+              btnEl.textContent = '✓ Saved Preset';
+            }
+            showToast('Saved "' + rec.name + '" to Presets Hub ✓');
+            return;
+          }
+          showToast('Save failed: ' + (res.error || 'Unknown error'));
+          return;
+        } catch (err) {
+          showToast('Save failed: ' + err.message);
+          return;
+        }
+      }
+      savedNames.add(String(rec.name).trim().toLowerCase());
+      if (btnEl) {
+        btnEl.classList.add('is-saved');
+        btnEl.textContent = '✓ Saved Preset';
+      }
+      showToast('Saved "' + rec.name + '" ✓');
+    }
+
+    function openInSampleGenerator(rec) {
+      const parsed = parseRecSpec(rec);
+      const prefill = Object.assign({
+        source: 'suggestor',
+        presetName: rec.name,
+        spec: rec.spec
+      }, parsed.testerPrefill);
+
+      const raw = JSON.stringify(prefill);
+      try { localStorage.setItem('cv_sample_prefill', raw); } catch (_) {}
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.setAppState === 'function') {
+          window.AndroidBridge.setAppState('cv_sample_prefill', raw);
+        }
+      } catch (_) {}
+
+      window.location.href = 'conversion_vault_p8_playback_tester.html?from=suggestor';
+    }
+
     function render() {
       const activeEl = document.querySelector('.s-chip.active');
       const lbl = activeEl ? activeEl.textContent.trim() : 'This Device';
       document.getElementById('combo-lbl').textContent = 'Tailored for: ' + lbl;
 
       const list = activeChoice === 'this_device' ? buildThisDeviceRecs() : (PLAYBOOKS[activeChoice] || PLAYBOOKS.balanced);
-      document.getElementById('rec-list').innerHTML = list.slice(0, 4).map((r, idx) => {
+      currentRecs = list.slice(0, 4);
+
+      document.getElementById('rec-list').innerHTML = currentRecs.map((r, idx) => {
         const rm = RANK_META[idx];
+        const isSaved = savedNames.has(String(r.name).trim().toLowerCase());
+        const canTest = isTestablePreset(r);
         return `
           <article class="rec-card ${rm.cls}">
             <div class="rec-top">
-              <span class="rec-name">${r.name}</span>
+              <span class="rec-name">${escHtml(r.name)}</span>
               <span class="rank-pill ${rm.rp}">${rm.rank}</span>
             </div>
-            <div class="rec-spec">${r.spec}</div>
-            <div class="rec-why">${r.why}</div>
-            <div class="rec-acts">
-              <button type="button" class="btn-use" data-act="use" data-name="${r.name}">Use Preset ↗</button>
-              <button type="button" class="btn-sec" data-act="save" data-name="${r.name}">Save Preset</button>
-              <button type="button" class="btn-sec" data-act="test" data-name="${r.name}">Test Sample ↗</button>
+            <div class="spec-pill">${escHtml(r.spec)}</div>
+            <div class="rec-why">${escHtml(r.why)}</div>
+            <div class="rec-actions${canTest ? '' : ' single'}">
+              <button type="button" class="btn-save${isSaved ? ' is-saved' : ''}" data-act="save" data-idx="${idx}">${isSaved ? '✓ Saved Preset' : 'Save Preset'}</button>
+              ${canTest ? `<button type="button" class="btn-test" data-act="test" data-idx="${idx}">Test Sample ↗</button>` : ''}
             </div>
           </article>
         `;
@@ -422,21 +705,25 @@
       const b = e.target.closest('button[data-act]');
       if (!b) return;
       const act = b.getAttribute('data-act');
-      const name = b.getAttribute('data-name');
-      if (act === 'use') showToast('Loaded ' + name + ' into Master Studio →');
+      const idx = parseInt(b.getAttribute('data-idx'), 10);
+      const rec = currentRecs[idx];
+      if (!rec) return;
+
       if (act === 'save') {
-        if (window.AndroidBridge && window.AndroidBridge.savePreset) {
-          const cat = activeChoice === 'audio' ? 'Audio' : (activeChoice === 'photo' ? 'Image' : 'Video');
-          window.AndroidBridge.savePreset(JSON.stringify({ name: name, category: cat }));
-        }
-        showToast('Saved ' + name + ' to Presets Hub ✓');
+        saveSuggestedPreset(rec, b);
+      } else if (act === 'test') {
+        openInSampleGenerator(rec);
       }
-      if (act === 'test') showToast('Opening Sample Tester with ' + name + ' →');
     });
 
-    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Home'));
+    document.getElementById('btn-back').addEventListener('click', () => {
+      window.location.href = 'conversion_vault_p1_home.html';
+    });
+
     loadDeviceTelemetry();
+    hydrateSavedNames();
     render();
   </script>
+  <script src="vault-bridge.js"></script>
 </body>
 </html>

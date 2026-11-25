@@ -586,6 +586,7 @@
               </div>
               <div class="job-actions">
                 <button type="button" class="btn-sm primary" data-qact="open" data-id="${esc(targetOpenId)}">Open Engine ↗</button>
+                <button type="button" class="btn-sm" data-qact="folder" data-id="${esc(targetOpenId)}">File Manager ↗</button>
                 ${isBatchPaused
                   ? `<button type="button" class="btn-sm primary" data-qact="resume-batch">▶ Resume Batch</button>`
                   : `<button type="button" class="btn-sm" data-qact="pause-batch">❚❚ Pause Batch</button>`}
@@ -639,6 +640,7 @@
                 </div>
                 <div class="job-actions">
                   <button type="button" class="btn-sm primary" data-qact="open" data-id="${esc(q.id)}">Open Engine ↗</button>
+                  <button type="button" class="btn-sm" data-qact="folder" data-id="${esc(q.id)}">File Manager ↗</button>
                   ${isPaused
                     ? `<button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(q.id)}">▶ Resume</button>`
                     : `<button type="button" class="btn-sm" data-qact="pause-batch">❚❚ Pause</button>`}
@@ -768,7 +770,7 @@
             <div class="job-actions">
               ${h.status === 'done' ? `<button type="button" class="btn-sm primary" data-hact="open" data-id="${esc(h.id)}">Open ▶</button>` : ''}
               ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="share" data-id="${esc(h.id)}">Share ↗</button>` : ''}
-              ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="folder" data-id="${esc(h.id)}">Folder ↗</button>` : ''}
+              ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="folder" data-id="${esc(h.id)}">File Manager ↗</button>` : ''}
               ${h.status !== 'done' ? `<button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(h.id)}">▶ Resume</button>` : ''}
               <button type="button" class="btn-sm" data-hact="toggle" data-id="${esc(h.id)}">${h.open ? 'Hide ▴' : 'Details ▾'}</button>
             </div>

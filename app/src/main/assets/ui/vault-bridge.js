@@ -641,7 +641,7 @@
       'conversion_vault_p3b_output_single.html': 'conversion_vault_p2a_single.html',
       'conversion_vault_p4_convert_batch.html': 'conversion_vault_p3b_output.html',
       'conversion_vault_p4a_convert_single.html': 'conversion_vault_p3b_output_single.html',
-      'conversion_vault_p8_playback_tester.html': 'conversion_vault_p1_home.html'
+      'conversion_vault_p8_playback_tester.html': (window.location.search.includes('from=suggestor') ? 'conversion_vault_t7_suggestor.html' : 'conversion_vault_p1_home.html')
     };
     const defaultBack = page.startsWith('conversion_vault_t') ? 'conversion_vault_p1_home.html' : (backMap[page] || 'conversion_vault_p1_home.html');
 
@@ -2142,11 +2142,34 @@
         window.AndroidBridge.pickFile();
       }, true);
 
+      const TOOL_MOD_DIRS = {
+        'conversion_vault_t1_metadata.html': 'Metadata_Modifier',
+        'conversion_vault_t2_compressor.html': 'Target_Compressor',
+        'conversion_vault_t3_audio.html': 'Audio_Extract_Mute',
+        'conversion_vault_t4_inspector.html': 'Reports',
+        'conversion_vault_t5_trim_gif.html': 'Trim_GIF',
+        'conversion_vault_t6_thumbnail.html': 'Thumbnail_Capturer',
+        'conversion_vault_t7_suggestor.html': 'Vault_Core',
+        'conversion_vault_t8_integrity.html': 'Vault_Core'
+      };
       const bFm = document.getElementById('btn-fm');
       if (bFm) bFm.addEventListener('click', (e) => {
         if (!hasBridge) return;
         e.preventDefault(); e.stopImmediatePropagation();
-        window.AndroidBridge.openFolder('');
+        let targetDir = '';
+        if (typeof window.getOutputDir === 'function') {
+          try { targetDir = window.getOutputDir() || ''; } catch (_) {}
+        }
+        if (!targetDir) {
+          let baseRoot = '/storage/emulated/0/ConversionVault';
+          try {
+            const st = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+            if (st.defaultVaultFolder) baseRoot = st.defaultVaultFolder.replace(/\/$/, '');
+          } catch (_) {}
+          const sub = TOOL_MOD_DIRS[page] || '';
+          targetDir = sub ? (baseRoot + '/' + sub) : baseRoot;
+        }
+        window.AndroidBridge.openFolder(targetDir);
       }, true);
 
       const bSh = document.getElementById('btn-sh');

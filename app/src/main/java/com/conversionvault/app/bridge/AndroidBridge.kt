@@ -1544,50 +1544,51 @@ class AndroidBridge(
             }
             val docUri = DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", docId)
 
-            // 1. Standard Android DocumentsUI / default system Files app (opens the exact directory cleanly)
-            val systemDirs = listOf(
-                "com.google.android.documentsui",
-                "com.android.documentsui",
-                "com.google.android.apps.nbu.files"
-            )
-            for (pkg in systemDirs) {
+            // 1. Directly open the exact directory in Android's built-in DocumentsUI (Files) — supports exact path deep-linking on Android 10–16
+            for (pkg in listOf("com.google.android.documentsui", "com.android.documentsui")) {
                 try {
                     val dirIntent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(docUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                        putExtra(DocumentsContract.EXTRA_INITIAL_URI, docUri)
                         setPackage(pkg)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    if (dirIntent.resolveActivity(context.packageManager) != null) {
-                        context.startActivity(dirIntent)
-                        return
-                    }
+                    context.startActivity(dirIntent)
+                    return
                 } catch (_: Throwable) {}
             }
 
-            // 2. Generic system directory viewer (vnd.android.document/directory) — never uses broken resource/folder
-            val genericDir = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(docUri, DocumentsContract.Document.MIME_TYPE_DIR)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            if (genericDir.resolveActivity(context.packageManager) != null) {
+            // 2. Generic system directory intent (vnd.android.document/directory + EXTRA_INITIAL_URI)
+            try {
+                val genericDir = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(docUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                    putExtra(DocumentsContract.EXTRA_INITIAL_URI, docUri)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
                 context.startActivity(genericDir)
                 return
-            }
+            } catch (_: Throwable) {}
 
-            // 3. Fallback: launch Google Files / MIUI File Manager / system Files directly
-            val fallbackPkgs = listOf(
-                "com.google.android.apps.nbu.files",
-                "com.mi.android.globalFileexplorer",
-                "com.google.android.documentsui",
-                "com.android.documentsui"
-            )
-            for (pkg in fallbackPkgs) {
-                val launch = context.packageManager.getLaunchIntentForPackage(pkg)
-                if (launch != null) {
-                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    context.startActivity(launch)
-                    return
+            // 3. System Document Tree view pre-positioned at the exact target folder
+            try {
+                val treeIntent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    putExtra(DocumentsContract.EXTRA_INITIAL_URI, docUri)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
+                context.startActivity(treeIntent)
+                return
+            } catch (_: Throwable) {}
+
+            // 4. Last resort: launch Google Files or MIUI File Manager
+            for (pkg in listOf("com.google.android.apps.nbu.files", "com.mi.android.globalFileexplorer")) {
+                try {
+                    val launch = context.packageManager.getLaunchIntentForPackage(pkg)
+                    if (launch != null) {
+                        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(launch)
+                        return
+                    }
+                } catch (_: Throwable) {}
             }
         } catch (_: Throwable) {}
     }

@@ -99,15 +99,40 @@
     }
     .raw-meta-pill strong { color: var(--gold-text); }
     .backup-card {
-      padding: 10px 11px; border-radius: 9px; border: 1px dashed rgba(16, 185, 129, 0.5);
-      background: rgba(16, 185, 129, 0.07); display: flex; flex-direction: column; gap: 8px;
+      padding: 12px; border-radius: 10px; border: 1px dashed rgba(16, 185, 129, 0.55);
+      background: rgba(16, 185, 129, 0.07); display: flex; flex-direction: column; gap: 9px;
+      overflow: hidden;
     }
     .backup-head {
-      display: flex; justify-content: space-between; align-items: center; gap: 6px;
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
       font-family: var(--mono); font-size: 10.5px; font-weight: 800; color: var(--emerald);
       text-transform: uppercase; letter-spacing: 0.05em;
     }
-    .backup-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .backup-pill {
+      font-size: 9px; padding: 2px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0;
+      background: rgba(16, 185, 129, 0.16); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .backup-sub {
+      font-size: 11px; color: var(--muted); line-height: 1.4;
+      overflow-wrap: anywhere; word-break: break-word;
+    }
+    .backup-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+    .backup-fmt-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      padding: 8px 6px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); cursor: pointer; min-width: 0; text-align: center;
+      transition: border-color 0.14s ease, background 0.14s ease, opacity 0.14s ease;
+    }
+    .backup-fmt-btn:hover:not(:disabled) { border-color: var(--emerald); background: var(--surface); }
+    .backup-fmt-btn:disabled { opacity: 0.42; cursor: not-allowed; }
+    .backup-fmt-btn strong { font-family: var(--mono); font-size: 11.5px; font-weight: 800; color: var(--text); }
+    .backup-fmt-btn small { font-size: 9.5px; color: var(--muted); font-weight: 600; }
+    .backup-chk-row {
+      display: flex; align-items: center; gap: 8px; padding-top: 8px;
+      border-top: 1px solid rgba(16, 185, 129, 0.22);
+      font-size: 11.5px; color: var(--text); line-height: 1.35; cursor: pointer;
+    }
+    .backup-chk-row input { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--emerald); }
   </style>
   <script>
     (function(){
@@ -161,18 +186,27 @@
 
         <div class="backup-card">
           <div class="backup-head">
-            <span>Extract &amp; Backup Metadata Before Wiping</span>
-            <span style="font-size:9.5px; opacity:0.85;">SAFE EXPORT</span>
+            <span>Extract &amp; Backup Metadata</span>
+            <span class="backup-pill">SAFE EXPORT</span>
           </div>
-          <div style="font-size:11px; color:var(--muted); line-height:1.4;">Save all detected metadata to <strong>/Metadata_Modifier/Extracted_Metadata/</strong> before scrubbing:</div>
+          <div class="backup-sub">Export detected tags to <strong>/Metadata_Modifier/Extracted_Metadata/</strong> before wiping:</div>
           <div class="backup-btns">
-            <button type="button" class="btn-sm" id="btn-dl-json" disabled>.json (Full)</button>
-            <button type="button" class="btn-sm" id="btn-dl-xmp" disabled>.xmp (Sidecar)</button>
-            <button type="button" class="btn-sm" id="btn-dl-txt" disabled>.txt (FFMeta)</button>
+            <button type="button" class="backup-fmt-btn" id="btn-dl-json" disabled>
+              <strong>.JSON</strong>
+              <small>Full Data</small>
+            </button>
+            <button type="button" class="backup-fmt-btn" id="btn-dl-xmp" disabled>
+              <strong>.XMP</strong>
+              <small>Sidecar</small>
+            </button>
+            <button type="button" class="backup-fmt-btn" id="btn-dl-txt" disabled>
+              <strong>.TXT</strong>
+              <small>FFMeta</small>
+            </button>
           </div>
-          <label style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--text); cursor:pointer; padding-top:2px;">
-            <input type="checkbox" id="chk-auto-backup" checked style="width:15px; height:15px; accent-color:var(--emerald);">
-            <span>Auto-extract &amp; save backup (.json) before wiping</span>
+          <label class="backup-chk-row">
+            <input type="checkbox" id="chk-auto-backup" checked>
+            <span>Auto-backup metadata (.json) before wiping</span>
           </label>
         </div>
       </section>
@@ -219,15 +253,32 @@
         </div>
         <div id="edit-hint" style="font-size:12px; color:var(--muted);">Toggle ON if you want to write new custom tags after wiping.</div>
         <div id="panel-edit" class="grid-2 hidden">
+          <div class="field full" style="display:flex; flex-direction:row; justify-content:space-between; align-items:center; gap:8px;">
+            <span style="font-size:11px; color:var(--muted);">20 editable tags + custom key</span>
+            <button type="button" id="btn-load-existing-tags" class="btn-sm" style="padding:5px 10px; font-size:11px;">Load Current Tags</button>
+          </div>
           <div class="field"><label for="ed-title">Title</label><input type="text" id="ed-title" value="" placeholder="Optional title"></div>
           <div class="field"><label for="ed-artist">Artist / Author</label><input type="text" id="ed-artist" value="" placeholder="Optional artist"></div>
           <div class="field"><label for="ed-album">Album / Project</label><input type="text" id="ed-album" value="" placeholder="Optional album"></div>
+          <div class="field"><label for="ed-album-artist">Album Artist</label><input type="text" id="ed-album-artist" value="" placeholder="Optional album artist"></div>
+          <div class="field"><label for="ed-composer">Composer</label><input type="text" id="ed-composer" value="" placeholder="Optional composer"></div>
           <div class="field"><label for="ed-genre">Genre / Category</label><input type="text" id="ed-genre" value="" placeholder="Optional genre"></div>
-          <div class="field"><label for="ed-gps">GPS Location (ISO 6709)</label><input type="text" id="ed-gps" value="" placeholder="Leave blank or +13.0827+080.2707/"></div>
+          <div class="field"><label for="ed-track">Track Number</label><input type="text" id="ed-track" value="" placeholder="e.g. 01/12"></div>
+          <div class="field"><label for="ed-disc">Disc Number</label><input type="text" id="ed-disc" value="" placeholder="e.g. 1/1"></div>
+          <div class="field"><label for="ed-year">Year / Release Date</label><input type="text" id="ed-year" value="" placeholder="e.g. 2026"></div>
+          <div class="field"><label for="ed-lang">Language (ISO 639)</label><input type="text" id="ed-lang" value="" placeholder="e.g. eng, tam, hin"></div>
+          <div class="field"><label for="ed-copyright">Copyright</label><input type="text" id="ed-copyright" value="" placeholder="e.g. © 2026 Name"></div>
+          <div class="field"><label for="ed-publisher">Publisher / Studio</label><input type="text" id="ed-publisher" value="" placeholder="Optional publisher"></div>
+          <div class="field"><label for="ed-make">Device Make / Brand</label><input type="text" id="ed-make" value="" placeholder="e.g. Xiaomi, Sony"></div>
           <div class="field"><label for="ed-device">Device Model</label><input type="text" id="ed-device" value="" placeholder="Optional device model"></div>
+          <div class="field"><label for="ed-gps">GPS Location (ISO 6709)</label><input type="text" id="ed-gps" value="" placeholder="+13.0827+080.2707/"></div>
           <div class="field"><label for="ed-time">Creation Time (UTC)</label><input type="text" id="ed-time" value="" placeholder="YYYY-MM-DDTHH:MM:SSZ"></div>
-          <div class="field"><label for="ed-init">Initiator / App Tag</label><input type="text" id="ed-init" value="" placeholder="Optional app/encoder tag"></div>
-          <div class="field full"><label for="ed-comment">Comment / Description</label><input type="text" id="ed-comment" value="" placeholder="Optional comment"></div>
+          <div class="field"><label for="ed-software">Software / Editor</label><input type="text" id="ed-software" value="" placeholder="Optional software"></div>
+          <div class="field"><label for="ed-init">Encoder / App Tag</label><input type="text" id="ed-init" value="" placeholder="Optional encoder tag"></div>
+          <div class="field full"><label for="ed-desc">Description / Synopsis</label><input type="text" id="ed-desc" value="" placeholder="Optional description"></div>
+          <div class="field full"><label for="ed-comment">Comment</label><input type="text" id="ed-comment" value="" placeholder="Optional comment"></div>
+          <div class="field"><label for="ed-custom-key">Custom Tag Key</label><input type="text" id="ed-custom-key" value="" placeholder="e.g. grouping"></div>
+          <div class="field"><label for="ed-custom-val">Custom Tag Value</label><input type="text" id="ed-custom-val" value="" placeholder="Custom value"></div>
         </div>
       </section>
 
@@ -303,13 +354,21 @@
       if (state.editOn) {
         const pairs = [
           ['title', 'ed-title'], ['artist', 'ed-artist'], ['album', 'ed-album'],
-          ['genre', 'ed-genre'], ['location', 'ed-gps'], ['model', 'ed-device'],
-          ['creation_time', 'ed-time'], ['encoder', 'ed-init'], ['comment', 'ed-comment']
+          ['album_artist', 'ed-album-artist'], ['composer', 'ed-composer'], ['genre', 'ed-genre'],
+          ['track', 'ed-track'], ['disc', 'ed-disc'], ['date', 'ed-year'],
+          ['language', 'ed-lang'], ['copyright', 'ed-copyright'], ['publisher', 'ed-publisher'],
+          ['make', 'ed-make'], ['model', 'ed-device'], ['location', 'ed-gps'],
+          ['creation_time', 'ed-time'], ['software', 'ed-software'], ['encoder', 'ed-init'],
+          ['description', 'ed-desc'], ['comment', 'ed-comment']
         ];
-        editFlags = pairs.map(([k, id]) => {
+        const flagParts = pairs.map(([k, id]) => {
           const val = (document.getElementById(id)?.value || '').trim().replace(/"/g, '');
           return val ? `-metadata ${k}="${val}"` : '';
-        }).filter(Boolean).join(' ');
+        }).filter(Boolean);
+        const cKey = (document.getElementById('ed-custom-key')?.value || '').trim().replace(/[^a-zA-Z0-9_.-]/g, '');
+        const cVal = (document.getElementById('ed-custom-val')?.value || '').trim().replace(/"/g, '');
+        if (cKey && cVal) flagParts.push(`-metadata ${cKey}="${cVal}"`);
+        editFlags = flagParts.join(' ');
       }
       return [wipeFlags, editFlags].filter(Boolean).join(' ');
     }
@@ -670,6 +729,39 @@
     document.getElementById('btn-dl-json')?.addEventListener('click', () => exportCurrentMetadata('json', false));
     document.getElementById('btn-dl-xmp')?.addEventListener('click', () => exportCurrentMetadata('xmp', false));
     document.getElementById('btn-dl-txt')?.addEventListener('click', () => exportCurrentMetadata('txt', false));
+    document.getElementById('btn-load-existing-tags')?.addEventListener('click', () => {
+      const lt = state.lastLowerTags || {};
+      const res = state.lastResolved || {};
+      const fillMap = [
+        ['ed-title', lt.title || ''],
+        ['ed-artist', lt.artist || lt.author || ''],
+        ['ed-album', lt.album || ''],
+        ['ed-album-artist', lt.album_artist || ''],
+        ['ed-composer', lt.composer || ''],
+        ['ed-genre', lt.genre || ''],
+        ['ed-track', lt.track || ''],
+        ['ed-disc', lt.disc || ''],
+        ['ed-year', lt.date || lt.year || ''],
+        ['ed-lang', lt.language || ''],
+        ['ed-copyright', lt.copyright || ''],
+        ['ed-publisher', lt.publisher || lt.label || ''],
+        ['ed-make', lt.make || lt['com.android.manufacturer'] || ''],
+        ['ed-device', res.model && res.model !== 'None detected' ? res.model : ''],
+        ['ed-gps', res.gps && res.gps !== 'None detected' ? res.gps : ''],
+        ['ed-time', res.time && res.time !== 'None detected' ? res.time : ''],
+        ['ed-software', lt.software || ''],
+        ['ed-init', lt.encoder || lt.encoded_by || ''],
+        ['ed-desc', lt.description || lt.synopsis || ''],
+        ['ed-comment', lt.comment || '']
+      ];
+      let filled = 0;
+      fillMap.forEach(([id, v]) => {
+        const el = document.getElementById(id);
+        if (el && v) { el.value = v; filled++; }
+      });
+      render();
+      showToast(filled > 0 ? ('Loaded ' + filled + ' existing tag' + (filled === 1 ? '' : 's')) : 'No existing tags to load');
+    });
     render();
   </script>
   <script src="vault-bridge.js"></script>
