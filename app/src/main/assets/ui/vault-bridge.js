@@ -405,6 +405,9 @@
     if (currentPage() === 'conversion_vault_p5_queue_history.html') {
       renderNativeJobs();
     }
+    if (typeof window.onLiveEngineEvent === 'function') {
+      window.onLiveEngineEvent(ev);
+    }
     if (ev.type === 'job_done') toast('Conversion completed!');
     if (ev.type === 'job_failed') toast('Job failed — check log in Queue');
   };
@@ -437,8 +440,8 @@
       commandArgs: commandArgs
     })));
     if (res && res.ok) {
-      toast('Queued in ' + moduleName);
-      navigateTo('conversion_vault_p5_queue_history.html');
+      if (res.jobId) safeSet('cv_active_job_id', res.jobId);
+      navigateTo('conversion_vault_p4a_convert_single.html');
     } else {
       toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
     }
@@ -594,12 +597,12 @@
             durationMs: idx === 0 ? Math.round((probe.durationSec || 0) * 1000) : 0,
             commandArgs: args
           })));
-          if (res && res.ok) queuedCount++;
+          if (res && res.ok) { queuedCount++; if (idx === 0 && res.jobId) safeSet('cv_active_job_id', res.jobId); }
           else lastErr = (res && res.error) || 'Failed to queue job';
         });
         if (queuedCount > 0) {
-          toast('Queued ' + queuedCount + ' job(s) in Vault Core');
-          navigateTo('conversion_vault_p5_queue_history.html');
+          toast('Starting Engine...');
+          navigateTo('conversion_vault_p4a_convert_single.html');
         } else {
           toast('Engine error: ' + lastErr);
         }
@@ -739,8 +742,8 @@
           if (!spec) { toast('Pick a file and choose a wipe or edit action'); return; }
           const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify(spec)));
           if (res && res.ok) {
-            toast('Queued Metadata Modifier → ' + (res.outputPath || '').split('/').pop());
-            navigateTo('conversion_vault_p5_queue_history.html');
+            if (res.jobId) safeSet('cv_active_job_id', res.jobId);
+            navigateTo('conversion_vault_p4a_convert_single.html');
           } else {
             toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
           }
@@ -786,8 +789,8 @@
             commandArgs: args
           })));
           if (res && res.ok) {
-            toast('Queued in ' + modName + ' → ' + (res.outputPath || '').split('/').pop());
-            navigateTo('conversion_vault_p5_queue_history.html');
+            if (res.jobId) safeSet('cv_active_job_id', res.jobId);
+            navigateTo('conversion_vault_p4a_convert_single.html');
           } else {
             toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
           }

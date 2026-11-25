@@ -260,6 +260,7 @@
             <button type="button" class="f-chip" data-filter="audio_tool">Audio Extract &amp; Mute</button>
             <button type="button" class="f-chip" data-filter="trim_gif">Trim &amp; GIF</button>
             <button type="button" class="f-chip" data-filter="thumb">Thumbnail Capturer</button>
+            <button type="button" class="f-chip" data-filter="samples">Sample Tester</button>
             <button type="button" class="f-chip" data-filter="cancelled">Cancelled</button>
           </div>
           <button type="button" id="btn-clear-hist" class="btn-clear-hdr">Clear</button>
@@ -348,6 +349,7 @@
       if (m.includes('audio')) return ['audio', 'Audio Extract & Mute'];
       if (m.includes('trim') || m.includes('gif')) return ['trim', 'Trim & GIF'];
       if (m.includes('thumb')) return ['thumb', 'Thumbnail Capturer'];
+      if (m.includes('sample')) return ['samples', 'Sample Tester'];
       return ['vault_core', 'Vault Core'];
     }
 
@@ -445,6 +447,7 @@
                   <span style="word-break:break-all;">→ ${esc(q.dest)}</span>
                 </div>
                 <div class="job-actions">
+                  <button type="button" class="btn-sm primary" data-qact="open" data-id="${esc(q.id)}">View Engine ↗</button>
                   <button type="button" class="btn-sm" data-qact="cancel" data-id="${esc(q.id)}">■ Cancel</button>
                   <button type="button" class="btn-sm" data-qact="remove" data-id="${esc(q.id)}">× Remove</button>
                 </div>
@@ -536,6 +539,11 @@
       if (qa) {
         const act = qa.getAttribute('data-qact');
         const id = qa.getAttribute('data-id');
+        if (act === 'open') {
+          if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', id);
+          if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p4a_convert_single.html');
+          return;
+        }
         if (act === 'cancel' && window.AndroidBridge && window.AndroidBridge.cancelJob) {
           window.AndroidBridge.cancelJob(id);
           showToast('Cancelled job');

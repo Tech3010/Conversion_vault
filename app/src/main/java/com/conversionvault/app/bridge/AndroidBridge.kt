@@ -283,11 +283,39 @@ class AndroidBridge(
                 put("progressPct", j.progressPct)
                 put("fps", j.fps)
                 put("speed", j.speed)
+                put("commandArgs", j.commandArgs)
+                put("durationMs", j.durationMs)
+                put("inputSizeBytes", File(j.inputPath).takeIf { it.exists() }?.length() ?: 0L)
+                put("outputSizeBytes", File(j.outputPath).takeIf { it.exists() }?.length() ?: 0L)
                 put("errorLog", j.errorLog)
                 put("createdAt", j.createdAt)
+                put("updatedAt", j.updatedAt)
             })
         }
         return arr.toString()
+    }
+
+    @JavascriptInterface
+    fun getJobById(jobId: String): String {
+        val j = runBlocking { db.jobDao().getJobById(jobId) } ?: return "{}"
+        return JSONObject().apply {
+            put("id", j.id)
+            put("module", j.module)
+            put("mediaType", j.mediaType)
+            put("inputPath", j.inputPath)
+            put("outputPath", j.outputPath)
+            put("commandArgs", j.commandArgs)
+            put("status", j.status)
+            put("progressPct", j.progressPct)
+            put("fps", j.fps)
+            put("speed", j.speed)
+            put("durationMs", j.durationMs)
+            put("inputSizeBytes", File(j.inputPath).takeIf { it.exists() }?.length() ?: 0L)
+            put("outputSizeBytes", File(j.outputPath).takeIf { it.exists() }?.length() ?: 0L)
+            put("errorLog", j.errorLog)
+            put("createdAt", j.createdAt)
+            put("updatedAt", j.updatedAt)
+        }.toString()
     }
 
     @JavascriptInterface
@@ -464,6 +492,28 @@ class AndroidBridge(
                 if (ok) {
                     try { MediaScannerConnection.scanFile(context, arrayOf(outFile.absolutePath), null, null) } catch (_: Throwable) {}
                 }
+                try {
+                    val mType = when (type.lowercase()) {
+                        "audio" -> "Audio"
+                        "image" -> "Image"
+                        else -> "Video"
+                    }
+                    runBlocking {
+                        db.jobDao().upsertJob(
+                            JobEntity(
+                                id = UUID.randomUUID().toString(),
+                                module = "Sample_Tester",
+                                mediaType = mType,
+                                inputPath = "lavfi ($mType sample)",
+                                outputPath = outFile.absolutePath,
+                                commandArgs = finalCmd,
+                                status = if (ok) "DONE" else "FAILED",
+                                progressPct = if (ok) 100 else 0,
+                                errorLog = if (ok) "" else (session.failStackTrace ?: session.allLogsAsString ?: "Sample failed").takeLast(400)
+                            )
+                        )
+                    }
+                } catch (_: Throwable) {}
                 JSONObject().apply {
                     put("ok", ok)
                     put("type", type)

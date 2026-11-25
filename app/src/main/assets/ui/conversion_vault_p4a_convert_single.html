@@ -224,285 +224,211 @@
     .toast.show { opacity: 1; }
   </style>
   <script>
-    (function(){
-      try {
-        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch(e) {}
-    })();
-  </script>
-</head>
-<body>
-  <div class="app-frame">
-    <!-- Top Bar -->
-    <header class="app-bar">
-      <div class="bar-left">
-        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Output Destination">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-          </svg>
-        </button>
-        <div>
-          <div class="page-title">Vault Engine · Single File</div>
-          <div class="page-sub">STEP 4 · LIVE FFMPEG TELEMETRY</div>
-        </div>
-      </div>
-      <span class="engine-state-pill state-running" id="engine-pill">
-        <span class="pulse-dot"></span>
-        <span id="engine-pill-txt">RUNNING</span>
-      </span>
-    </header>
-
-    <main class="content">
-      <!-- 1. HERO PIT-WALL TELEMETRY -->
-      <section class="pit-hero" id="pit-hero" aria-label="Single File Telemetry">
-        <div class="file-pill-row">
-          <div style="min-width:0;">
-            <div class="fp-name">No file selected</div>
-            <div class="fp-preset">60fps Reels HQ · .mp4 · libx264 · 60fps · CRF 18 · AAC 192k</div>
-          </div>
-          <span class="fp-type">VIDEO</span>
-        </div>
-
-        <div class="pit-top">
-          <div>
-            <div class="pit-lbl" id="pit-lbl">Encoding Stream (v:0 + a:0)</div>
-            <div class="pit-pct" id="pit-pct">0%</div>
-          </div>
-          <div class="pit-time-block">
-            <div class="pit-eta" id="pit-eta">ETA 00:41</div>
-            <div class="pit-elapsed" id="pit-elapsed">Elapsed 00:00</div>
-          </div>
-        </div>
-
-        <div class="master-track">
-          <div class="master-fill" id="master-fill"></div>
-        </div>
-
-        <div class="telemetry-6">
-          <div class="tele-cell">
-            <span class="tele-k">Encode Speed</span>
-            <span class="tele-v c-emerald" id="tele-speed">44 fps · 0.73x RT</span>
-          </div>
-          <div class="tele-cell">
-            <span class="tele-k">Frame Counter</span>
-            <span class="tele-v" id="tele-frames">0 / 1,800 fr</span>
-          </div>
-          <div class="tele-cell">
-            <span class="tele-k">Live Bitrate</span>
-            <span class="tele-v c-gold" id="tele-br">0.0 Mbps</span>
-          </div>
-          <div class="tele-cell">
-            <span class="tele-k">Quantizer (q)</span>
-            <span class="tele-v" id="tele-q">q=18.0</span>
-          </div>
-          <div class="tele-cell">
-            <span class="tele-k">Device CPU</span>
-            <span class="tele-v" id="tele-cpu">88% · 41°C Cool</span>
-          </div>
-          <div class="tele-cell">
-            <span class="tele-k">Output Written</span>
-            <span class="tele-v" id="tele-size">0.0 / 26.8 MB</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 2. OUTPUT DESTINATION & RESULT -->
-      <section class="dest-card" aria-label="Output File Path">
-        <span class="dest-k">Target Output Path</span>
-        <span class="dest-path">/storage/emulated/0/ConversionVault/Vault_Core/Videos/No file selected</span>
-        <div class="dest-delta hidden" id="done-summary"></div>
-      </section>
-
-      <!-- 3. TOGGLEABLE FFMPEG CONSOLE LOG + TERMUX / SSH EXPORT -->
-      <section class="sec-card" aria-label="FFmpeg Console Stream">
-        <button type="button" id="btn-toggle-console" class="console-toggle" aria-expanded="true">
-          <span>&gt;_ FFmpeg Live Console &amp; Termux / SSH</span>
-          <span id="console-ico">▴</span>
-        </button>
-        <div class="cmd-tools-bar">
-          <label class="path-chk-lbl">
-            <input type="checkbox" id="chk-inc-path">
-            <span>Include Directory Paths</span>
-          </label>
-          <div class="cmd-btn-group">
-            <button type="button" id="btn-copy-cmd" class="btn-cmd-act">Copy Command</button>
-            <button type="button" id="btn-export-sh" class="btn-cmd-act">Export .sh</button>
-          </div>
-        </div>
-        <div class="console-body" id="console-body"></div>
-      </section>
-    </main>
-
-    <!-- Bottom Pit-Stop Control Bar -->
-    <footer class="bottom-bar" id="footer-running">
-      <button type="button" id="btn-pause" class="btn-secondary">⏸ Pause Engine</button>
-      <button type="button" id="btn-abort" class="btn-danger">■ Stop</button>
-    </footer>
-
-    <footer class="bottom-bar hidden" id="footer-done">
-      <button type="button" id="btn-share" class="btn-secondary">Share File ↗</button>
-      <button type="button" id="btn-open-folder" class="btn-primary">Open in File Manager ↗</button>
-    </footer>
-  </div>
-
-  <div class="toast" id="toast">Ready</div>
-
-  <script>
-    const TOTAL_FRAMES = 1800;
-    const IN_MB = 64.2;
-    const EST_OUT_MB = 26.8;
-
-    const state = {
-      running: true,
-      paused: false,
-      done: false,
-      aborted: false,
-      pct: 0,
-      elapsedSec: 0,
-      consoleOpen: true,
-      logs: [
-        { cls: 'log-line-cmd', txt: '$ ffmpeg -y -threads 8 -i No file selected -c:v libx264 -preset slower -crf 18 -maxrate 12M -bufsize 24M -r 60 -c:a aac -b:a 192k -sn -map_metadata -1 -movflags +faststart out.mp4' },
-        { cls: 'log-line-cur', txt: 'Stream mapping: #0:0 -> #0:0 (h264), #0:1 -> #0:1 (aac)' }
-      ]
-    };
+    let activeJobId = '';
+    let lastJob = null;
+    let pollTimer = null;
 
     function showToast(msg) {
       const t = document.getElementById('toast');
+      if (!t) return;
       t.textContent = msg;
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 1800);
     }
 
     function fmtClock(sec) {
-      const m = String(Math.floor(sec / 60)).padStart(2, '0');
-      const s = String(Math.floor(sec % 60)).padStart(2, '0');
-      return m + ':' + s;
+      const s = Math.max(0, Math.floor(sec || 0));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
     }
 
-    function pushLog(cls, txt) {
-      state.logs.push({ cls, txt });
-      if (state.logs.length > 24) state.logs.shift();
-      const box = document.getElementById('console-body');
-      box.innerHTML = state.logs.map(l => `<div class="${l.cls}">${l.txt}</div>`).join('');
-      box.scrollTop = box.scrollHeight;
+    function fmtMB(bytes) {
+      if (!bytes || bytes <= 0) return '0.0 MB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     }
 
-    function render() {
+    function resolveActiveJobId() {
+      try {
+        if (window.AndroidBridge && window.AndroidBridge.getAppState) {
+          const saved = window.AndroidBridge.getAppState('cv_active_job_id');
+          if (saved) return saved;
+        }
+        if (window.AndroidBridge && window.AndroidBridge.getJobs) {
+          const all = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL') || '[]');
+          if (all.length > 0) return String(all[0].id);
+        }
+      } catch (_) {}
+      return '';
+    }
+
+    function renderJobTelemetry(j) {
+      if (!j || !j.id) return;
+      lastJob = j;
+
+      const inName = (j.inputPath || 'Media File').split('/').pop();
+      const outPath = j.outputPath || '';
+      const st = String(j.status || 'QUEUED').toUpperCase();
+      const pct = st === 'DONE' ? 100 : (j.progressPct || 0);
+
+      document.querySelectorAll('.fp-name').forEach(el => { el.textContent = inName; });
+      document.querySelectorAll('.dest-path').forEach(el => { el.textContent = outPath || '—'; });
+
       const pill = document.getElementById('engine-pill');
       const pillTxt = document.getElementById('engine-pill-txt');
-      pill.className = 'engine-state-pill ' + (state.done ? 'state-done' : (state.paused ? 'state-paused' : 'state-running'));
-      pillTxt.textContent = state.aborted ? 'STOPPED' : (state.done ? 'COMPLETE' : (state.paused ? 'PAUSED' : 'RUNNING'));
+      if (pillTxt) pillTxt.textContent = st;
+      if (pill) {
+        pill.className = 'engine-state-pill ' + (st === 'DONE' ? 'state-done' : (st === 'FAILED' || st === 'CANCELLED' ? 'state-paused' : 'state-running'));
+      }
 
-      const hero = document.getElementById('pit-hero');
-      hero.classList.toggle('is-done', state.done && !state.aborted);
+      const pitLbl = document.getElementById('pit-lbl');
+      if (pitLbl) pitLbl.textContent = j.module + ' · ' + (j.mediaType || 'Media');
 
-      const pctInt = Math.round(state.pct);
-      document.getElementById('pit-pct').textContent = pctInt + '%';
-      document.getElementById('pit-lbl').textContent = state.aborted
-        ? 'Conversion Stopped'
-        : (state.done ? 'Conversion Complete ✓' : 'Encoding Stream (v:0 + a:0)');
+      const pctEl = document.getElementById('pit-pct');
+      if (pctEl) pctEl.textContent = pct + '%';
 
-      const remSec = Math.max(0, Math.round((100 - state.pct) * 0.41));
-      document.getElementById('pit-eta').textContent = state.done ? 'Finished ✓' : ('ETA ' + fmtClock(remSec));
-      document.getElementById('pit-elapsed').textContent = 'Elapsed ' + fmtClock(state.elapsedSec);
+      const fillEl = document.getElementById('master-fill');
+      if (fillEl) fillEl.style.width = Math.max(st === 'RUNNING' ? 4 : 0, pct) + '%';
 
-      const mFill = document.getElementById('master-fill');
-      mFill.style.width = pctInt + '%';
-      mFill.classList.toggle('is-done', state.done && !state.aborted);
+      const elapsedSec = j.createdAt ? Math.max(0, Math.floor(((st === 'RUNNING' || st === 'QUEUED' ? Date.now() : (j.updatedAt || Date.now())) - j.createdAt) / 1000)) : 0;
+      const elapEl = document.getElementById('pit-elapsed');
+      if (elapEl) elapEl.textContent = 'Elapsed ' + fmtClock(elapsedSec);
 
-      const curFrames = Math.round((state.pct / 100) * TOTAL_FRAMES);
-      const writtenMB = (state.pct / 100) * EST_OUT_MB;
-      const fpsVal = state.done ? 0 : (42 + Math.round((state.pct % 5)));
-      const brVal = (10.8 + (state.pct % 3) * 0.4).toFixed(1);
+      const etaEl = document.getElementById('pit-eta');
+      if (etaEl) {
+        if (st === 'DONE') etaEl.textContent = 'Completed';
+        else if (st === 'FAILED' || st === 'CANCELLED') etaEl.textContent = st;
+        else if (pct > 2 && elapsedSec > 0) {
+          const rem = Math.round((elapsedSec / pct) * (100 - pct));
+          etaEl.textContent = 'ETA ' + fmtClock(rem);
+        } else {
+          etaEl.textContent = 'Calculating ETA...';
+        }
+      }
 
-      document.getElementById('tele-speed').textContent = state.done ? 'Complete · 0.74x avg' : (state.paused ? 'Paused' : `${fpsVal} fps · ${(fpsVal / 60).toFixed(2)}x RT`);
-      document.getElementById('tele-frames').textContent = `${curFrames.toLocaleString()} / ${TOTAL_FRAMES.toLocaleString()} fr`;
-      document.getElementById('tele-br').textContent = state.done ? '11.2 Mbps avg' : `${brVal} Mbps`;
-      document.getElementById('tele-q').textContent = state.done ? 'q=18.0 final' : `q=${(18.0 + (state.pct % 2) * 0.2).toFixed(1)}`;
-      document.getElementById('tele-cpu').textContent = state.done ? 'Detecting... · Standby' : (state.paused ? 'Detecting... · Halted' : 'Detecting... · 88% · 41°C');
-      document.getElementById('tele-size').textContent = `${writtenMB.toFixed(1)} / ${EST_OUT_MB.toFixed(1)} MB`;
+      const spdEl = document.getElementById('tele-speed');
+      if (spdEl) spdEl.textContent = (j.fps ? Math.round(j.fps) + ' fps · ' : '') + (j.speed || (st === 'DONE' ? 'Complete' : st));
 
-      const doneBox = document.getElementById('done-summary');
-      if (state.done && !state.aborted) {
-        const savedPct = Math.round(((IN_MB - EST_OUT_MB) / IN_MB) * 100);
-        doneBox.classList.remove('hidden');
-        doneBox.textContent = `✓ Exported: ${IN_MB.toFixed(1)} MB → ${EST_OUT_MB.toFixed(1)} MB (-${savedPct}% smaller) · Faststart ✓`;
+      const frEl = document.getElementById('tele-frames');
+      if (frEl) frEl.textContent = j.durationMs ? (j.durationMs / 1000).toFixed(1) + 's source' : 'Stream copy / auto';
+
+      const brEl = document.getElementById('tele-br');
+      if (brEl) brEl.textContent = j.module || 'Vault_Core';
+
+      const qEl = document.getElementById('tele-q');
+      if (qEl) qEl.textContent = j.mediaType || 'Media';
+
+      const cpuEl = document.getElementById('tele-cpu');
+      if (cpuEl) cpuEl.textContent = st === 'RUNNING' ? 'Active · WakeLock ON' : 'Standby';
+
+      const szEl = document.getElementById('tele-size');
+      if (szEl) szEl.textContent = fmtMB(j.inputSizeBytes) + ' → ' + fmtMB(j.outputSizeBytes);
+
+      const doneSum = document.getElementById('done-summary');
+      if (doneSum) {
+        if (st === 'DONE') {
+          doneSum.classList.remove('hidden');
+          doneSum.textContent = '✓ Saved (' + fmtMB(j.outputSizeBytes) + ') in ' + fmtClock(elapsedSec);
+        } else if (st === 'FAILED') {
+          doneSum.classList.remove('hidden');
+          doneSum.textContent = '✗ Failed: ' + (j.errorLog || 'Check console below').slice(0, 120);
+        } else {
+          doneSum.classList.add('hidden');
+        }
+      }
+
+      const consoleBody = document.getElementById('console-body');
+      if (consoleBody) {
+        const lines = [
+          '$ ffmpeg ' + (j.commandArgs || ''),
+          'Status: ' + st + ' (' + pct + '%)',
+          'Input:  ' + (j.inputPath || '—'),
+          'Output: ' + (j.outputPath || '—')
+        ];
+        if (j.errorLog) lines.push('Error:  ' + j.errorLog);
+        consoleBody.innerHTML = lines.map((l, idx) =>
+          '<div class="' + (idx === 0 ? 'log-line-cmd' : (l.startsWith('Error:') ? 'log-line-err' : '')) + '" style="word-break:break-all;margin-bottom:4px;">' +
+          l.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div>'
+        ).join('');
+      }
+
+      const fRun = document.getElementById('footer-running');
+      const fDone = document.getElementById('footer-done');
+      const isActive = (st === 'RUNNING' || st === 'QUEUED');
+      if (fRun) fRun.classList.toggle('hidden', !isActive);
+      if (fDone) fDone.classList.toggle('hidden', isActive);
+
+      if (!isActive && pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    function pollJob() {
+      if (!activeJobId) activeJobId = resolveActiveJobId();
+      if (!activeJobId || !window.AndroidBridge || !window.AndroidBridge.getJobById) return;
+      try {
+        const j = JSON.parse(window.AndroidBridge.getJobById(activeJobId) || '{}');
+        if (j && j.id) renderJobTelemetry(j);
+      } catch (_) {}
+    }
+
+    window.onLiveEngineEvent = function(ev) {
+      if (!ev) return;
+      if (ev.jobId && (!activeJobId || ev.jobId === activeJobId)) {
+        activeJobId = ev.jobId;
+        pollJob();
+      }
+    };
+
+    document.getElementById('btn-toggle-console')?.addEventListener('click', () => {
+      const body = document.getElementById('console-body');
+      const ico = document.getElementById('console-ico');
+      if (body) body.classList.toggle('hidden');
+      if (ico && body) ico.textContent = body.classList.contains('hidden') ? '▾' : '▴';
+    });
+
+    document.getElementById('btn-copy-cmd')?.addEventListener('click', () => {
+      const cmd = 'ffmpeg ' + ((lastJob && lastJob.commandArgs) || '');
+      if (window.VaultBridge && window.VaultBridge.copyText) window.VaultBridge.copyText(cmd, 'Copied FFmpeg command');
+      else showToast('Copied FFmpeg command');
+    });
+
+    document.getElementById('btn-export-sh')?.addEventListener('click', () => {
+      if (!lastJob || !window.AndroidBridge || !window.AndroidBridge.exportShellScript) return;
+      const base = (lastJob.outputPath || 'vault_job').split('/').pop();
+      const res = JSON.parse(window.AndroidBridge.exportShellScript(base, '#!/data/data/com.termux/files/usr/bin/bash\nffmpeg ' + (lastJob.commandArgs || '') + '\n'));
+      showToast('Saved: ' + (res.path || 'SH_Scripts'));
+    });
+
+    document.getElementById('btn-pause')?.addEventListener('click', () => {
+      if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p5_queue_history.html');
+    });
+
+    document.getElementById('btn-abort')?.addEventListener('click', () => {
+      if (activeJobId && window.AndroidBridge && window.AndroidBridge.cancelJob) {
+        window.AndroidBridge.cancelJob(activeJobId);
+        showToast('Stopping conversion...');
+        setTimeout(pollJob, 250);
+      }
+    });
+
+    document.getElementById('btn-share')?.addEventListener('click', () => {
+      if (lastJob && lastJob.outputPath && window.AndroidBridge) window.AndroidBridge.shareFile(lastJob.outputPath);
+    });
+
+    document.getElementById('btn-open-folder')?.addEventListener('click', () => {
+      if (!lastJob || !window.AndroidBridge) return;
+      if (lastJob.status === 'DONE' && lastJob.outputPath) {
+        window.AndroidBridge.openFile(lastJob.outputPath);
       } else {
-        doneBox.classList.add('hidden');
+        window.AndroidBridge.openFolder('');
       }
-
-      document.getElementById('footer-running').classList.toggle('hidden', state.done);
-      document.getElementById('footer-done').classList.toggle('hidden', !state.done);
-    }
-
-    setInterval(() => {
-      if (!state.running || state.paused || state.done) return;
-      state.elapsedSec += 0.25;
-      state.pct = Math.min(100, state.pct + 4.5);
-
-      const fr = Math.round((state.pct / 100) * TOTAL_FRAMES);
-      const sz = Math.round((state.pct / 100) * EST_OUT_MB * 1024);
-      if (Math.round(state.pct) % 18 === 0 && state.pct < 99) {
-        function buildSingleShell(includePath, asScript) {
-      const inp = includePath ? '"/storage/emulated/0/Movies/AlightMotion/No file selected"' : '"No file selected"';
-      const out = includePath ? '"/storage/emulated/0/ConversionVault/Videos/No file selected"' : '"output.mp4"';
-      const cmd = `ffmpeg -y -threads 8 -i ${inp} -c:v libx264 -preset slower -crf 18 -maxrate 12M -bufsize 24M -r 60 -c:a aac -b:a 192k -sn -map_metadata -1 -movflags +faststart ${out}`;
-      if (!asScript) return cmd;
-      const prep = includePath ? 'mkdir -p "/storage/emulated/0/ConversionVault/Videos/"\n' : '';
-      return `#!/usr/bin/env bash\n# Conversion Vault · Termux / SSH Script\n${prep}${cmd}\n`;
-    }
-
-    document.getElementById('btn-copy-cmd').addEventListener('click', () => {
-      const inc = document.getElementById('chk-inc-path').checked;
-      const txt = buildSingleShell(inc, false);
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(() => {});
-      showToast(inc ? 'Copied FFmpeg command (with paths)' : 'Copied clean FFmpeg command (no paths)');
-    });
-    document.getElementById('btn-export-sh').addEventListener('click', () => {
-      const inc = document.getElementById('chk-inc-path').checked;
-      const sh = buildSingleShell(inc, true);
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(sh).catch(() => {});
-      showToast('Saved to /ConversionVault/SH_Scripts/media_file.sh' + (inc ? ' (with paths)' : ' (portable)'));
     });
 
-    pushLog('log-line-cur', `frame=${String(fr).padStart(5, ' ')} fps= 44 q=18.0 size=${String(sz).padStart(6, ' ')}kB time=00:00:${String(Math.round((state.pct / 100) * 30)).padStart(2, '0')}.00 speed=0.73x`);
-      }
-
-      if (state.pct >= 100) {
-        state.done = true;
-        state.running = false;
-        pushLog('log-line-ok', '✓ [muxer] Starting second pass: moving moov atom to front (+faststart)');
-        pushLog('log-line-ok', `✓ [OK] Saved No file selected (${EST_OUT_MB.toFixed(1)} MB)`);
-      }
-      render();
-    }, 250);
-
-    document.getElementById('btn-back').addEventListener('click', () => showToast('← Returns to Output Destination'));
-    document.getElementById('btn-pause').addEventListener('click', function() {
-      state.paused = !state.paused;
-      this.textContent = state.paused ? '▶ Resume Engine' : '⏸ Pause Engine';
-      showToast(state.paused ? 'Engine paused' : 'Engine resumed');
-      render();
-    });
-    document.getElementById('btn-abort').addEventListener('click', () => {
-      state.done = true;
-      state.aborted = true;
-      state.running = false;
-      pushLog('log-line-cmd', '■ Conversion stopped by user.');
-      render();
-    });
-    document.getElementById('btn-toggle-console').addEventListener('click', function() {
-      state.consoleOpen = !state.consoleOpen;
-      document.getElementById('console-body').classList.toggle('hidden', !state.consoleOpen);
-      document.getElementById('console-ico').textContent = state.consoleOpen ? '▴' : '▾';
-      this.setAttribute('aria-expanded', String(state.consoleOpen));
-    });
-    document.getElementById('btn-share').addEventListener('click', () => showToast('Opening Android Share Sheet →'));
-    document.getElementById('btn-open-folder').addEventListener('click', () => showToast('Opening /ConversionVault/Videos/ in File Manager →'));
-
-    pushLog('log-line-cur', 'frame=   45 fps= 44 q=18.0 size=    640kB time=00:00:00.75 speed=0.73x');
-    render();
+    activeJobId = resolveActiveJobId();
+    pollJob();
+    pollTimer = setInterval(pollJob, 500);
   </script>
   <script src="vault-bridge.js"></script>
 </body>
