@@ -255,9 +255,11 @@ object NativePhotoEngine {
 
             if (targetBytes > 0L && fmt in setOf("jpg", "jpeg", "webp")) {
                 onProgress(70, "Fitting .$fmt under ${targetBytes / 1024} KB (binary search)...")
+                @Suppress("DEPRECATION")
+                val legacyWebpFmt = Bitmap.CompressFormat.WEBP
                 val compressFmt = when (fmt) {
                     "jpg", "jpeg" -> Bitmap.CompressFormat.JPEG
-                    else -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Bitmap.CompressFormat.WEBP_LOSSY else @Suppress("DEPRECATION") Bitmap.CompressFormat.WEBP
+                    else -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Bitmap.CompressFormat.WEBP_LOSSY else legacyWebpFmt
                 }
                 var curBmp = if (fmt == "jpg" || fmt == "jpeg") flattenAlphaForJpeg(workingBitmap) else workingBitmap
                 var bestBytes: ByteArray? = null
@@ -290,17 +292,18 @@ object NativePhotoEngine {
                         if (curBmp !== workingBitmap) curBmp.recycle()
                         curBmp = shrunk
                     }
-                    if (bestBytes == null) {
+                    val finalBytes: ByteArray = bestBytes ?: run {
                         val baos = ByteArrayOutputStream()
                         curBmp.compress(compressFmt, 12, baos)
-                        bestBytes = baos.toByteArray()
+                        baos.toByteArray()
                     }
-                    FileOutputStream(outFile).use { fos -> fos.write(bestBytes) }
+                    FileOutputStream(outFile).use { fos -> fos.write(finalBytes) }
                 } finally {
                     if (curBmp !== workingBitmap) curBmp.recycle()
                 }
+                applyExifPolicy(srcExif, outFile, fmt, spec.meta)
                 onProgress(100, "Compressed to ${outFile.length() / 1024} KB")
-                return Result.Success(outFile.absolutePath, outFile.length())
+                return Result.Success("NativePhotoEngine (Target): ${origW}x${origH} -> ${finalW}x${finalH} .$fmt (${outFile.length() / 1024} KB, meta=${spec.meta})")
             }
 
             onProgress(70, "Encoding .$fmt (${finalW}×${finalH}, q=$quality)...")
