@@ -38,6 +38,8 @@ class ConversionForegroundService : Service() {
         const val ACTION_START_SESSION = "com.conversionvault.app.ACTION_START_SESSION"
         const val ACTION_START_QUEUE = "com.conversionvault.app.ACTION_START_QUEUE"
         const val ACTION_CANCEL_ACTIVE = "com.conversionvault.app.ACTION_CANCEL_ACTIVE"
+        const val ACTION_PAUSE_QUEUE = "com.conversionvault.app.ACTION_PAUSE_QUEUE"
+        const val ACTION_RESUME_QUEUE = "com.conversionvault.app.ACTION_RESUME_QUEUE"
         const val ACTION_EXIT_SESSION = "com.conversionvault.app.ACTION_EXIT_SESSION"
         const val ACTION_FINISH_APP = "com.conversionvault.app.ACTION_FINISH_APP"
 
@@ -50,6 +52,7 @@ class ConversionForegroundService : Service() {
     private var activeSession: FFmpegSession? = null
     private var activeJobId: String? = null
     private val isProcessing = AtomicBoolean(false)
+    private val queuePaused = AtomicBoolean(false)
     private var lastDbTickMs = 0L
 
     override fun onCreate() {
@@ -113,8 +116,46 @@ class ConversionForegroundService : Service() {
             ACTION_START_SESSION -> {
                 startForegroundSafe("Engine session active · Ready")
             }
+            ACTION_PAUSE_QUEUE -> {
+                queuePaused.set(true)
+                try { activeSession?.let { FFmpegKit.cancel(it.sessionId) } } catch (_: Throwable) {}
+                activeJobId?.let { id ->
+                    serviceScope.launch {
+                        try {
+                            val dao = VaultDatabase.getInstance(applicationContext).jobDao()
+                            dao.getJobById(id)?.let { job ->
+                                if (job.status == "RUNNING") {
+                                    dao.upsertJob(job.copy(status = "PAUSED", updatedAt = System.currentTimeMillis()))
+                                    emitEvent("job_paused", job.id, job.progressPct, 0f, "Paused")
+                                }
+                            }
+                        } catch (_: Throwable) {}
+                    }
+                }
+                try {
+                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    nm.cancel(JOB_NOTIFICATION_ID)
+                } catch (_: Throwable) {}
+                updateSessionNotification("Conversion Engine paused · Tap Resume in Queue")
+            }
+            ACTION_RESUME_QUEUE -> {
+                queuePaused.set(false)
+                startForegroundSafe("Conversion Engine active · Resuming queue")
+                serviceScope.launch {
+                    try {
+                        val dao = VaultDatabase.getInstance(applicationContext).jobDao()
+                        dao.getAllJobs().filter { it.status == "PAUSED" }.forEach { j ->
+                            dao.upsertJob(j.copy(status = "QUEUED", progressPct = 0, updatedAt = System.currentTimeMillis()))
+                        }
+                    } catch (_: Throwable) {}
+                    if (isProcessing.compareAndSet(false, true)) {
+                        processNextInQueue()
+                    }
+                }
+            }
             ACTION_START_QUEUE, null -> {
-                startForegroundSafe("Engine session active · Processing queue")
+                queuePaused.set(false)
+                startForegroundSafe("Conversion Engine active · Processing queue")
                 if (isProcessing.compareAndSet(false, true)) {
                     processNextInQueue()
                 }
@@ -136,7 +177,7 @@ class ConversionForegroundService : Service() {
                 } catch (_: Throwable) {}
 
                 var completedInRun = 0
-                while (true) {
+                while (!queuePaused.get()) {
                     val job = dao.getNextQueuedJob() ?: break
                     activeJobId = job.id
                     try {
@@ -157,9 +198,14 @@ class ConversionForegroundService : Service() {
                         val finished = dao.getJobById(job.id) ?: running
                         val outFile = File(job.outputPath)
 
-                        if (finished.status == "CANCELLED") {
-                            // Remove incomplete partial output on cancel
+                        if (finished.status == "CANCELLED" || finished.status == "PAUSED" || queuePaused.get()) {
+                            // Remove incomplete partial output on cancel or pause
                             try { if (outFile.exists() && outFile.absolutePath != File(job.inputPath).absolutePath) outFile.delete() } catch (_: Throwable) {}
+                            if (queuePaused.get() && finished.status != "CANCELLED") {
+                                dao.upsertJob(finished.copy(status = "PAUSED", progressPct = 0, updatedAt = System.currentTimeMillis()))
+                                emitEvent("job_paused", job.id, 0, 0f, "Paused")
+                                break
+                            }
                         } else {
                             val verifiedOk = result.first && outFile.exists() && outFile.length() > 0L
                             if (!verifiedOk) {
@@ -215,9 +261,9 @@ class ConversionForegroundService : Service() {
                 isProcessing.set(false)
                 try { nm.cancel(JOB_NOTIFICATION_ID) } catch (_: Throwable) {}
                 updateSessionNotification("Engine session active · Ready")
-                // Safety re-check: if new jobs arrived right as we exited the loop, re-trigger once!
+                // Safety re-check: if new jobs arrived (and queue is NOT paused), re-trigger once!
                 try {
-                    if (dao.getNextQueuedJob() != null && isProcessing.compareAndSet(false, true)) {
+                    if (!queuePaused.get() && dao.getNextQueuedJob() != null && isProcessing.compareAndSet(false, true)) {
                         processNextInQueue()
                     }
                 } catch (_: Throwable) {}
