@@ -16,6 +16,7 @@ import com.conversionvault.app.data.JobEntity
 import com.conversionvault.app.data.PresetEntity
 import com.conversionvault.app.data.VaultDatabase
 import com.conversionvault.app.engine.ConversionForegroundService
+import com.conversionvault.app.engine.NativePhotoEngine
 import com.conversionvault.app.hardware.HardwareProfiler
 import com.conversionvault.app.storage.VaultStorageManager
 import kotlinx.coroutines.runBlocking
@@ -36,21 +37,31 @@ class AndroidBridge(
         return try {
             val ff = FFmpegKit.execute("-version")
             val fp = FFprobeKit.execute("-version")
+            val photo = NativePhotoEngine.checkHealth()
             val ffOk = ReturnCode.isSuccess(ff.returnCode)
             val fpOk = ReturnCode.isSuccess(fp.returnCode)
-            val firstLine = (ff.allLogsAsString ?: "").lines().firstOrNull { it.contains("ffmpeg version", true) } ?: "FFmpeg 6.1 GPL"
+            val photoOk = photo.optBoolean("ok", false)
+            val firstLine = (ff.allLogsAsString ?: "").lines().firstOrNull { it.contains("ffmpeg version", true) } ?: "FFmpeg 8.1 GPL"
+            val allOk = ffOk && fpOk && photoOk
+            val errParts = mutableListOf<String>()
+            if (!ffOk) errParts.add("FFmpeg: ${(ff.allLogsAsString ?: "init failed").take(120)}")
+            if (!fpOk) errParts.add("FFprobe: ${(fp.allLogsAsString ?: "init failed").take(120)}")
+            if (!photoOk) errParts.add("Photo Engine: ${photo.optString("error", "init failed")}")
             JSONObject().apply {
-                put("ok", ffOk && fpOk)
+                put("ok", allOk)
                 put("ffmpegOk", ffOk)
                 put("ffprobeOk", fpOk)
+                put("photoEngineOk", photoOk)
+                put("photoEngineVersion", photo.optString("version", "Skia + Exif + Heif"))
                 put("version", firstLine.take(60))
-                put("error", if (ffOk && fpOk) "" else ((ff.allLogsAsString ?: "") + " " + (fp.allLogsAsString ?: "")).take(220))
+                put("error", errParts.joinToString(" | ").take(260))
             }.toString()
         } catch (t: Throwable) {
             JSONObject().apply {
                 put("ok", false)
                 put("ffmpegOk", false)
                 put("ffprobeOk", false)
+                put("photoEngineOk", false)
                 put("version", "Engine Error")
                 put("error", "${t.javaClass.simpleName}: ${t.message}" + (t.cause?.let { " | Cause: ${it.javaClass.simpleName}: ${it.message}" } ?: ""))
             }.toString()
@@ -198,11 +209,16 @@ class AndroidBridge(
         val outFile = VaultStorageManager.resolveNonConflictingFile(outDir, baseName, ext)
 
         val templateArgs = req.optString("commandArgs", "-y -i {INPUT} -c copy {OUTPUT}")
+        val isNativePhotoCmd = templateArgs.trim().startsWith("NATIVE_PHOTO:")
         val defThreads = prefs.getString("default_threads", "auto") ?: "auto"
-        val threadsPrefix = if (defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else ""
-        val resolvedArgs = (threadsPrefix + templateArgs)
-            .replace("{INPUT}", "\"${inFile.absolutePath}\"")
-            .replace("{OUTPUT}", "\"${outFile.absolutePath}\"")
+        val threadsPrefix = if (!isNativePhotoCmd && defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else ""
+        val resolvedArgs = if (isNativePhotoCmd) {
+            templateArgs.trim()
+        } else {
+            (threadsPrefix + templateArgs)
+                .replace("{INPUT}", "\"${inFile.absolutePath}\"")
+                .replace("{OUTPUT}", "\"${outFile.absolutePath}\"")
+        }
 
         val policy = req.optString("originalPolicy", prefs.getString("original_source_policy", "KEEP") ?: "KEEP")
         val durationMs = req.optLong("durationMs", 0L)

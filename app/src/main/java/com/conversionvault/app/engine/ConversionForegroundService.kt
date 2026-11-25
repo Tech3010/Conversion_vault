@@ -189,14 +189,61 @@ class ConversionForegroundService : Service() {
         }
     }
 
-    private suspend fun executeJobBlocking(job: JobEntity): Pair<Boolean, String> = suspendCancellableCoroutine { cont ->
+    private suspend fun executeJobBlocking(job: JobEntity): Pair<Boolean, String> {
+        val inExt = File(job.inputPath).extension
+        val outExt = File(job.outputPath).extension
+        val isNativePhoto = job.commandArgs.trim().startsWith("NATIVE_PHOTO:") ||
+            (job.mediaType.equals("Image", ignoreCase = true) &&
+                NativePhotoEngine.isImageExtension(inExt) &&
+                NativePhotoEngine.isImageExtension(outExt))
+
+        var ffmpegArgs = job.commandArgs
+        if (isNativePhoto) {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val dao = VaultDatabase.getInstance(applicationContext).jobDao()
+            val photoRes = NativePhotoEngine.convertImage(
+                context = applicationContext,
+                inputPath = job.inputPath,
+                outputPath = job.outputPath,
+                commandArgs = job.commandArgs
+            ) { pct, stage ->
+                try {
+                    nm.notify(
+                        JOB_NOTIFICATION_ID,
+                        buildJobNotification("Photo Engine · ${File(job.outputPath).name}", "$pct% · $stage", pct, false)
+                    )
+                    emitEvent("job_progress", job.id, pct, 0f, stage)
+                    val now = System.currentTimeMillis()
+                    serviceScope.launch {
+                        try {
+                            dao.getJobById(job.id)?.let { cur ->
+                                if (cur.status == "RUNNING") {
+                                    dao.upsertJob(cur.copy(progressPct = pct, speed = "Native", updatedAt = now))
+                                }
+                            }
+                        } catch (_: Throwable) {}
+                    }
+                } catch (_: Throwable) {}
+            }
+            when (photoRes) {
+                is NativePhotoEngine.Result.Success -> return Pair(true, "")
+                is NativePhotoEngine.Result.Failure -> return Pair(false, photoRes.error)
+                is NativePhotoEngine.Result.FallbackToFfmpeg -> {
+                    ffmpegArgs = photoRes.fallbackArgs
+                }
+            }
+        }
+        return executeFfmpegBlocking(job, ffmpegArgs)
+    }
+
+    private suspend fun executeFfmpegBlocking(job: JobEntity, resolvedCmdArgs: String): Pair<Boolean, String> = suspendCancellableCoroutine { cont ->
         val durationMs = job.durationMs.coerceAtLeast(1L)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         try {
             File(job.outputPath).parentFile?.mkdirs()
             activeSession = FFmpegKit.executeAsync(
-                job.commandArgs,
+                resolvedCmdArgs,
                 { session ->
                     val rc = session.returnCode
                     val ok = ReturnCode.isSuccess(rc)

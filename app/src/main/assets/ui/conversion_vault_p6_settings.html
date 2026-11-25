@@ -449,18 +449,21 @@
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
           <div>
             <span class="toggle-title">Custom Preset Library</span>
-            <span class="toggle-sub">1 saved preset · Synced across Single &amp; Batch</span>
+            <span class="toggle-sub" id="lbl-saved-presets-sub">1 saved preset · Synced across Single &amp; Batch</span>
           </div>
-          <span class="cap-badge cb-warn">1 SAVED</span>
+          <span class="cap-badge cb-warn" id="badge-saved-presets">1 SAVED</span>
         </div>
-        <div class="cap-row">
-          <div class="cap-l">
-            <span class="cap-name">My Daily Car Edit</span>
-            <span class="cap-sub">MP4 · 1080×1920 60fps · CRF 17 · AAC 256k · Forensic</span>
+        <div id="settings-saved-presets-list" style="display:flex; flex-direction:column; gap:8px;">
+          <div class="cap-row">
+            <div class="cap-l">
+              <span class="cap-name">My Daily Car Edit</span>
+              <span class="cap-sub">MP4 · 1080×1920 60fps · CRF 17 · AAC 256k · Forensic</span>
+            </div>
+            <button type="button" id="btn-manage-presets" class="btn-sm" data-open-presets="1">Edit</button>
           </div>
-          <button type="button" id="btn-manage-presets" class="btn-sm">Edit</button>
         </div>
         <div style="display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <input type="file" id="inp-import-presets-file" accept=".json,application/json" style="display:none;">
           <button type="button" id="btn-import-presets" class="btn-sm" style="flex:1; justify-content:center;">Import JSON</button>
           <button type="button" id="btn-export-presets" class="btn-sm" style="flex:1; justify-content:center;">Export JSON</button>
         </div>

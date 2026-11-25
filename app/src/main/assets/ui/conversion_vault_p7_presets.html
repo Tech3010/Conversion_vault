@@ -1044,7 +1044,20 @@
         if (!t) return;
         if (act === 'use') showToast('Pick files to apply "' + t.name + '" →');
         else if (act === 'dup') {
-          state.templates.unshift(Object.assign({}, t, { id: Date.now(), origin: 'saved', name: t.name + ' (Copy)' }));
+          const dupName = t.name + ' (Copy)';
+          state.templates.unshift(Object.assign({}, t, { id: Date.now(), origin: 'saved', name: dupName }));
+          if (window.AndroidBridge && typeof window.AndroidBridge.savePreset === 'function') {
+            try {
+              window.AndroidBridge.savePreset(JSON.stringify({
+                name: dupName,
+                category: t.cat === 'audio' ? 'Audio' : (t.cat === 'image' ? 'Image' : 'Video'),
+                codec: 'libx264',
+                container: t.cat === 'audio' ? 'opus' : (t.cat === 'image' ? 'webp' : 'mp4'),
+                crfOrBitrate: '18',
+                extraFlags: JSON.stringify({ desc: t.desc, specs: t.specs, cfg: t.cfg || null })
+              }));
+            } catch (_) {}
+          }
           render();
           showToast('Duplicated as editable Saved Preset');
         } else if (act === 'share') {
@@ -1059,6 +1072,9 @@
         } else if (act === 'restore') {
           state.deleted = state.deleted.filter(x => x.id !== id);
           state.templates.unshift(t);
+          if (t.roomId && window.AndroidBridge && typeof window.AndroidBridge.restorePreset === 'function') {
+            try { window.AndroidBridge.restorePreset(String(t.roomId)); } catch (_) {}
+          }
           render();
           showToast('Restored "' + t.name + '"');
         } else if (act === 'perm-del') {
@@ -1091,6 +1107,9 @@
         if (item) {
           state.templates = state.templates.filter(x => x.id !== p.id);
           state.deleted.unshift(item);
+          if (item.roomId && window.AndroidBridge && typeof window.AndroidBridge.softDeletePreset === 'function') {
+            try { window.AndroidBridge.softDeletePreset(String(item.roomId)); } catch (_) {}
+          }
           showToast('Moved "' + p.name + '" to Deleted Presets');
         }
       } else {
@@ -1115,6 +1134,7 @@
           const bars = parsed.bars || { qual: 88, comp: 75, speed: 70, compat: 90, edit: 72, batt: 80 };
           state.templates.unshift({
             id: 90000 + idx,
+            roomId: p.id,
             cat: cat,
             origin: 'saved',
             name: p.name,

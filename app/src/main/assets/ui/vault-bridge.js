@@ -275,6 +275,7 @@
     const lblFname = document.getElementById('lbl-fname');
     if (lblFname) lblFname.textContent = name;
     document.querySelectorAll('.fb-name, .fp-name').forEach(el => { el.textContent = name; });
+    document.querySelectorAll('.modal-sub').forEach(el => { el.textContent = 'Target: ' + name; });
     document.querySelectorAll('.fb-meta, .fmeta').forEach(el => {
       const parts = [mb, dur, info && info.format ? info.format.toUpperCase() : ''].filter(Boolean);
       if (parts.length) el.textContent = parts.join(' · ');
@@ -677,6 +678,109 @@
           toast('Exported: ' + (res.path || 'Presets'));
         }
       }, true);
+
+      // Live-sync Settings Saved Presets Manager from Room SQLite
+      function renderSettingsSavedPresets() {
+        const listEl = document.getElementById('settings-saved-presets-list');
+        const subEl = document.getElementById('lbl-saved-presets-sub');
+        const badgeEl = document.getElementById('badge-saved-presets');
+        if (!listEl) return;
+
+        const items = [];
+        if (hasBridge && typeof window.AndroidBridge.getPresets === 'function') {
+          try {
+            const roomList = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+            roomList.forEach(p => {
+              let parsed = {};
+              try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
+              const cat = p.category || 'Video';
+              const summary = parsed.specs || (cat.toUpperCase() + ' · .' + (p.container || 'mp4') + ' · ' + (p.codec || 'libx264') + (p.crfOrBitrate ? ' · ' + p.crfOrBitrate : ''));
+              items.push({ name: p.name || 'Saved Preset', sub: summary });
+            });
+          } catch (_) {}
+        }
+        // Keep starter preset visible alongside Room presets without duplicates (matching Presets Hub, Single & Batch)
+        if (!items.some(x => x.name === 'My Daily Car Edit')) {
+          items.push({
+            name: 'My Daily Car Edit',
+            sub: 'MP4 · 1080×1920 60fps · CRF 17 · AAC 256k · Forensic'
+          });
+        }
+
+        const count = items.length;
+        if (subEl) subEl.textContent = count + ' saved preset' + (count === 1 ? '' : 's') + ' · Synced across Single & Batch';
+        if (badgeEl) badgeEl.textContent = count + ' SAVED';
+
+        const esc = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        listEl.innerHTML = items.map(it =>
+          '<div class="cap-row">' +
+            '<div class="cap-l">' +
+              '<span class="cap-name">' + esc(it.name) + '</span>' +
+              '<span class="cap-sub">' + esc(it.sub) + '</span>' +
+            '</div>' +
+            '<button type="button" class="btn-sm" data-open-presets="1">Edit</button>' +
+          '</div>'
+        ).join('');
+      }
+
+      const presetsListWrap = document.getElementById('settings-saved-presets-list');
+      if (presetsListWrap) {
+        presetsListWrap.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-open-presets]');
+          if (!btn) return;
+          e.preventDefault(); e.stopImmediatePropagation();
+          navigateTo('conversion_vault_p7_presets.html');
+        }, true);
+      }
+
+      renderSettingsSavedPresets();
+      window.addEventListener('pageshow', renderSettingsSavedPresets);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) renderSettingsSavedPresets();
+      });
+
+      // Wire Import JSON button to import exported preset JSON directly into Room
+      const bImportPresets = document.getElementById('btn-import-presets');
+      const inpImportFile = document.getElementById('inp-import-presets-file');
+      if (bImportPresets && inpImportFile) {
+        bImportPresets.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          inpImportFile.value = '';
+          inpImportFile.click();
+        }, true);
+        inpImportFile.addEventListener('change', () => {
+          const file = inpImportFile.files && inpImportFile.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const raw = JSON.parse(String(reader.result || '[]'));
+              const arr = Array.isArray(raw) ? raw : [raw];
+              let imported = 0;
+              arr.forEach(p => {
+                if (!p || !p.name) return;
+                if (hasBridge && typeof window.AndroidBridge.savePreset === 'function') {
+                  window.AndroidBridge.savePreset(JSON.stringify({
+                    name: String(p.name),
+                    category: String(p.category || 'Video'),
+                    container: String(p.container || 'mp4'),
+                    codec: String(p.codec || 'libx264'),
+                    crfOrBitrate: String(p.crfOrBitrate || '18'),
+                    audioCodec: String(p.audioCodec || 'aac'),
+                    extraFlags: typeof p.extraFlags === 'string' ? p.extraFlags : JSON.stringify(p.extraFlags || {})
+                  }));
+                  imported++;
+                }
+              });
+              renderSettingsSavedPresets();
+              toast(imported > 0 ? ('Imported ' + imported + ' preset' + (imported === 1 ? '' : 's') + ' ✓') : 'No valid presets found in JSON');
+            } catch (_) {
+              toast('Invalid preset JSON file');
+            }
+          };
+          reader.readAsText(file);
+        });
+      }
       if (bBench) bBench.addEventListener('click', (e) => {
         if (hasBridge) {
           e.preventDefault(); e.stopImmediatePropagation();

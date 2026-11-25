@@ -1025,6 +1025,7 @@
       state.modal.touched = state.hasPreset;
       state.modal.draft = Object.assign({}, state.cfg);
       if (!state.hasPreset) state.modal.draft.presetName = '';
+      syncSavedPresetsFromRoom();
       document.getElementById('preset-modal').classList.remove('hidden');
       renderModal();
     });
@@ -1095,7 +1096,7 @@
       }
     });
 
-        (function syncSavedPresetsFromRoom() {
+        function syncSavedPresetsFromRoom() {
       if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
       try {
         const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
@@ -1114,7 +1115,8 @@
           PRESETS.saved.unshift({ name: p.name, meta: parsed.specs || shortTag(baseCfg), cfg: baseCfg });
         });
       } catch (_) {}
-    })();
+    }
+    syncSavedPresetsFromRoom();
     renderMain();
     const INFO_DICT = {
       'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',

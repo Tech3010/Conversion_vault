@@ -1239,6 +1239,7 @@
         ? 'Target: ' + firstItem.name
         : 'Target: ' + ids.length + ' selected ' + cat + 's';
       document.getElementById('btn-modal-apply').textContent = 'Apply to ' + ids.length + (ids.length === 1 ? ' File' : ' Files');
+      syncBatchSavedPresetsFromRoom();
       document.getElementById('preset-modal').classList.remove('hidden');
       renderModal();
     }
@@ -1838,7 +1839,7 @@
       });
       renderAll();
     };
-        (function syncBatchSavedPresetsFromRoom() {
+        function syncBatchSavedPresetsFromRoom() {
       if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
       try {
         const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
@@ -1859,7 +1860,8 @@
           PRESET_LIBRARY[cat].saved.unshift({ name: p.name, meta: parsed.specs || shortTagLine(cat, baseCfg), cfg: baseCfg });
         });
       } catch (_) {}
-    })();
+    }
+    syncBatchSavedPresetsFromRoom();
     renderAll();
     const INFO_DICT = {
       'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',

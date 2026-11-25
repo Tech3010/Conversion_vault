@@ -70,4 +70,8 @@ dependencies {
     implementation("com.arthenica:smart-exception-java:0.2.1")
     implementation("com.arthenica:smart-exception-java9:0.2.1")
     implementation("com.arthenica:smart-exception-common:0.2.1")
+
+    // Native Android Photo Engine (EXIF metadata & orientation + native HEIC/HEIF encoding)
+    implementation("androidx.exifinterface:exifinterface:1.4.1")
+    implementation("androidx.heifwriter:heifwriter:1.2.0")
 }
