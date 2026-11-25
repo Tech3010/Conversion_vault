@@ -519,6 +519,82 @@ class AndroidBridge(
     }
 
     @JavascriptInterface
+    fun pauseQueue(): String {
+        return try {
+            runBlocking {
+                db.jobDao().getAllJobs().filter { it.status == "RUNNING" }.forEach { j ->
+                    db.jobDao().upsertJob(j.copy(status = "PAUSED", updatedAt = System.currentTimeMillis()))
+                }
+            }
+            val i = Intent(context, ConversionForegroundService::class.java).apply {
+                action = ConversionForegroundService.ACTION_PAUSE_QUEUE
+            }
+            try { context.startService(i) } catch (_: Throwable) {}
+            JSONObject().put("ok", true).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Pause failed").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun resumeQueue(): String {
+        return try {
+            runBlocking {
+                db.jobDao().getAllJobs().filter { it.status == "PAUSED" }.forEach { j ->
+                    db.jobDao().upsertJob(j.copy(status = "QUEUED", progressPct = 0, updatedAt = System.currentTimeMillis()))
+                }
+            }
+            val i = Intent(context, ConversionForegroundService::class.java).apply {
+                action = ConversionForegroundService.ACTION_RESUME_QUEUE
+            }
+            try { ContextCompat.startForegroundService(context, i) } catch (_: Throwable) {
+                try { context.startService(i) } catch (_: Throwable) {}
+            }
+            JSONObject().put("ok", true).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Resume failed").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun resumeJob(jobId: String): String {
+        return try {
+            runBlocking {
+                db.jobDao().getJobById(jobId)?.let { j ->
+                    db.jobDao().upsertJob(j.copy(status = "QUEUED", progressPct = 0, errorLog = "", updatedAt = System.currentTimeMillis()))
+                }
+            }
+            val i = Intent(context, ConversionForegroundService::class.java).apply {
+                action = ConversionForegroundService.ACTION_RESUME_QUEUE
+            }
+            try { ContextCompat.startForegroundService(context, i) } catch (_: Throwable) {
+                try { context.startService(i) } catch (_: Throwable) {}
+            }
+            JSONObject().put("ok", true).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Resume failed").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun cancelAllActiveJobs(): String {
+        return try {
+            val i = Intent(context, ConversionForegroundService::class.java).apply {
+                action = ConversionForegroundService.ACTION_CANCEL_ACTIVE
+            }
+            try { context.startService(i) } catch (_: Throwable) {}
+            runBlocking {
+                db.jobDao().getAllJobs().filter { it.status in listOf("RUNNING", "QUEUED", "PAUSED") }.forEach { j ->
+                    db.jobDao().upsertJob(j.copy(status = "CANCELLED", updatedAt = System.currentTimeMillis()))
+                }
+            }
+            JSONObject().put("ok", true).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Cancel batch failed").toString()
+        }
+    }
+
+    @JavascriptInterface
     fun cancelJob(jobId: String): String {
         runBlocking {
             val job = db.jobDao().getJobById(jobId)

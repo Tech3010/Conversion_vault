@@ -238,12 +238,25 @@
       <div class="seg-tabs" role="tablist">
         <button type="button" class="seg-tab active" data-view="queue">
           <span>Active Queue</span>
-          <span class="seg-cnt" id="cnt-queue">2</span>
+          <span class="seg-cnt" id="cnt-queue">0</span>
         </button>
         <button type="button" class="seg-tab" data-view="history">
           <span>History</span>
-          <span class="seg-cnt" id="cnt-hist">5</span>
+          <span class="seg-cnt" id="cnt-hist">0</span>
         </button>
+      </div>
+
+      <!-- Sort Control (applies to Queue & History) -->
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px;">Sort By</span>
+        <select id="sel-sort-jobs" style="padding:6px 10px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px; font-weight:600;">
+          <option value="date_desc" selected>Date (Newest First)</option>
+          <option value="date_asc">Date (Oldest First)</option>
+          <option value="name_asc">Name (A → Z)</option>
+          <option value="name_desc">Name (Z → A)</option>
+          <option value="size_desc">Size (Largest First)</option>
+          <option value="size_asc">Size (Smallest First)</option>
+        </select>
       </div>
 
       <!-- ACTIVE QUEUE VIEW -->
@@ -254,7 +267,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
           <div class="filter-row" id="hist-filters" style="flex:1;">
             <button type="button" class="f-chip active" data-filter="all">All</button>
-            <button type="button" class="f-chip" data-filter="vault_core">Vault Core</button>
+            <button type="button" class="f-chip" data-filter="vault_core">Conversion Engine</button>
             <button type="button" class="f-chip" data-filter="metadata">Metadata Modifier</button>
             <button type="button" class="f-chip" data-filter="compressor">Target Compressor</button>
             <button type="button" class="f-chip" data-filter="audio_tool">Audio Extract &amp; Mute</button>
@@ -266,7 +279,7 @@
           <button type="button" id="btn-clear-hist" class="btn-clear-hdr">Clear</button>
         </div>
         <div class="sub-filter-row hidden" id="vault-subfilters">
-          <button type="button" class="sf-chip active" data-subfilter="all">All Vault Core</button>
+          <button type="button" class="sf-chip active" data-subfilter="all">All Engine</button>
           <button type="button" class="sf-chip" data-subfilter="video">Videos</button>
           <button type="button" class="sf-chip" data-subfilter="audio">Audios</button>
           <button type="button" class="sf-chip" data-subfilter="image">Images</button>
@@ -323,6 +336,8 @@
       view: 'queue',
       filter: 'all',
       subFilter: 'all',
+      sortBy: 'date_desc',
+      bundleOpen: false,
       pendingConfirm: null,
       openIds: new Set(),
       userPickedTab: false,
@@ -342,15 +357,21 @@
       return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function fmtSize(bytes) {
+      if (!bytes || bytes <= 0) return '—';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
     function mapModuleKey(mod) {
       const m = String(mod || '').toLowerCase();
       if (m.includes('metadata')) return ['metadata', 'Metadata Modifier'];
       if (m.includes('compress')) return ['compressor', 'Target Compressor'];
-      if (m.includes('audio')) return ['audio', 'Audio Extract & Mute'];
-      if (m.includes('trim') || m.includes('gif')) return ['trim', 'Trim & GIF'];
+      if (m.includes('audio')) return ['audio_tool', 'Audio Extract & Mute'];
+      if (m.includes('trim') || m.includes('gif')) return ['trim_gif', 'Trim & GIF'];
       if (m.includes('thumb')) return ['thumb', 'Thumbnail Capturer'];
       if (m.includes('sample')) return ['samples', 'Sample Tester'];
-      return ['vault_core', 'Vault Core'];
+      return ['vault_core', 'Conversion Engine'];
     }
 
     function fmtWhen(ts) {
@@ -359,6 +380,20 @@
         const d = new Date(ts);
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
       } catch (_) { return 'Recently'; }
+    }
+
+    function sortItems(arr) {
+      const copy = arr.slice();
+      const mode = state.sortBy || 'date_desc';
+      copy.sort((a, b) => {
+        if (mode === 'name_asc') return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+        if (mode === 'name_desc') return String(b.title || '').localeCompare(String(a.title || ''), undefined, { sensitivity: 'base' });
+        if (mode === 'size_desc') return (b.sizeBytes || 0) - (a.sizeBytes || 0);
+        if (mode === 'size_asc') return (a.sizeBytes || 0) - (b.sizeBytes || 0);
+        if (mode === 'date_asc') return (a.createdAt || 0) - (b.createdAt || 0);
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+      return copy;
     }
 
     function loadJobsFromNative() {
@@ -377,16 +412,21 @@
           const outPath = j.outputPath || '';
           const title = (outPath || j.inputPath || 'Media Job').split('/').pop();
           const st = String(j.status || '').toUpperCase();
+          const sizeBytes = Number(j.outputSizeBytes || j.inputSizeBytes || 0);
+          const createdAt = Number(j.createdAt || 0);
 
-          if (st === 'RUNNING' || st === 'QUEUED') {
+          if (st === 'RUNNING' || st === 'QUEUED' || st === 'PAUSED') {
             q.push({
               id: id,
               title: title,
-              sub: modLabel + ' · ' + (j.mediaType || 'Media'),
+              sub: modLabel + ' · ' + (j.mediaType || 'Media') + (sizeBytes > 0 ? (' · ' + fmtSize(sizeBytes)) : ''),
               dest: outPath,
-              status: st === 'RUNNING' ? 'running' : 'queued',
+              status: st === 'RUNNING' ? 'running' : (st === 'PAUSED' ? 'paused' : 'queued'),
               pct: j.progressPct || 0,
-              speed: st === 'RUNNING' ? ((j.fps ? Math.round(j.fps) + ' fps · ' : '') + (j.speed || 'Encoding...')) : 'Waiting in queue'
+              sizeBytes: sizeBytes,
+              createdAt: createdAt,
+              speed: st === 'RUNNING' ? ((j.fps ? Math.round(j.fps) + ' fps · ' : '') + (j.speed || 'Encoding...'))
+                   : (st === 'PAUSED' ? 'Paused — tap Resume' : 'Waiting in queue')
             });
           } else {
             h.push({
@@ -397,9 +437,11 @@
               status: st === 'DONE' ? 'done' : (st === 'CANCELLED' ? 'cancelled' : 'failed'),
               open: state.openIds.has(id),
               title: title,
-              when: fmtWhen(j.createdAt),
-              preset: modLabel + ' · ' + (j.mediaType || 'Media'),
-              delta: st === 'DONE' ? 'Saved cleanly ✓' : (st === 'CANCELLED' ? 'Cancelled by user' : 'Failed — tap Details ▾'),
+              when: fmtWhen(createdAt),
+              sizeBytes: sizeBytes,
+              createdAt: createdAt,
+              preset: modLabel + ' · ' + (j.mediaType || 'Media') + (sizeBytes > 0 ? (' · ' + fmtSize(sizeBytes)) : ''),
+              delta: st === 'DONE' ? ('Saved cleanly · ' + fmtSize(sizeBytes)) : (st === 'CANCELLED' ? 'Cancelled by user' : 'Failed — tap Details ▾'),
               dest: outPath,
               inputPath: j.inputPath || '',
               cmd: j.errorLog ? ('ERROR: ' + j.errorLog) : ('Output: ' + outPath)
@@ -424,13 +466,67 @@
       document.getElementById('cnt-hist').textContent = String(state.history.length);
       document.getElementById('btn-clear-hist').classList.toggle('hidden', state.history.length === 0);
 
-      // Render Active Queue
+      // Render Active Queue (Bundled Batch Queue when >1 files; Cancel ONLY, no Remove!)
       const qWrap = document.getElementById('view-queue');
       if (state.queue.length === 0) {
         qWrap.innerHTML = '<div class="empty-box">No active conversions running right now.' + (state.history.length ? ' Tap <strong>History</strong> above to see your finished files.' : '') + '</div>';
+      } else if (state.queue.length > 1) {
+        const runningItem = state.queue.find(x => x.status === 'running') || null;
+        const pausedCnt = state.queue.filter(x => x.status === 'paused').length;
+        const queuedCnt = state.queue.filter(x => x.status === 'queued').length;
+        const isBatchPaused = !runningItem && pausedCnt > 0;
+        const sortedQueue = sortItems(state.queue);
+        const targetOpenId = (runningItem && runningItem.id) || sortedQueue[0].id;
+        const activePct = runningItem ? Math.max(4, runningItem.pct || 0) : 0;
+
+        qWrap.innerHTML = `
+          <div class="job-card ${isBatchPaused ? '' : 'is-run'}">
+            <div class="job-main">
+              <div class="job-top">
+                <div style="min-width:0;">
+                  <span class="mod-tag">BUNDLED BATCH QUEUE</span>
+                  <div class="job-title">Batch Conversion · ${state.queue.length} Files</div>
+                  <div class="job-sub">${runningItem ? ('Now converting: ' + esc(runningItem.title)) : (isBatchPaused ? 'Batch paused — tap Resume Batch to continue' : (queuedCnt + ' files queued in order'))}</div>
+                </div>
+                <span class="status-pill ${isBatchPaused ? 'sp-wait' : 'sp-run'}">${isBatchPaused ? 'PAUSED' : (runningItem ? (runningItem.pct + '%') : 'QUEUED')}</span>
+              </div>
+              ${runningItem ? `<div class="prog-track"><div class="prog-fill" style="width:${activePct}%;"></div></div>` : ''}
+              <div class="job-metrics">
+                <span>${runningItem ? esc(runningItem.speed) : (pausedCnt + ' paused · ' + queuedCnt + ' queued')}</span>
+                <span>${state.queue.length} remaining</span>
+              </div>
+              <div class="job-actions">
+                <button type="button" class="btn-sm primary" data-qact="open" data-id="${esc(targetOpenId)}">Open Engine ↗</button>
+                ${isBatchPaused
+                  ? `<button type="button" class="btn-sm primary" data-qact="resume-batch">▶ Resume Batch</button>`
+                  : `<button type="button" class="btn-sm" data-qact="pause-batch">❚❚ Pause Batch</button>`}
+                <button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);" data-qact="cancel-batch">■ Cancel Batch</button>
+                <button type="button" class="btn-sm" data-qact="toggle-bundle">${state.bundleOpen ? 'Hide Files ▴' : ('Files (' + state.queue.length + ') ▾')}</button>
+              </div>
+            </div>
+            ${state.bundleOpen ? `
+              <div class="hist-drawer" style="display:flex; flex-direction:column; gap:6px;">
+                ${sortedQueue.map((q, idx) => `
+                  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--card);">
+                    <div style="min-width:0;">
+                      <div style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">#${idx + 1} · ${esc(q.title)}</div>
+                      <div style="font-size:10.5px; color:var(--muted);">${esc(q.sub)} · ${q.status.toUpperCase()}</div>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-shrink:0;">
+                      ${q.status === 'paused' ? `<button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(q.id)}">▶ Resume</button>` : ''}
+                      <button type="button" class="btn-sm" data-qact="cancel" data-id="${esc(q.id)}">■ Cancel</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
       } else {
-        qWrap.innerHTML = state.queue.map(q => {
+        const sortedQueue = sortItems(state.queue);
+        qWrap.innerHTML = sortedQueue.map(q => {
           const isRun = q.status === 'running';
+          const isPaused = q.status === 'paused';
           return `
             <div class="job-card ${isRun ? 'is-run' : ''}">
               <div class="job-main">
@@ -439,7 +535,7 @@
                     <div class="job-title">${esc(q.title)}</div>
                     <div class="job-sub">${esc(q.sub)}</div>
                   </div>
-                  <span class="status-pill ${isRun ? 'sp-run' : 'sp-wait'}">${isRun ? (q.pct + '%') : 'QUEUED'}</span>
+                  <span class="status-pill ${isRun ? 'sp-run' : 'sp-wait'}">${isRun ? (q.pct + '%') : (isPaused ? 'PAUSED' : 'QUEUED')}</span>
                 </div>
                 ${isRun ? `<div class="prog-track"><div class="prog-fill" style="width:${Math.max(4, q.pct)}%;"></div></div>` : ''}
                 <div class="job-metrics">
@@ -447,9 +543,11 @@
                   <span style="word-break:break-all;">→ ${esc(q.dest)}</span>
                 </div>
                 <div class="job-actions">
-                  <button type="button" class="btn-sm primary" data-qact="open" data-id="${esc(q.id)}">View Engine ↗</button>
-                  <button type="button" class="btn-sm" data-qact="cancel" data-id="${esc(q.id)}">■ Cancel</button>
-                  <button type="button" class="btn-sm" data-qact="remove" data-id="${esc(q.id)}">× Remove</button>
+                  <button type="button" class="btn-sm primary" data-qact="open" data-id="${esc(q.id)}">Open Engine ↗</button>
+                  ${isPaused
+                    ? `<button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(q.id)}">▶ Resume</button>`
+                    : `<button type="button" class="btn-sm" data-qact="pause-batch">❚❚ Pause</button>`}
+                  <button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);" data-qact="cancel" data-id="${esc(q.id)}">■ Cancel</button>
                 </div>
               </div>
             </div>
@@ -463,7 +561,7 @@
       subBar.classList.toggle('hidden', state.filter !== 'vault_core');
       document.querySelectorAll('.sf-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-subfilter') === state.subFilter));
 
-      const items = state.history.filter(h => {
+      const filteredHist = state.history.filter(h => {
         if (state.filter === 'all') return true;
         if (state.filter === 'cancelled') return h.status === 'cancelled';
         if (state.filter === 'vault_core') {
@@ -472,6 +570,7 @@
         }
         return h.mod === state.filter;
       });
+      const items = sortItems(filteredHist);
       const hWrap = document.getElementById('hist-list');
       if (items.length === 0) {
         hWrap.innerHTML = '<div class="empty-box">No conversion history matches this filter.</div>';
@@ -494,6 +593,7 @@
                 ${h.status === 'done' ? `<button type="button" class="btn-sm primary" data-hact="open" data-id="${esc(h.id)}">Open ▶</button>` : ''}
                 ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="share" data-id="${esc(h.id)}">Share ↗</button>` : ''}
                 ${h.status === 'done' ? `<button type="button" class="btn-sm" data-hact="folder" data-id="${esc(h.id)}">Folder ↗</button>` : ''}
+                ${h.status !== 'done' ? `<button type="button" class="btn-sm primary" data-qact="resume" data-id="${esc(h.id)}">▶ Resume</button>` : ''}
                 <button type="button" class="btn-sm" data-hact="toggle" data-id="${esc(h.id)}">${h.open ? 'Hide ▴' : 'Details ▾'}</button>
               </div>
             </div>
@@ -516,7 +616,14 @@
       loadJobsFromNative();
     };
 
-    // Poll Room DB every 1s while any job is running/queued so progress bars & completion transition smoothly
+    const selSort = document.getElementById('sel-sort-jobs');
+    if (selSort) {
+      selSort.addEventListener('change', () => {
+        state.sortBy = selSort.value || 'date_desc';
+        render();
+      });
+    }
+
     setInterval(() => {
       if (state.queue.length > 0) loadJobsFromNative();
     }, 1000);
@@ -544,14 +651,39 @@
           if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p4a_convert_single.html');
           return;
         }
+        if (act === 'toggle-bundle') {
+          state.bundleOpen = !state.bundleOpen;
+          render();
+          return;
+        }
+        if (act === 'pause-batch' && window.AndroidBridge && window.AndroidBridge.pauseQueue) {
+          window.AndroidBridge.pauseQueue();
+          showToast('Batch paused ❚❚');
+          setTimeout(loadJobsFromNative, 250);
+          return;
+        }
+        if (act === 'resume-batch' && window.AndroidBridge && window.AndroidBridge.resumeQueue) {
+          window.AndroidBridge.resumeQueue();
+          showToast('Resuming batch ▶');
+          setTimeout(loadJobsFromNative, 250);
+          return;
+        }
+        if (act === 'cancel-batch' && window.AndroidBridge && window.AndroidBridge.cancelAllActiveJobs) {
+          window.AndroidBridge.cancelAllActiveJobs();
+          showToast('Cancelled batch queue');
+          setTimeout(loadJobsFromNative, 250);
+          return;
+        }
+        if (act === 'resume' && window.AndroidBridge && window.AndroidBridge.resumeJob) {
+          window.AndroidBridge.resumeJob(id);
+          showToast('Resumed job ▶');
+          setTimeout(loadJobsFromNative, 250);
+          return;
+        }
         if (act === 'cancel' && window.AndroidBridge && window.AndroidBridge.cancelJob) {
           window.AndroidBridge.cancelJob(id);
           showToast('Cancelled job');
           setTimeout(loadJobsFromNative, 250);
-        } else if (act === 'remove' && window.AndroidBridge && window.AndroidBridge.deleteJob) {
-          window.AndroidBridge.deleteJob(id, false);
-          showToast('Removed from queue');
-          loadJobsFromNative();
         }
         return;
       }
