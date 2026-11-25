@@ -16,7 +16,7 @@ android {
         versionName = "1.0.0"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
@@ -66,7 +66,7 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
 
     // FFmpegKit 6.1.4 GPL with 16 KB page-size support for Android 15+
-    implementation("io.github.jamaismagic.ffmpeg:ffmpeg-kit-main-full-gpl-16kb:6.1.4")
+    implementation("dev.ffmpegkit-maintained:ffmpeg-kit-full-gpl:8.1.9")
     implementation("com.arthenica:smart-exception-java:0.2.1")
     implementation("com.arthenica:smart-exception-java9:0.2.1")
     implementation("com.arthenica:smart-exception-common:0.2.1")
