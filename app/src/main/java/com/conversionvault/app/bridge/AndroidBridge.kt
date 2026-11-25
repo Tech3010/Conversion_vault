@@ -560,7 +560,7 @@ class AndroidBridge(
                 }
             }
 
-            val devTel = try { JSONObject(HardwareProfiler.getTelemetryJson(context)) } catch (_: Throwable) { JSONObject() }
+            val devTel = try { HardwareProfiler.collectTelemetry(context) } catch (_: Throwable) { JSONObject() }
 
             JSONObject().apply {
                 put("ok", true)
