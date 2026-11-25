@@ -512,7 +512,6 @@
             <div>
               <div class="select-title">Folder</div>
               <div class="select-desc">Scan an entire folder and convert everything into organized subfolders.</div>
-              <span class="folder-support-note">Supports multiple file types · Videos, Audios &amp; Images</span>
             </div>
           </div>
           <span class="go-chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
@@ -522,6 +521,10 @@
         <input type="file" id="inp-multi" class="hidden" multiple accept="video/*,audio/*,image/*,.mkv,.mp4,.webm,.mov,.avi,.mp3,.flac,.wav,.opus,.m4a,.jpg,.png,.webp,.gif">
         <input type="file" id="inp-folder" class="hidden" webkitdirectory directory multiple>
       </section>
+
+      <div style="display:flex; justify-content:center; margin-top:-2px;">
+        <span class="folder-support-note" style="margin-top:0; text-align:center;">Supports multiple file types · Videos, Audios &amp; Photos · Combine picks from all 3 options above</span>
+      </div>
 
       <!-- Live Selection Summary (Reveals immediately after picking) -->
       <section class="picked-summary hidden" id="picked-box" aria-label="Selected Media Summary">

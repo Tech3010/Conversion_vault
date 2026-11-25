@@ -117,37 +117,113 @@ class AndroidBridge(
             if (NativePhotoEngine.isImageExtension(ext)) {
                 var w = 0
                 var h = 0
+                var mimeType = "image/$ext"
                 try {
                     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeFile(file.absolutePath, opts)
                     w = opts.outWidth.coerceAtLeast(0)
                     h = opts.outHeight.coerceAtLeast(0)
+                    if (!opts.outMimeType.isNullOrBlank()) mimeType = opts.outMimeType
                 } catch (_: Throwable) {}
                 var cameraModel = ""
                 var hasGps = false
                 var exifOrient = "Normal (0°)"
+                val allTags = JSONObject()
+                var aperture = "—"
+                var shutter = "—"
+                var iso = "—"
+                var focalLen = "—"
+                var lensModel = "—"
+                var dateTaken = "—"
+                var software = "—"
+                var colorSpaceLbl = "sRGB"
+                var gpsCoords = "None"
                 try {
                     val ex = ExifInterface(file.absolutePath)
                     val mk = ex.getAttribute(ExifInterface.TAG_MAKE) ?: ""
                     val md = ex.getAttribute(ExifInterface.TAG_MODEL) ?: ""
                     cameraModel = listOf(mk, md).filter { it.isNotBlank() }.joinToString(" ").trim()
-                    if (!ex.getAttribute(ExifInterface.TAG_GPS_LATITUDE).isNullOrBlank()) hasGps = true
                     val oInt = ex.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
                     exifOrient = when (oInt) {
                         ExifInterface.ORIENTATION_ROTATE_90 -> "90° CW"
                         ExifInterface.ORIENTATION_ROTATE_180 -> "180°"
                         ExifInterface.ORIENTATION_ROTATE_270 -> "270° CW"
+                        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> "Flipped Horizontal"
+                        ExifInterface.ORIENTATION_FLIP_VERTICAL -> "Flipped Vertical"
                         else -> "Normal (0°)"
                     }
                     if (oInt == ExifInterface.ORIENTATION_ROTATE_90 || oInt == ExifInterface.ORIENTATION_ROTATE_270) {
                         val tmp = w; w = h; h = tmp
                     }
+                    ex.getAttribute(ExifInterface.TAG_F_NUMBER)?.let { if (it.isNotBlank()) aperture = "f/$it" }
+                    ex.getAttribute(ExifInterface.TAG_EXPOSURE_TIME)?.let {
+                        val v = it.toDoubleOrNull()
+                        shutter = if (v != null && v > 0 && v < 1.0) "1/${Math.round(1.0 / v)}s" else "${it}s"
+                    }
+                    ex.getAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY)?.let { if (it.isNotBlank()) iso = "ISO $it" }
+                    ex.getAttribute(ExifInterface.TAG_FOCAL_LENGTH)?.let {
+                        val fl35 = ex.getAttribute(ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM)
+                        focalLen = if (!fl35.isNullOrBlank()) "${it}mm (${fl35}mm eq.)" else "${it}mm"
+                    }
+                    val lMk = ex.getAttribute(ExifInterface.TAG_LENS_MAKE) ?: ""
+                    val lMd = ex.getAttribute(ExifInterface.TAG_LENS_MODEL) ?: ""
+                    val lFull = listOf(lMk, lMd).filter { it.isNotBlank() }.joinToString(" ").trim()
+                    if (lFull.isNotBlank()) lensModel = lFull
+                    dateTaken = ex.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL) ?: ex.getAttribute(ExifInterface.TAG_DATETIME) ?: "—"
+                    software = ex.getAttribute(ExifInterface.TAG_SOFTWARE) ?: "—"
+                    val cs = ex.getAttributeInt(ExifInterface.TAG_COLOR_SPACE, -1)
+                    if (cs == 1) colorSpaceLbl = "sRGB"
+                    else if (cs == 65535) colorSpaceLbl = "Uncalibrated / Wide Gamut"
+
+                    val latLong = ex.latLong
+                    if (latLong != null) {
+                        hasGps = true
+                        gpsCoords = String.format(Locale.US, "%.5f, %.5f", latLong[0], latLong[1])
+                    } else if (!ex.getAttribute(ExifInterface.TAG_GPS_LATITUDE).isNullOrBlank()) {
+                        hasGps = true
+                        gpsCoords = "GPS Present"
+                    }
+
+                    val exifKeys = listOf(
+                        "Make" to ExifInterface.TAG_MAKE,
+                        "Model" to ExifInterface.TAG_MODEL,
+                        "Lens Make" to ExifInterface.TAG_LENS_MAKE,
+                        "Lens Model" to ExifInterface.TAG_LENS_MODEL,
+                        "Date Taken" to ExifInterface.TAG_DATETIME_ORIGINAL,
+                        "Date Modified" to ExifInterface.TAG_DATETIME,
+                        "Exposure Time" to ExifInterface.TAG_EXPOSURE_TIME,
+                        "Aperture (F-Number)" to ExifInterface.TAG_F_NUMBER,
+                        "ISO" to ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY,
+                        "Focal Length" to ExifInterface.TAG_FOCAL_LENGTH,
+                        "35mm Equivalent" to ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM,
+                        "Flash" to ExifInterface.TAG_FLASH,
+                        "White Balance" to ExifInterface.TAG_WHITE_BALANCE,
+                        "Metering Mode" to ExifInterface.TAG_METERING_MODE,
+                        "Exposure Bias" to ExifInterface.TAG_EXPOSURE_BIAS_VALUE,
+                        "Color Space" to ExifInterface.TAG_COLOR_SPACE,
+                        "Orientation" to ExifInterface.TAG_ORIENTATION,
+                        "Software" to ExifInterface.TAG_SOFTWARE,
+                        "Artist" to ExifInterface.TAG_ARTIST,
+                        "Copyright" to ExifInterface.TAG_COPYRIGHT,
+                        "Description" to ExifInterface.TAG_IMAGE_DESCRIPTION,
+                        "GPS Latitude" to ExifInterface.TAG_GPS_LATITUDE,
+                        "GPS Longitude" to ExifInterface.TAG_GPS_LONGITUDE,
+                        "GPS Altitude" to ExifInterface.TAG_GPS_ALTITUDE,
+                        "GPS Timestamp" to ExifInterface.TAG_GPS_TIMESTAMP,
+                        "GPS Datestamp" to ExifInterface.TAG_GPS_DATESTAMP
+                    )
+                    exifKeys.forEach { (label, tag) ->
+                        val v = ex.getAttribute(tag)
+                        if (!v.isNullOrBlank()) allTags.put(label, v)
+                    }
                 } catch (_: Throwable) {}
+                val mp = if (w > 0 && h > 0) String.format(Locale.US, "%.2f MP", (w.toDouble() * h.toDouble()) / 1_000_000.0) else "—"
                 return JSONObject().apply {
                     put("ok", true)
                     put("path", path)
                     put("filename", file.name)
                     put("format", ext.uppercase(Locale.US))
+                    put("mimeType", mimeType)
                     put("durationSec", 0.0)
                     put("sizeBytes", sizeBytes)
                     put("bitrate", 0L)
@@ -155,19 +231,30 @@ class AndroidBridge(
                     put("subtitleCount", 0)
                     put("videoCodec", ext.uppercase(Locale.US))
                     put("videoProfile", "—")
-                    put("pixFmt", "sRGB")
+                    put("pixFmt", colorSpaceLbl)
                     put("width", w)
                     put("height", h)
+                    put("megapixels", mp)
                     put("fps", 0.0)
-                    put("colorSpace", "sRGB")
+                    put("colorSpace", colorSpaceLbl)
                     put("audioCodec", "None")
                     put("sampleRate", "—")
                     put("channels", 0)
                     put("audioBitrate", 0L)
                     put("cameraModel", cameraModel)
+                    put("lensModel", lensModel)
+                    put("aperture", aperture)
+                    put("shutter", shutter)
+                    put("iso", iso)
+                    put("focalLength", focalLen)
+                    put("dateTaken", dateTaken)
+                    put("software", software)
+                    put("gpsCoords", gpsCoords)
                     put("exifOrientation", exifOrient)
                     put("hasGps", hasGps)
-                    put("tagsSummary", if (cameraModel.isNotBlank()) "Camera: $cameraModel" else "No metadata tags detected")
+                    put("allTags", allTags)
+                    put("tagsCount", allTags.length())
+                    put("tagsSummary", if (allTags.length() > 0) "${allTags.length()} EXIF tags detected" else "No EXIF metadata detected")
                 }.toString()
             }
 
@@ -257,40 +344,113 @@ class AndroidBridge(
             }
 
             val fmtObj = rawProps.optJSONObject("format") ?: JSONObject()
-            val tagsJson = fmtObj.optJSONObject("tags")
+            val allTags = JSONObject()
             val tagKeys = mutableListOf<String>()
             var hasGps = false
-            if (tagsJson != null) {
-                val it = tagsJson.keys()
+            fun collectTags(obj: JSONObject?, prefix: String = "") {
+                if (obj == null) return
+                val it = obj.keys()
                 while (it.hasNext()) {
                     val k = it.next()
-                    val v = tagsJson.optString(k, "")
+                    val v = obj.optString(k, "")
+                    if (v.isBlank()) continue
                     if (k.contains("location", true) || k.contains("gps", true)) hasGps = true
-                    if (tagKeys.size < 6) tagKeys.add("$k: $v")
+                    val fullK = if (prefix.isBlank()) k else "$prefix.$k"
+                    allTags.put(fullK, v)
+                    if (tagKeys.size < 6) tagKeys.add("$fullK: $v")
                 }
             }
+            collectTags(fmtObj.optJSONObject("tags"))
+            collectTags(vObj?.optJSONObject("tags"), "video")
+            collectTags(aObj?.optJSONObject("tags"), "audio")
+
+            val pixFmt = vObj?.optString("pix_fmt", "—")?.ifBlank { "—" } ?: "—"
+            val chromaSub = when {
+                pixFmt.contains("444") -> "4:4:4"
+                pixFmt.contains("422") -> "4:2:2"
+                pixFmt.contains("420") -> "4:2:0"
+                pixFmt.contains("rgb", true) || pixFmt.contains("bgr", true) -> "RGB"
+                else -> "—"
+            }
+            val bitDepth = when {
+                pixFmt.contains("12") -> "12-bit"
+                pixFmt.contains("10") -> "10-bit"
+                pixFmt != "—" -> "8-bit"
+                else -> "—"
+            }
+            val vCodecName = vObj?.optString("codec_name", "None")?.ifBlank { "None" } ?: "None"
+            val hasBFrames = vObj?.optInt("has_b_frames", -1) ?: -1
+            val refs = vObj?.optInt("refs", -1) ?: -1
+            val frameStructure = when {
+                vObj == null -> "—"
+                vCodecName in listOf("prores", "mjpeg", "dnxhd", "png", "rawvideo") -> "Intra-Frame (All-I)"
+                hasBFrames == 0 && refs == 1 -> "Intra / Low-Delay GOP"
+                hasBFrames >= 0 -> "Inter-Frame (GOP · ${hasBFrames} B-frames)"
+                else -> "Inter-Frame (GOP)"
+            }
+            val vLevelRaw = vObj?.optInt("level", -1) ?: -1
+            val vLevelStr = if (vLevelRaw > 0) String.format(Locale.US, "L%.1f", vLevelRaw / 10.0) else "—"
+            val fieldOrderRaw = vObj?.optString("field_order", "") ?: ""
+            val fieldOrder = when {
+                fieldOrderRaw.equals("progressive", true) || fieldOrderRaw.isBlank() -> "Progressive"
+                else -> "Interlaced ($fieldOrderRaw)"
+            }
+            val colorRangeRaw = vObj?.optString("color_range", "") ?: ""
+            val colorRange = when (colorRangeRaw.lowercase(Locale.US)) {
+                "tv", "mpeg" -> "TV Limited (16–235)"
+                "pc", "jpeg" -> "PC Full (0–255)"
+                else -> if (colorRangeRaw.isBlank()) "—" else colorRangeRaw
+            }
+            val chaptersArr = rawProps.optJSONArray("chapters")
 
             JSONObject().apply {
                 put("ok", true)
                 put("path", path)
                 put("filename", file.name)
                 put("format", info.format ?: fmtObj.optString("format_name", "unknown"))
+                put("formatLongName", fmtObj.optString("format_long_name", "—"))
+                put("startTime", fmtObj.optString("start_time", "0.0s"))
                 put("durationSec", info.duration?.toDoubleOrNull() ?: fmtObj.optString("duration", "0").toDoubleOrNull() ?: 0.0)
                 put("sizeBytes", info.size?.toLongOrNull() ?: file.length())
                 put("bitrate", info.bitrate?.toLongOrNull() ?: fmtObj.optString("bit_rate", "0").toLongOrNull() ?: 0L)
                 put("streamCount", streamsArr.length())
                 put("subtitleCount", subCount)
-                put("videoCodec", vObj?.optString("codec_name", "None")?.ifBlank { "None" } ?: "None")
+                put("chapterCount", chaptersArr?.length() ?: 0)
+                put("videoCodec", vCodecName)
+                put("videoCodecLong", vObj?.optString("codec_long_name", "—") ?: "—")
                 put("videoProfile", vObj?.optString("profile", "—")?.ifBlank { "—" } ?: "—")
-                put("pixFmt", vObj?.optString("pix_fmt", "—")?.ifBlank { "—" } ?: "—")
+                put("videoLevel", vLevelStr)
+                put("pixFmt", pixFmt)
+                put("chromaSubsampling", chromaSub)
+                put("chromaLocation", vObj?.optString("chroma_location", "—")?.ifBlank { "—" } ?: "—")
+                put("bitDepth", bitDepth)
+                put("frameStructure", frameStructure)
+                put("hasBFrames", hasBFrames)
+                put("refs", refs)
+                put("fieldOrder", fieldOrder)
+                put("nbFrames", vObj?.optString("nb_frames", "—")?.ifBlank { "—" } ?: "—")
+                put("timeBase", vObj?.optString("time_base", "—")?.ifBlank { "—" } ?: "—")
+                put("sar", vObj?.optString("sample_aspect_ratio", "—")?.ifBlank { "—" } ?: "—")
+                put("dar", vObj?.optString("display_aspect_ratio", "—")?.ifBlank { "—" } ?: "—")
+                put("videoBitrate", vObj?.optString("bit_rate", "0")?.toLongOrNull() ?: 0L)
                 put("width", vObj?.optInt("width", 0) ?: 0)
                 put("height", vObj?.optInt("height", 0) ?: 0)
                 put("fps", fpsVal)
                 put("colorSpace", vObj?.optString("color_space", "—")?.ifBlank { "—" } ?: "—")
+                put("colorTransfer", vObj?.optString("color_transfer", "—")?.ifBlank { "—" } ?: "—")
+                put("colorPrimaries", vObj?.optString("color_primaries", "—")?.ifBlank { "—" } ?: "—")
+                put("colorRange", colorRange)
                 put("audioCodec", aObj?.optString("codec_name", "None")?.ifBlank { "None" } ?: "None")
+                put("audioCodecLong", aObj?.optString("codec_long_name", "—") ?: "—")
+                put("audioProfile", aObj?.optString("profile", "—")?.ifBlank { "—" } ?: "—")
+                put("audioSampleFmt", aObj?.optString("sample_fmt", "—")?.ifBlank { "—" } ?: "—")
+                put("audioBitsPerSample", aObj?.optInt("bits_per_sample", 0) ?: 0)
+                put("channelLayout", aObj?.optString("channel_layout", "—")?.ifBlank { "—" } ?: "—")
                 put("sampleRate", aObj?.optString("sample_rate", "—")?.ifBlank { "—" } ?: "—")
                 put("channels", aObj?.optInt("channels", 0) ?: 0)
                 put("audioBitrate", aObj?.optString("bit_rate", "0")?.toLongOrNull() ?: 0L)
+                put("allTags", allTags)
+                put("tagsCount", allTags.length())
                 var finalW = vObj?.optInt("width", 0) ?: 0
                 var finalH = vObj?.optInt("height", 0) ?: 0
                 var cameraModel = ""

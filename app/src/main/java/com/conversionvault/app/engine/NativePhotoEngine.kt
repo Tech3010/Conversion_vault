@@ -5,6 +5,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
 import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.os.Build
@@ -219,8 +222,18 @@ object NativePhotoEngine {
             }
 
             // Apply explicit user rotation / flip
-            if (spec.orient in setOf("90cw", "90ccw", "180", "hflip")) {
+            if (spec.orient in setOf("90cw", "90ccw", "180", "hflip", "vflip")) {
                 workingBitmap = applyUserTransform(workingBitmap, spec.orient)
+            }
+
+            // Apply Aspect Ratio center-crop if requested
+            if (spec.crop != "original" && spec.crop.isNotBlank()) {
+                workingBitmap = applyAspectCrop(workingBitmap, spec.crop)
+            }
+
+            // Apply Color Filter & Brightness adjustments via ColorMatrix
+            if ((spec.filter != "none" && spec.filter.isNotBlank()) || spec.brightness != 0) {
+                workingBitmap = applyColorAdjustments(workingBitmap, spec.filter, spec.brightness)
             }
 
             // Apply Max Width scale while preserving aspect ratio
@@ -375,11 +388,91 @@ object NativePhotoEngine {
             "90ccw" -> m.postRotate(270f)
             "180" -> m.postRotate(180f)
             "hflip" -> m.postScale(-1f, 1f)
+            "vflip" -> m.postScale(1f, -1f)
             else -> return bmp
         }
         val transformed = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
         if (transformed !== bmp) bmp.recycle()
         return transformed
+    }
+
+    private fun applyAspectCrop(bmp: Bitmap, cropRatio: String): Bitmap {
+        val targetAspect = when (cropRatio) {
+            "1:1" -> 1.0f
+            "4:5" -> 4f / 5f
+            "9:16" -> 9f / 16f
+            "16:9" -> 16f / 9f
+            "3:2" -> 3f / 2f
+            else -> return bmp
+        }
+        val w = bmp.width
+        val h = bmp.height
+        val curAspect = w.toFloat() / h.toFloat()
+        var cropW = w
+        var cropH = h
+        if (curAspect > targetAspect) {
+            cropW = (h * targetAspect).roundToInt().coerceIn(2, w)
+        } else {
+            cropH = (w / targetAspect).roundToInt().coerceIn(2, h)
+        }
+        val x = ((w - cropW) / 2).coerceAtLeast(0)
+        val y = ((h - cropH) / 2).coerceAtLeast(0)
+        if (cropW == w && cropH == h) return bmp
+        val cropped = Bitmap.createBitmap(bmp, x, y, cropW, cropH)
+        if (cropped !== bmp) bmp.recycle()
+        return cropped
+    }
+
+    private fun applyColorAdjustments(bmp: Bitmap, filter: String, brightness: Int): Bitmap {
+        val cm = ColorMatrix()
+        when (filter) {
+            "grayscale" -> cm.setSaturation(0f)
+            "vivid" -> cm.setSaturation(1.25f)
+            "contrast" -> {
+                val c = 1.18f
+                val t = (-.5f * c + .5f) * 255f
+                cm.postConcat(ColorMatrix(floatArrayOf(
+                    c, 0f, 0f, 0f, t,
+                    0f, c, 0f, 0f, t,
+                    0f, 0f, c, 0f, t,
+                    0f, 0f, 0f, 1f, 0f
+                )))
+            }
+            "warm" -> cm.postConcat(ColorMatrix(floatArrayOf(
+                1.08f, 0f, 0f, 0f, 8f,
+                0f, 1.02f, 0f, 0f, 2f,
+                0f, 0f, 0.90f, 0f, -6f,
+                0f, 0f, 0f, 1f, 0f
+            )))
+            "cool" -> cm.postConcat(ColorMatrix(floatArrayOf(
+                0.92f, 0f, 0f, 0f, -6f,
+                0f, 1.00f, 0f, 0f, 0f,
+                0f, 0f, 1.10f, 0f, 10f,
+                0f, 0f, 0f, 1f, 0f
+            )))
+            "invert" -> cm.postConcat(ColorMatrix(floatArrayOf(
+                -1f, 0f, 0f, 0f, 255f,
+                0f, -1f, 0f, 0f, 255f,
+                0f, 0f, -1f, 0f, 255f,
+                0f, 0f, 0f, 1f, 0f
+            )))
+        }
+        if (brightness != 0) {
+            val b = (brightness.coerceIn(-40, 40) * 2.2f)
+            cm.postConcat(ColorMatrix(floatArrayOf(
+                1f, 0f, 0f, 0f, b,
+                0f, 1f, 0f, 0f, b,
+                0f, 0f, 1f, 0f, b,
+                0f, 0f, 0f, 1f, 0f
+            )))
+        }
+        val out = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        paint.colorFilter = ColorMatrixColorFilter(cm)
+        canvas.drawBitmap(bmp, 0f, 0f, paint)
+        bmp.recycle()
+        return out
     }
 
     private fun applyExifPolicy(srcExif: ExifInterface?, outFile: File, fmt: String, metaPolicy: String) {
@@ -413,7 +506,10 @@ object NativePhotoEngine {
         val maxWidth: Int,
         val orient: String,
         val meta: String,
-        val colorSpace: String
+        val colorSpace: String,
+        val crop: String = "original",
+        val filter: String = "none",
+        val brightness: Int = 0
     )
 
     private fun parseSpec(commandArgs: String, fallbackExt: String): PhotoSpec {
@@ -429,7 +525,10 @@ object NativePhotoEngine {
                     maxWidth = maxW,
                     orient = o.optString("orient", "auto"),
                     meta = o.optString("meta", "wipe"),
-                    colorSpace = o.optString("colorSpace", "srgb_444")
+                    colorSpace = o.optString("colorSpace", "srgb_444"),
+                    crop = o.optString("crop", "original"),
+                    filter = o.optString("filter", "none"),
+                    brightness = o.optInt("brightness", 0)
                 )
             } catch (_: Throwable) {}
         }

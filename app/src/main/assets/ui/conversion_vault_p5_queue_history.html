@@ -263,12 +263,17 @@
       </div>
 
       <!-- Multi-Select Action Bar (File-Manager Style) -->
-      <div id="multi-select-bar" class="hidden" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid rgba(219,10,64,0.45); background:rgba(219,10,64,0.08);">
-        <div style="display:flex; align-items:center; gap:8px;">
+      <div id="multi-select-bar" class="hidden" style="display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid rgba(219,10,64,0.45); background:rgba(219,10,64,0.08);">
+        <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px;">
           <strong id="lbl-sel-count" style="font-size:12px; color:var(--text);">0 Selected</strong>
-          <button type="button" id="btn-sel-all" class="btn-sm">Select All</button>
+          <div style="display:flex; flex-wrap:wrap; gap:5px;">
+            <button type="button" id="btn-sel-all" class="btn-sm">All</button>
+            <button type="button" id="btn-sel-none" class="btn-sm">None</button>
+            <button type="button" id="btn-sel-invert" class="btn-sm">Invert</button>
+            <button type="button" id="btn-sel-failed" class="btn-sm">Failed/Cancelled</button>
+          </div>
         </div>
-        <div id="multi-sel-actions" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+        <div id="multi-sel-actions" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;"></div>
       </div>
 
       <!-- ACTIVE QUEUE VIEW -->
@@ -502,6 +507,8 @@
       if (!state.selectMode) return;
       const n = state.selectedIds.size;
       if (cntEl) cntEl.textContent = n + ' Selected';
+      const fBtn = document.getElementById('btn-sel-failed');
+      if (fBtn) fBtn.textContent = state.view === 'queue' ? 'Paused Only' : 'Failed/Cancelled';
       if (state.view === 'queue') {
         actEl.innerHTML =
           '<button type="button" class="btn-sm" style="border-color:rgba(219,10,64,0.5); color:var(--crimson);" data-bulk="cancel-sel" ' + (n === 0 ? 'disabled' : '') + '>■ Cancel Selected (' + n + ')</button>';
@@ -764,9 +771,28 @@
     });
     document.getElementById('btn-sel-all')?.addEventListener('click', () => {
       const list = state.view === 'queue' ? state.queue : getVisibleHistoryItems();
-      const allSelected = list.length > 0 && list.every(it => state.selectedIds.has(it.id));
+      list.forEach(it => state.selectedIds.add(it.id));
+      render();
+    });
+    document.getElementById('btn-sel-none')?.addEventListener('click', () => {
       state.selectedIds.clear();
-      if (!allSelected) list.forEach(it => state.selectedIds.add(it.id));
+      render();
+    });
+    document.getElementById('btn-sel-invert')?.addEventListener('click', () => {
+      const list = state.view === 'queue' ? state.queue : getVisibleHistoryItems();
+      list.forEach(it => {
+        if (state.selectedIds.has(it.id)) state.selectedIds.delete(it.id);
+        else state.selectedIds.add(it.id);
+      });
+      render();
+    });
+    document.getElementById('btn-sel-failed')?.addEventListener('click', () => {
+      state.selectedIds.clear();
+      if (state.view === 'queue') {
+        state.queue.filter(it => it.status === 'paused').forEach(it => state.selectedIds.add(it.id));
+      } else {
+        getVisibleHistoryItems().filter(it => it.status === 'failed' || it.status === 'cancelled').forEach(it => state.selectedIds.add(it.id));
+      }
       render();
     });
     document.addEventListener('change', (e) => {

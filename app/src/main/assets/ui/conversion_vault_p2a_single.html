@@ -1063,6 +1063,10 @@
       showToast('Saved "' + nm + '" (synced to Presets & Batch)');
     });
     document.getElementById('btn-modal-apply').addEventListener('click', () => {
+      if (window.validateVaultTrimRange) {
+        const chk = window.validateVaultTrimRange(state.modal.draft.trimStart, state.modal.draft.trimEnd);
+        if (!chk.ok) { showToast('⚠ ' + chk.msg); return; }
+      }
       state.cfg = Object.assign({}, state.modal.draft);
       state.hasPreset = true;
       document.getElementById('preset-modal').classList.add('hidden');

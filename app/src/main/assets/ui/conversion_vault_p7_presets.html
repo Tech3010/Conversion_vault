@@ -927,6 +927,42 @@
               <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep All ID3 / Tags</option>
             </select>
           </div>
+          <div class="field"><label class="lbl-row"><span>Volume Gain</span></label>
+            <select data-mf="gain">
+              <option value="-12dB" ${draft.gain === '-12dB' ? 'selected' : ''}>-12 dB</option>
+              <option value="-6dB" ${draft.gain === '-6dB' ? 'selected' : ''}>-6 dB</option>
+              <option value="-3dB" ${draft.gain === '-3dB' ? 'selected' : ''}>-3 dB</option>
+              <option value="0dB" ${(!draft.gain || draft.gain === '0dB') ? 'selected' : ''}>0 dB (Original)</option>
+              <option value="+3dB" ${draft.gain === '+3dB' ? 'selected' : ''}>+3 dB</option>
+              <option value="+6dB" ${draft.gain === '+6dB' ? 'selected' : ''}>+6 dB</option>
+              <option value="+9dB" ${draft.gain === '+9dB' ? 'selected' : ''}>+9 dB</option>
+              <option value="+12dB" ${draft.gain === '+12dB' ? 'selected' : ''}>+12 dB</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Playback Speed</span></label>
+            <select data-mf="speed">
+              <option value="0.5" ${draft.speed === '0.5' ? 'selected' : ''}>0.5x</option>
+              <option value="0.75" ${draft.speed === '0.75' ? 'selected' : ''}>0.75x</option>
+              <option value="1.0" ${(!draft.speed || draft.speed === '1.0') ? 'selected' : ''}>1.0x (Normal)</option>
+              <option value="1.25" ${draft.speed === '1.25' ? 'selected' : ''}>1.25x</option>
+              <option value="1.5" ${draft.speed === '1.5' ? 'selected' : ''}>1.5x</option>
+              <option value="2.0" ${draft.speed === '2.0' ? 'selected' : ''}>2.0x</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Trim Start</span></label>
+            <input type="text" data-mf="trimStart" value="${draft.trimStart || '00:00:00'}" placeholder="00:00:00">
+          </div>
+          <div class="field"><label class="lbl-row"><span>Trim End</span></label>
+            <input type="text" data-mf="trimEnd" value="${draft.trimEnd || 'End'}" placeholder="End">
+          </div>
+          <div class="field full"><label class="lbl-row"><span>Fade In / Out</span></label>
+            <select data-mf="fade">
+              <option value="none" ${(!draft.fade || draft.fade === 'none') ? 'selected' : ''}>None</option>
+              <option value="in2" ${draft.fade === 'in2' ? 'selected' : ''}>Fade In (2s)</option>
+              <option value="out2" ${draft.fade === 'out2' ? 'selected' : ''}>Fade Out (2s)</option>
+              <option value="both2" ${draft.fade === 'both2' ? 'selected' : ''}>Fade In &amp; Out (2s)</option>
+            </select>
+          </div>
         `;
       } else {
         wrap.innerHTML = `
@@ -976,6 +1012,31 @@
               <option value="gps" ${draft.meta === 'gps' ? 'selected' : ''}>Strip GPS Only</option>
               <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep EXIF</option>
             </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Aspect Crop</span></label>
+            <select data-mf="crop">
+              <option value="original" ${(!draft.crop || draft.crop === 'original') ? 'selected' : ''}>Original (No Crop)</option>
+              <option value="1:1" ${draft.crop === '1:1' ? 'selected' : ''}>1:1 Square</option>
+              <option value="4:5" ${draft.crop === '4:5' ? 'selected' : ''}>4:5 Portrait</option>
+              <option value="9:16" ${draft.crop === '9:16' ? 'selected' : ''}>9:16 Vertical</option>
+              <option value="16:9" ${draft.crop === '16:9' ? 'selected' : ''}>16:9 Widescreen</option>
+              <option value="3:2" ${draft.crop === '3:2' ? 'selected' : ''}>3:2 Classic</option>
+            </select>
+          </div>
+          <div class="field"><label class="lbl-row"><span>Color Filter</span></label>
+            <select data-mf="filter">
+              <option value="none" ${(!draft.filter || draft.filter === 'none') ? 'selected' : ''}>Original</option>
+              <option value="vivid" ${draft.filter === 'vivid' ? 'selected' : ''}>Vivid (+25% Sat)</option>
+              <option value="contrast" ${draft.filter === 'contrast' ? 'selected' : ''}>Auto Contrast</option>
+              <option value="warm" ${draft.filter === 'warm' ? 'selected' : ''}>Warm Tone</option>
+              <option value="cool" ${draft.filter === 'cool' ? 'selected' : ''}>Cool Tone</option>
+              <option value="grayscale" ${draft.filter === 'grayscale' ? 'selected' : ''}>Grayscale (B&amp;W)</option>
+              <option value="invert" ${draft.filter === 'invert' ? 'selected' : ''}>Invert Colors</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label class="lbl-row"><span>Brightness</span><span class="lbl-right"><span class="field-val-pill">${draft.brightness || 0}</span></span></label>
+            <input type="range" min="-20" max="20" step="2" value="${draft.brightness || 0}" data-mf="brightness">
           </div>
         `;
       }
