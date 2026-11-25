@@ -293,6 +293,91 @@
       const audBrStr = info.audioBitrate > 0 ? Math.round(info.audioBitrate / 1000) + ' kbps' : '—';
 
       document.querySelectorAll('.fb-size').forEach(el => { el.textContent = sizeMbStr; });
+      if (fileObj.path) {
+        const dirPath = fileObj.path.lastIndexOf('/') > 0 ? fileObj.path.substring(0, fileObj.path.lastIndexOf('/')) : fileObj.path;
+        document.querySelectorAll('.fb-path').forEach(el => { el.textContent = dirPath; });
+      }
+
+      // Dedicated media-type-specific File Information on Single File Workspace (zero dummy data)
+      if (currentPage() === 'conversion_vault_p2a_single.html') {
+        const mCat = classifyExt(name);
+        const gridEl = document.getElementById('single-info-grid');
+        const tagEl = document.getElementById('single-probe-tag');
+        const deepEl = document.getElementById('single-deep-meta');
+        const badgeEl = document.querySelector('.single-badge');
+        const esc = (s) => String(s == null ? '—' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const cell = (k, v, cls) => '<div class="info-cell"><span class="info-k">' + esc(k) + '</span><span class="info-v' + (cls ? ' ' + cls : '') + '">' + esc(v) + '</span></div>';
+
+        if (mCat === 'i') {
+          if (badgeEl) badgeEl.textContent = 'PHOTO';
+          if (tagEl) tagEl.textContent = 'Native Photo Probe';
+          const extUp = (name.split('.').pop() || 'IMG').toUpperCase();
+          const aspect = (info.width && info.height) ? ((info.width / info.height).toFixed(2) + ':1') : '—';
+          const metaLbl = info.hasGps ? 'GPS + EXIF Present' : (info.cameraModel ? info.cameraModel : (info.tagsSummary || 'Clean'));
+          if (gridEl) {
+            gridEl.innerHTML =
+              cell('Dimensions', resStr) +
+              cell('Image Format', extUp + (info.videoCodec && info.videoCodec !== 'None' ? ' (' + info.videoCodec.toUpperCase() + ')' : '')) +
+              cell('Pixel / Color', (info.pixFmt && info.pixFmt !== '—') ? info.pixFmt : 'sRGB') +
+              cell('File Size', sizeMbStr) +
+              cell('Orientation', info.exifOrientation || 'Normal (0°)') +
+              cell('EXIF / Camera', metaLbl, info.hasGps ? 'c-gold' : '');
+          }
+          if (deepEl) {
+            deepEl.innerHTML =
+              '<strong>Extracted Photo Details:</strong><br>' +
+              'File: ' + esc(name) + ' · Exact Size: ' + (sizeBytes ? sizeBytes.toLocaleString() + ' B' : '—') + '<br>' +
+              'Dimensions: ' + esc(resStr) + ' (Aspect ' + esc(aspect) + ') · Orientation: ' + esc(info.exifOrientation || 'Normal') + '<br>' +
+              'Tags: ' + esc(info.tagsSummary || 'No metadata tags detected');
+          }
+        } else if (mCat === 'a') {
+          if (badgeEl) badgeEl.textContent = 'AUDIO';
+          if (tagEl) tagEl.textContent = 'FFprobe Audio Stream';
+          const extUp = (name.split('.').pop() || 'AUDIO').toUpperCase();
+          const chLbl = info.channels === 2 ? '2 ch (Stereo)' : (info.channels === 1 ? '1 ch (Mono)' : (info.channels ? info.channels + ' ch' : '—'));
+          const srLbl = (info.sampleRate && info.sampleRate !== '—') ? (info.sampleRate + ' Hz') : '—';
+          const effBr = audBrStr !== '—' ? audBrStr : (info.bitrate > 0 ? Math.round(info.bitrate / 1000) + ' kbps' : '—');
+          if (gridEl) {
+            gridEl.innerHTML =
+              cell('Audio Codec', (info.audioCodec && info.audioCodec !== 'None') ? info.audioCodec.toUpperCase() : extUp) +
+              cell('Bitrate', effBr) +
+              cell('Duration', durStr) +
+              cell('Sample Rate', srLbl) +
+              cell('Channels', chLbl) +
+              cell('Container', (info.format && info.format !== 'unknown') ? info.format.toUpperCase() : extUp);
+          }
+          if (deepEl) {
+            deepEl.innerHTML =
+              '<strong>Extracted Audio Stream Details:</strong><br>' +
+              'File: ' + esc(name) + ' · Exact Size: ' + (sizeBytes ? sizeBytes.toLocaleString() + ' B' : '—') + '<br>' +
+              'Streams: ' + (info.streamCount || 1) + ' · Container: ' + esc(info.format || extUp) + '<br>' +
+              'Tags: ' + esc(info.tagsSummary || 'No metadata tags detected');
+          }
+        } else {
+          if (badgeEl) badgeEl.textContent = 'VIDEO';
+          if (tagEl) tagEl.textContent = 'FFprobe Deep Stream';
+          const vCodecLbl = (info.videoCodec && info.videoCodec !== 'None') ? (info.videoCodec.toUpperCase() + (info.pixFmt && info.pixFmt !== '—' ? ' (' + info.pixFmt + ')' : '')) : '—';
+          const aStreamLbl = (info.audioCodec && info.audioCodec !== 'None')
+            ? (info.audioCodec.toUpperCase() + (audBrStr !== '—' ? ' · ' + audBrStr : '') + (info.sampleRate && info.sampleRate !== '—' ? ' · ' + info.sampleRate + ' Hz' : ''))
+            : 'No Audio Track';
+          if (gridEl) {
+            gridEl.innerHTML =
+              cell('Resolution & FPS', resStr + (fpsStr !== '—' ? ' · ' + fpsStr : '')) +
+              cell('Video Codec', vCodecLbl) +
+              cell('Source Bitrate', brStr) +
+              cell('Duration', durStr) +
+              cell('Audio Stream', aStreamLbl) +
+              cell('Detected Metadata', info.hasGps ? 'GPS + Container Tags' : (info.tagsSummary || 'Clean'), info.hasGps ? 'c-gold' : '');
+          }
+          if (deepEl) {
+            deepEl.innerHTML =
+              '<strong>Extracted Video Stream Details:</strong><br>' +
+              'Profile: ' + esc(info.videoProfile || '—') + ' · Pixel Fmt: ' + esc(info.pixFmt || '—') + ' · Color: ' + esc(info.colorSpace || '—') + '<br>' +
+              'Container: ' + esc(info.format || '—') + ' · Streams: ' + (info.streamCount || 0) + ' · Subtitles: ' + (info.subtitleCount || 0) + '<br>' +
+              'Tags: ' + esc(info.tagsSummary || 'No metadata tags detected');
+          }
+        }
+      }
 
       // Hydrate every .info-cell dynamically from real FFprobe data
       document.querySelectorAll('.info-cell').forEach(cell => {
@@ -552,19 +637,48 @@
     if (page === 'conversion_vault_p2a_single.html') {
       const activeFiles = getActiveFiles();
       const firstFile = activeFiles[0];
+      const fileCat = firstFile ? classifyExt(firstFile.name) : 'v';
       let singlePhotoCfg = null;
-      if (firstFile && classifyExt(firstFile.name) === 'i') {
+      let singleAudioCfg = null;
+
+      const getRoomPresetsForCat = (targetCat) => {
+        if (!hasBridge || typeof window.AndroidBridge.getPresets !== 'function') return [];
+        try {
+          const all = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+          return all.filter(p => {
+            const c = String(p.category || 'Video').toLowerCase();
+            if (targetCat === 'image') return c.includes('ima');
+            if (targetCat === 'audio') return c.includes('aud');
+            return !c.includes('ima') && !c.includes('aud');
+          }).map(p => {
+            let parsed = {};
+            try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
+            return { raw: p, parsed };
+          });
+        } catch (_) { return []; }
+      };
+
+      const presetBox = document.getElementById('main-preset-box');
+      const perfSec = document.getElementById('sec-perf');
+
+      if (fileCat === 'i') {
+        // PHOTO MODE: hide video format selector completely & show dedicated Photo Format + Saved Image Presets
+        if (presetBox) presetBox.style.display = 'none';
+        if (perfSec) perfSec.style.display = 'none';
+        const badgeEl = document.querySelector('.single-badge');
+        if (badgeEl) badgeEl.textContent = 'PHOTO';
         singlePhotoCfg = { format: 'webp', quality: 88, scale: 'original', orient: 'auto', meta: 'wipe', colorSpace: 'srgb_444' };
-        const presetBox = document.getElementById('main-preset-box');
+
         if (presetBox && !document.getElementById('native-photo-single-card')) {
           const card = document.createElement('div');
           card.id = 'native-photo-single-card';
-          card.style.cssText = 'margin-top:10px; padding:12px; border-radius:12px; border:1px solid rgba(16,185,129,0.4); background:rgba(16,185,129,0.06); display:flex; flex-direction:column; gap:10px;';
+          card.style.cssText = 'padding:12px; border-radius:12px; border:1px solid rgba(16,185,129,0.4); background:rgba(16,185,129,0.06); display:flex; flex-direction:column; gap:10px;';
           card.innerHTML =
             '<div style="display:flex; justify-content:space-between; align-items:center;">' +
               '<span style="font-size:12px; font-weight:800; color:var(--emerald);">Native Photo Engine (Skia + Exif + Heif)</span>' +
-              '<span style="font-size:10px; font-family:var(--mono); color:var(--muted);">PHOTO MODE</span>' +
+              '<span style="font-size:10px; font-family:var(--mono); color:var(--muted);">PHOTO FORMAT</span>' +
             '</div>' +
+            '<div id="sp-saved-presets-wrap" style="display:flex; flex-wrap:wrap; gap:6px;"></div>' +
             '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
               '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Output Format</label>' +
                 '<select id="sp-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
@@ -600,7 +714,10 @@
                 '</select></div>' +
             '</div>' +
             '<div><div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px;"><span>Image Quality</span><strong id="sp-qual-lbl" style="color:var(--text);">88%</strong></div>' +
-              '<input type="range" id="sp-qual" min="15" max="100" value="88" style="width:100%;"></div>';
+              '<input type="range" id="sp-qual" min="15" max="100" value="88" style="width:100%;"></div>' +
+            '<div style="display:flex; justify-content:flex-end;">' +
+              '<button type="button" id="btn-sp-save-preset" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">+ Save Image Preset</button>' +
+            '</div>';
           presetBox.parentNode.insertBefore(card, presetBox.nextSibling);
 
           const syncPhotoSummary = () => {
@@ -611,24 +728,200 @@
             singlePhotoCfg.quality = parseInt(document.getElementById('sp-qual').value, 10) || 88;
             document.getElementById('sp-qual-lbl').textContent = singlePhotoCfg.format === 'png' ? 'Lossless' : (singlePhotoCfg.quality + '%');
             const stPill = document.getElementById('fmt-status-pill');
-            const psName = document.getElementById('main-ps-name');
-            const psTags = document.getElementById('main-ps-tags');
             const footT = document.getElementById('foot-title');
             const footS = document.getElementById('foot-sub');
             if (stPill) stPill.textContent = '.' + singlePhotoCfg.format.toUpperCase();
-            if (psName) psName.textContent = 'Native Photo Engine · .' + singlePhotoCfg.format.toUpperCase();
-            if (psTags) psTags.textContent = (singlePhotoCfg.format === 'png' ? 'Lossless PNG' : ('Quality ' + singlePhotoCfg.quality + '%')) + ' · Scale: ' + singlePhotoCfg.scale + ' · EXIF: ' + singlePhotoCfg.meta;
             if (footT) footT.textContent = 'Native Photo Engine Ready';
-            if (footS) footS.textContent = '.' + singlePhotoCfg.format.toUpperCase() + ' · Q' + singlePhotoCfg.quality + ' · ' + singlePhotoCfg.meta;
+            if (footS) footS.textContent = '.' + singlePhotoCfg.format.toUpperCase() + (singlePhotoCfg.format === 'png' ? ' · Lossless' : (' · Q' + singlePhotoCfg.quality)) + ' · ' + singlePhotoCfg.meta;
             const mvBtn = document.getElementById('btn-move-convert');
             if (mvBtn) mvBtn.disabled = false;
           };
+
+          const renderSavedImagePresets = () => {
+            const wrap = document.getElementById('sp-saved-presets-wrap');
+            if (!wrap) return;
+            const saved = getRoomPresetsForCat('image');
+            if (!saved.length) {
+              wrap.innerHTML = '<span style="font-size:11px; color:var(--muted);">No saved image presets yet.</span>';
+              return;
+            }
+            wrap.innerHTML = saved.map((s, i) =>
+              '<button type="button" data-sp-saved="' + i + '" style="padding:5px 10px; border-radius:999px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11px; font-weight:700; cursor:pointer;">★ ' + s.raw.name.replace(/</g, '&lt;') + '</button>'
+            ).join('');
+            wrap.querySelectorAll('[data-sp-saved]').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const s = saved[parseInt(btn.getAttribute('data-sp-saved'), 10)];
+                if (!s) return;
+                const c = s.parsed.cfg || {};
+                const fmt = (c.fmt || c.format || s.raw.container || 'webp').replace(/^\./, '').toLowerCase();
+                if (Array.from(document.getElementById('sp-fmt').options).some(o => o.value === fmt)) document.getElementById('sp-fmt').value = fmt;
+                if (c.scale) document.getElementById('sp-scale').value = String(c.scale);
+                if (c.orient) document.getElementById('sp-orient').value = String(c.orient);
+                if (c.meta) document.getElementById('sp-meta').value = String(c.meta);
+                const q = parseInt(c.qual || c.quality || s.raw.crfOrBitrate, 10);
+                if (q >= 15 && q <= 100) document.getElementById('sp-qual').value = String(q);
+                syncPhotoSummary();
+                toast('Applied saved preset: ' + s.raw.name);
+              });
+            });
+          };
+
+          document.getElementById('btn-sp-save-preset').addEventListener('click', () => {
+            if (!hasBridge || typeof window.AndroidBridge.savePreset !== 'function') return;
+            const nm = 'Photo ' + singlePhotoCfg.format.toUpperCase() + ' Q' + singlePhotoCfg.quality;
+            const specs = '.' + singlePhotoCfg.format + ' · Q' + singlePhotoCfg.quality + ' · ' + singlePhotoCfg.scale + ' · ' + singlePhotoCfg.meta;
+            window.AndroidBridge.savePreset(JSON.stringify({
+              name: nm,
+              category: 'Image',
+              codec: singlePhotoCfg.format,
+              container: singlePhotoCfg.format,
+              crfOrBitrate: String(singlePhotoCfg.quality),
+              extraFlags: JSON.stringify({ desc: 'Saved photo preset', specs, cfg: { fmt: singlePhotoCfg.format, qual: singlePhotoCfg.quality, scale: singlePhotoCfg.scale, orient: singlePhotoCfg.orient, meta: singlePhotoCfg.meta } })
+            }));
+            renderSavedImagePresets();
+            toast('Saved "' + nm + '" ✓');
+          });
+
           ['sp-fmt', 'sp-scale', 'sp-orient', 'sp-meta', 'sp-qual'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('input', syncPhotoSummary);
             if (el) el.addEventListener('change', syncPhotoSummary);
           });
+          renderSavedImagePresets();
           syncPhotoSummary();
+        }
+      } else if (fileCat === 'a') {
+        // AUDIO MODE: hide video format selector completely & show dedicated Audio Format + Saved Audio Presets
+        if (presetBox) presetBox.style.display = 'none';
+        if (perfSec) perfSec.style.display = 'none';
+        const badgeEl = document.querySelector('.single-badge');
+        if (badgeEl) badgeEl.textContent = 'AUDIO';
+        singleAudioCfg = { fmt: 'm4a', br: '192k', ar: 'keep', ch: 'keep', filter: 'none', meta: 'wipe' };
+
+        if (presetBox && !document.getElementById('native-audio-single-card')) {
+          const card = document.createElement('div');
+          card.id = 'native-audio-single-card';
+          card.style.cssText = 'padding:12px; border-radius:12px; border:1px solid rgba(252,215,0,0.4); background:rgba(252,215,0,0.06); display:flex; flex-direction:column; gap:10px;';
+          card.innerHTML =
+            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+              '<span style="font-size:12px; font-weight:800; color:var(--gold-text);">Audio Format &amp; Codec Selection</span>' +
+              '<span style="font-size:10px; font-family:var(--mono); color:var(--muted);">AUDIO MODE</span>' +
+            '</div>' +
+            '<div id="sa-saved-presets-wrap" style="display:flex; flex-wrap:wrap; gap:6px;"></div>' +
+            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Audio Format</label>' +
+                '<select id="sa-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="m4a" selected>.m4a (AAC Universal)</option>' +
+                  '<option value="opus">.opus (High Efficiency)</option>' +
+                  '<option value="mp3">.mp3 (Classic)</option>' +
+                  '<option value="flac">.flac (Lossless)</option>' +
+                  '<option value="wav">.wav (Uncompressed)</option>' +
+                '</select></div>' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Bitrate</label>' +
+                '<select id="sa-br" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="96k">96 kbps (Compact)</option>' +
+                  '<option value="128k">128 kbps</option>' +
+                  '<option value="192k" selected>192 kbps (High)</option>' +
+                  '<option value="256k">256 kbps</option>' +
+                  '<option value="320k">320 kbps (Max)</option>' +
+                '</select></div>' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Sample Rate</label>' +
+                '<select id="sa-ar" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="keep" selected>Keep Source</option>' +
+                  '<option value="48000">48,000 Hz</option>' +
+                  '<option value="44100">44,100 Hz (CD)</option>' +
+                '</select></div>' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Channels</label>' +
+                '<select id="sa-ch" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="keep" selected>Keep Source</option>' +
+                  '<option value="2">Stereo (2.0)</option>' +
+                  '<option value="1">Mono (1.0)</option>' +
+                '</select></div>' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Audio Filter</label>' +
+                '<select id="sa-filter" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="none" selected>None</option>' +
+                  '<option value="loudnorm">Loudnorm (-14 LUFS)</option>' +
+                  '<option value="trim_silence">Trim Silence</option>' +
+                '</select></div>' +
+              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">ID3 Privacy</label>' +
+                '<select id="sa-meta" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                  '<option value="wipe" selected>Wipe All Tags</option>' +
+                  '<option value="keep">Keep All Tags</option>' +
+                '</select></div>' +
+            '</div>' +
+            '<div style="display:flex; justify-content:flex-end;">' +
+              '<button type="button" id="btn-sa-save-preset" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">+ Save Audio Preset</button>' +
+            '</div>';
+          presetBox.parentNode.insertBefore(card, presetBox.nextSibling);
+
+          const syncAudioSummary = () => {
+            singleAudioCfg.fmt = document.getElementById('sa-fmt').value;
+            singleAudioCfg.br = document.getElementById('sa-br').value;
+            singleAudioCfg.ar = document.getElementById('sa-ar').value;
+            singleAudioCfg.ch = document.getElementById('sa-ch').value;
+            singleAudioCfg.filter = document.getElementById('sa-filter').value;
+            singleAudioCfg.meta = document.getElementById('sa-meta').value;
+            const isLossless = singleAudioCfg.fmt === 'flac' || singleAudioCfg.fmt === 'wav';
+            document.getElementById('sa-br').disabled = isLossless;
+            const stPill = document.getElementById('fmt-status-pill');
+            const footT = document.getElementById('foot-title');
+            const footS = document.getElementById('foot-sub');
+            if (stPill) stPill.textContent = '.' + singleAudioCfg.fmt.toUpperCase();
+            if (footT) footT.textContent = 'Audio Format Ready';
+            if (footS) footS.textContent = '.' + singleAudioCfg.fmt.toUpperCase() + (isLossless ? ' · Lossless' : (' · ' + singleAudioCfg.br));
+            const mvBtn = document.getElementById('btn-move-convert');
+            if (mvBtn) mvBtn.disabled = false;
+          };
+
+          const renderSavedAudioPresets = () => {
+            const wrap = document.getElementById('sa-saved-presets-wrap');
+            if (!wrap) return;
+            const saved = getRoomPresetsForCat('audio');
+            if (!saved.length) {
+              wrap.innerHTML = '<span style="font-size:11px; color:var(--muted);">No saved audio presets yet.</span>';
+              return;
+            }
+            wrap.innerHTML = saved.map((s, i) =>
+              '<button type="button" data-sa-saved="' + i + '" style="padding:5px 10px; border-radius:999px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11px; font-weight:700; cursor:pointer;">★ ' + s.raw.name.replace(/</g, '&lt;') + '</button>'
+            ).join('');
+            wrap.querySelectorAll('[data-sa-saved]').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const s = saved[parseInt(btn.getAttribute('data-sa-saved'), 10)];
+                if (!s) return;
+                const c = s.parsed.cfg || {};
+                const fmt = (c.fmt || s.raw.container || 'm4a').replace(/^\./, '').toLowerCase();
+                if (Array.from(document.getElementById('sa-fmt').options).some(o => o.value === fmt)) document.getElementById('sa-fmt').value = fmt;
+                const br = c.br || s.raw.crfOrBitrate || '192k';
+                if (Array.from(document.getElementById('sa-br').options).some(o => o.value === br)) document.getElementById('sa-br').value = br;
+                syncAudioSummary();
+                toast('Applied saved preset: ' + s.raw.name);
+              });
+            });
+          };
+
+          document.getElementById('btn-sa-save-preset').addEventListener('click', () => {
+            if (!hasBridge || typeof window.AndroidBridge.savePreset !== 'function') return;
+            const isLossless = singleAudioCfg.fmt === 'flac' || singleAudioCfg.fmt === 'wav';
+            const nm = 'Audio ' + singleAudioCfg.fmt.toUpperCase() + (isLossless ? ' Lossless' : (' ' + singleAudioCfg.br));
+            const specs = '.' + singleAudioCfg.fmt + ' · ' + (isLossless ? 'Lossless' : singleAudioCfg.br);
+            window.AndroidBridge.savePreset(JSON.stringify({
+              name: nm,
+              category: 'Audio',
+              codec: singleAudioCfg.fmt,
+              container: singleAudioCfg.fmt,
+              crfOrBitrate: isLossless ? 'lossless' : singleAudioCfg.br,
+              extraFlags: JSON.stringify({ desc: 'Saved audio preset', specs, cfg: Object.assign({}, singleAudioCfg) })
+            }));
+            renderSavedAudioPresets();
+            toast('Saved "' + nm + '" ✓');
+          });
+
+          ['sa-fmt', 'sa-br', 'sa-ar', 'sa-ch', 'sa-filter', 'sa-meta'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', syncAudioSummary);
+          });
+          renderSavedAudioPresets();
+          syncAudioSummary();
         }
       }
 
@@ -637,8 +930,11 @@
         e.preventDefault(); e.stopImmediatePropagation();
         if (singlePhotoCfg) {
           safeSet('cv_pending_convert_cfg', JSON.stringify({ mode: 'single_photo', photo: singlePhotoCfg }));
+        } else if (singleAudioCfg) {
+          safeSet('cv_pending_convert_cfg', JSON.stringify({ mode: 'single_audio', audio: singleAudioCfg }));
         } else {
-          safeSet('cv_pending_convert_cfg', JSON.stringify({ mode: 'single_video' }));
+          const vCfg = typeof window.getSingleVideoConfig === 'function' ? window.getSingleVideoConfig() : null;
+          safeSet('cv_pending_convert_cfg', JSON.stringify({ mode: 'single_video', video: vCfg }));
         }
         navigateTo('conversion_vault_p3b_output_single.html');
       }, true);
@@ -696,16 +992,32 @@
             };
             args = 'NATIVE_PHOTO:' + JSON.stringify(photoSpec);
           } else if (c === 'a') {
-            const aCfg = (pendingCfg.batch && pendingCfg.batch.byName && pendingCfg.batch.byName[f.name]) || (pendingCfg.batch && pendingCfg.batch.byCat && pendingCfg.batch.byCat.audio) || {};
+            const aCfg = (pendingCfg.mode === 'single_audio' && pendingCfg.audio) || (pendingCfg.batch && pendingCfg.batch.byName && pendingCfg.batch.byName[f.name]) || (pendingCfg.batch && pendingCfg.batch.byCat && pendingCfg.batch.byCat.audio) || {};
             ext = (aCfg.fmt || 'm4a').replace(/^\./, '').toLowerCase();
             const br = aCfg.br || '192k';
-            args = ext === 'flac' ? '-y -i {INPUT} -c:a flac {OUTPUT}'
-                 : (ext === 'wav' ? '-y -i {INPUT} -c:a pcm_s16le {OUTPUT}'
-                 : (ext === 'mp3' ? '-y -i {INPUT} -c:a libmp3lame -b:a ' + br + ' {OUTPUT}'
-                 : (ext === 'opus' ? '-y -i {INPUT} -c:a libopus -b:a ' + br + ' {OUTPUT}'
-                                   : '-y -i {INPUT} -c:a aac -b:a ' + br + ' {OUTPUT}')));
+            const arFlag = (aCfg.ar && aCfg.ar !== 'keep') ? (' -ar ' + aCfg.ar) : '';
+            const chFlag = (aCfg.ch && aCfg.ch !== 'keep') ? (' -ac ' + aCfg.ch) : '';
+            const afFlag = aCfg.filter === 'loudnorm' ? ' -af loudnorm=I=-14:TP=-1.5:LRA=11' : (aCfg.filter === 'trim_silence' ? ' -af silenceremove=start_periods=1:start_threshold=-50dB' : '');
+            const metaFlag = aCfg.meta === 'wipe' ? ' -map_metadata -1' : '';
+            const codecPart = ext === 'flac' ? '-c:a flac'
+                 : (ext === 'wav' ? '-c:a pcm_s16le'
+                 : (ext === 'mp3' ? '-c:a libmp3lame -b:a ' + br
+                 : (ext === 'opus' ? '-c:a libopus -b:a ' + br
+                                   : '-c:a aac -b:a ' + br)));
+            args = '-y -i {INPUT} -vn ' + codecPart + arFlag + chFlag + afFlag + metaFlag + ' {OUTPUT}';
           } else {
-            args = '-y -i {INPUT} -c:v libx264 -pix_fmt yuv420p -crf 20 -preset fast -c:a aac -b:a 192k -movflags +faststart {OUTPUT}';
+            const vCfg = (pendingCfg.mode === 'single_video' && pendingCfg.video) || (pendingCfg.batch && pendingCfg.batch.byName && pendingCfg.batch.byName[f.name]) || (pendingCfg.batch && pendingCfg.batch.byCat && pendingCfg.batch.byCat.video) || {};
+            ext = (vCfg.container || 'mp4').replace(/^\./, '').toLowerCase();
+            const vCodec = vCfg.codec || 'libx264';
+            const crf = vCfg.crf != null ? vCfg.crf : 20;
+            const preset = vCfg.preset || 'fast';
+            const aCodec = vCfg.audioCodec || 'aac';
+            const aBr = vCfg.audioBr || '192k';
+            const aPart = aCodec === 'none' ? '-an' : (aCodec === 'copy' ? '-c:a copy' : (aCodec === 'flac' ? '-c:a flac' : ('-c:a ' + aCodec + ' -b:a ' + aBr)));
+            const fastPart = ext === 'mp4' ? ' -movflags +faststart' : '';
+            args = vCodec === 'copy'
+              ? ('-y -i {INPUT} -c copy' + fastPart + ' {OUTPUT}')
+              : ('-y -i {INPUT} -c:v ' + vCodec + ' -pix_fmt yuv420p -crf ' + crf + ' -preset ' + preset + ' ' + aPart + fastPart + ' {OUTPUT}');
           }
 
           const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify({
@@ -819,28 +1131,22 @@
             });
           } catch (_) {}
         }
-        // Keep starter preset visible alongside Room presets without duplicates (matching Presets Hub, Single & Batch)
-        if (!items.some(x => x.name === 'My Daily Car Edit')) {
-          items.push({
-            name: 'My Daily Car Edit',
-            sub: 'MP4 · 1080×1920 60fps · CRF 17 · AAC 256k · Forensic'
-          });
-        }
-
         const count = items.length;
-        if (subEl) subEl.textContent = count + ' saved preset' + (count === 1 ? '' : 's') + ' · Synced across Single & Batch';
+        if (subEl) subEl.textContent = count === 0 ? 'No custom presets saved yet · Create one in Presets Hub' : (count + ' saved preset' + (count === 1 ? '' : 's') + ' · Synced across Single & Batch');
         if (badgeEl) badgeEl.textContent = count + ' SAVED';
 
         const esc = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        listEl.innerHTML = items.map(it =>
-          '<div class="cap-row">' +
-            '<div class="cap-l">' +
-              '<span class="cap-name">' + esc(it.name) + '</span>' +
-              '<span class="cap-sub">' + esc(it.sub) + '</span>' +
-            '</div>' +
-            '<button type="button" class="btn-sm" data-open-presets="1">Edit</button>' +
-          '</div>'
-        ).join('');
+        listEl.innerHTML = count === 0
+          ? '<div class="cap-row"><div class="cap-l"><span class="cap-name">No saved presets yet</span><span class="cap-sub">Save a Video, Audio, or Photo preset to see it synced here.</span></div><button type="button" class="btn-sm" data-open-presets="1">Open Presets</button></div>'
+          : items.map(it =>
+              '<div class="cap-row">' +
+                '<div class="cap-l">' +
+                  '<span class="cap-name">' + esc(it.name) + '</span>' +
+                  '<span class="cap-sub">' + esc(it.sub) + '</span>' +
+                '</div>' +
+                '<button type="button" class="btn-sm" data-open-presets="1">Edit</button>' +
+              '</div>'
+            ).join('');
       }
 
       const presetsListWrap = document.getElementById('settings-saved-presets-list');

@@ -1016,14 +1016,15 @@
       state.templates.unshift(tplObj);
       if (window.AndroidBridge && typeof window.AndroidBridge.savePreset === 'function') {
         try {
-          window.AndroidBridge.savePreset(JSON.stringify({
+          const saveRes = JSON.parse(window.AndroidBridge.savePreset(JSON.stringify({
             name: nm,
             category: cat === 'audio' ? 'Audio' : (cat === 'image' ? 'Image' : 'Video'),
             codec: (modalCfg.draft && (modalCfg.draft.codec || modalCfg.draft.fmt)) || 'libx264',
             container: (modalCfg.draft && (modalCfg.draft.container || modalCfg.draft.fmt)) || 'mp4',
             crfOrBitrate: String((modalCfg.draft && (modalCfg.draft.crf || modalCfg.draft.br || modalCfg.draft.qual)) || '18'),
             extraFlags: JSON.stringify({ desc, specs, bars, cfg: tplObj.cfg })
-          }));
+          })) || '{}');
+          if (saveRes && saveRes.id) tplObj.roomId = saveRes.id;
         } catch (_) {}
       }
       document.getElementById('tpl-modal').classList.add('hidden');
@@ -1045,17 +1046,19 @@
         if (act === 'use') showToast('Pick files to apply "' + t.name + '" →');
         else if (act === 'dup') {
           const dupName = t.name + ' (Copy)';
-          state.templates.unshift(Object.assign({}, t, { id: Date.now(), origin: 'saved', name: dupName }));
+          const dupObj = Object.assign({}, t, { id: Date.now(), roomId: null, origin: 'saved', name: dupName });
+          state.templates.unshift(dupObj);
           if (window.AndroidBridge && typeof window.AndroidBridge.savePreset === 'function') {
             try {
-              window.AndroidBridge.savePreset(JSON.stringify({
+              const dupRes = JSON.parse(window.AndroidBridge.savePreset(JSON.stringify({
                 name: dupName,
                 category: t.cat === 'audio' ? 'Audio' : (t.cat === 'image' ? 'Image' : 'Video'),
-                codec: 'libx264',
-                container: t.cat === 'audio' ? 'opus' : (t.cat === 'image' ? 'webp' : 'mp4'),
-                crfOrBitrate: '18',
-                extraFlags: JSON.stringify({ desc: t.desc, specs: t.specs, cfg: t.cfg || null })
-              }));
+                codec: (t.cfg && (t.cfg.codec || t.cfg.fmt)) || 'libx264',
+                container: (t.cfg && (t.cfg.container || t.cfg.fmt)) || (t.cat === 'audio' ? 'opus' : (t.cat === 'image' ? 'webp' : 'mp4')),
+                crfOrBitrate: String((t.cfg && (t.cfg.crf || t.cfg.br || t.cfg.qual)) || '18'),
+                extraFlags: JSON.stringify({ desc: t.desc, specs: t.specs, bars: { qual: t.qual, comp: t.comp, speed: t.speed, compat: t.compat, edit: t.edit, batt: t.batt }, cfg: t.cfg || null })
+              })) || '{}');
+              if (dupRes && dupRes.id) dupObj.roomId = dupRes.id;
             } catch (_) {}
           }
           render();
@@ -1124,26 +1127,30 @@
         (function loadNativePresetsIntoHub() {
       if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
       try {
-        const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
-        list.forEach((p, idx) => {
-          if (state.templates.some(t => t.name === p.name)) return;
+        // Keep only Built-In presets from static array; load ALL Saved presets strictly from Room SQLite
+        state.templates = state.templates.filter(t => t.origin === 'builtin');
+        const mapRoomPreset = (p, idx) => {
           let parsed = {};
           try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
           const cat = String(p.category || 'Video').toLowerCase().includes('aud') ? 'audio'
                     : (String(p.category || 'Video').toLowerCase().includes('ima') ? 'image' : 'video');
           const bars = parsed.bars || { qual: 88, comp: 75, speed: 70, compat: 90, edit: 72, batt: 80 };
-          state.templates.unshift({
+          return {
             id: 90000 + idx,
             roomId: p.id,
             cat: cat,
             origin: 'saved',
             name: p.name,
-            desc: parsed.desc || 'Saved custom preset (synced across Single & Batch).',
+            desc: parsed.desc || 'Saved custom preset (synced across Single, Batch & Settings).',
             specs: parsed.specs || ('.' + (p.container || 'mp4') + ' · ' + (p.codec || 'libx264') + ' · ' + (p.crfOrBitrate || '18')),
             qual: bars.qual, comp: bars.comp, speed: bars.speed, compat: bars.compat, edit: bars.edit, batt: bars.batt,
             cfg: parsed.cfg || null
-          });
-        });
+          };
+        };
+        const activeList = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+        activeList.forEach((p, idx) => state.templates.unshift(mapRoomPreset(p, idx)));
+        const delList = JSON.parse(window.AndroidBridge.getPresets(true) || '[]');
+        state.deleted = delList.map((p, idx) => mapRoomPreset(p, 5000 + idx));
       } catch (_) {}
     })();
     render();

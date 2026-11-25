@@ -2,6 +2,8 @@ package com.conversionvault.app.bridge
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
+import androidx.exifinterface.media.ExifInterface
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.webkit.JavascriptInterface
@@ -167,8 +169,44 @@ class AndroidBridge(
                 put("sampleRate", aObj?.optString("sample_rate", "—")?.ifBlank { "—" } ?: "—")
                 put("channels", aObj?.optInt("channels", 0) ?: 0)
                 put("audioBitrate", aObj?.optString("bit_rate", "0")?.toLongOrNull() ?: 0L)
+                var finalW = vObj?.optInt("width", 0) ?: 0
+                var finalH = vObj?.optInt("height", 0) ?: 0
+                var cameraModel = ""
+                var exifOrient = ""
+                if (NativePhotoEngine.isImageExtension(file.extension)) {
+                    try {
+                        if (finalW <= 0 || finalH <= 0) {
+                            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                            BitmapFactory.decodeFile(file.absolutePath, opts)
+                            if (opts.outWidth > 0 && opts.outHeight > 0) {
+                                finalW = opts.outWidth
+                                finalH = opts.outHeight
+                            }
+                        }
+                        val ex = ExifInterface(file.absolutePath)
+                        val mk = ex.getAttribute(ExifInterface.TAG_MAKE) ?: ""
+                        val md = ex.getAttribute(ExifInterface.TAG_MODEL) ?: ""
+                        cameraModel = listOf(mk, md).filter { it.isNotBlank() }.joinToString(" ").trim()
+                        val lat = ex.getAttribute(ExifInterface.TAG_GPS_LATITUDE)
+                        if (!lat.isNullOrBlank()) hasGps = true
+                        val orientInt = ex.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+                        exifOrient = when (orientInt) {
+                            ExifInterface.ORIENTATION_ROTATE_90 -> "90° CW"
+                            ExifInterface.ORIENTATION_ROTATE_180 -> "180°"
+                            ExifInterface.ORIENTATION_ROTATE_270 -> "270° CW"
+                            else -> "Normal (0°)"
+                        }
+                        if (cameraModel.isNotBlank() && tagKeys.none { it.startsWith("Camera:", true) }) {
+                            tagKeys.add(0, "Camera: $cameraModel")
+                        }
+                    } catch (_: Throwable) {}
+                }
+                put("width", finalW)
+                put("height", finalH)
+                put("cameraModel", cameraModel)
+                put("exifOrientation", exifOrient)
                 put("hasGps", hasGps)
-                put("tagsSummary", if (tagKeys.isEmpty()) "No container metadata tags" else tagKeys.joinToString(" · "))
+                put("tagsSummary", if (tagKeys.isEmpty()) "No metadata tags detected" else tagKeys.joinToString(" · "))
                 put("raw", rawProps)
             }.toString()
         } else {
@@ -362,54 +400,72 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun getPresets(includeDeleted: Boolean): String {
-        val list = runBlocking {
-            if (includeDeleted) db.presetDao().getDeletedPresets() else db.presetDao().getActivePresets()
+        return try {
+            val list = runBlocking {
+                if (includeDeleted) db.presetDao().getDeletedPresets() else db.presetDao().getActivePresets()
+            }
+            val arr = JSONArray()
+            list.forEach { p ->
+                arr.put(JSONObject().apply {
+                    put("id", p.id)
+                    put("name", p.name)
+                    put("category", p.category)
+                    put("codec", p.codec)
+                    put("container", p.container)
+                    put("crfOrBitrate", p.crfOrBitrate)
+                    put("extraFlags", p.extraFlags)
+                    put("isBuiltIn", p.isBuiltIn)
+                    put("isDeleted", p.isDeleted)
+                })
+            }
+            arr.toString()
+        } catch (_: Throwable) {
+            "[]"
         }
-        val arr = JSONArray()
-        list.forEach { p ->
-            arr.put(JSONObject().apply {
-                put("id", p.id)
-                put("name", p.name)
-                put("category", p.category)
-                put("codec", p.codec)
-                put("container", p.container)
-                put("crfOrBitrate", p.crfOrBitrate)
-                put("extraFlags", p.extraFlags)
-                put("isBuiltIn", p.isBuiltIn)
-                put("isDeleted", p.isDeleted)
-            })
-        }
-        return arr.toString()
     }
 
     @JavascriptInterface
     fun savePreset(presetJsonStr: String): String {
-        val o = JSONObject(presetJsonStr)
-        val entity = PresetEntity(
-            id = o.optString("id", UUID.randomUUID().toString()),
-            name = o.getString("name"),
-            category = o.optString("category", "Video"),
-            codec = o.optString("codec", "libx264"),
-            container = o.optString("container", "mp4"),
-            crfOrBitrate = o.optString("crfOrBitrate", "18"),
-            extraFlags = o.optString("extraFlags", ""),
-            isBuiltIn = o.optBoolean("isBuiltIn", false),
-            isDeleted = false
-        )
-        runBlocking { db.presetDao().upsertPreset(entity) }
-        return JSONObject().put("ok", true).put("id", entity.id).toString()
+        return try {
+            val o = JSONObject(presetJsonStr)
+            val resolvedId = o.optString("id", "").ifBlank { UUID.randomUUID().toString() }
+            val entity = PresetEntity(
+                id = resolvedId,
+                name = o.optString("name", "Custom Preset").ifBlank { "Custom Preset" },
+                category = o.optString("category", "Video"),
+                codec = o.optString("codec", "libx264"),
+                container = o.optString("container", "mp4"),
+                crfOrBitrate = o.optString("crfOrBitrate", "18"),
+                extraFlags = o.optString("extraFlags", ""),
+                isBuiltIn = o.optBoolean("isBuiltIn", false),
+                isDeleted = false,
+                updatedAt = System.currentTimeMillis()
+            )
+            runBlocking { db.presetDao().upsertPreset(entity) }
+            JSONObject().put("ok", true).put("id", entity.id).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", "${t.javaClass.simpleName}: ${t.message}").toString()
+        }
     }
 
     @JavascriptInterface
     fun softDeletePreset(id: String): String {
-        runBlocking { db.presetDao().softDeletePreset(id) }
-        return JSONObject().put("ok", true).toString()
+        return try {
+            runBlocking { db.presetDao().softDeletePreset(id) }
+            JSONObject().put("ok", true).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Delete failed").toString()
+        }
     }
 
     @JavascriptInterface
     fun restorePreset(id: String): String {
-        runBlocking { db.presetDao().restorePreset(id) }
-        return JSONObject().put("ok", true).toString()
+        return try {
+            runBlocking { db.presetDao().restorePreset(id) }
+            JSONObject().put("ok", true).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Restore failed").toString()
+        }
     }
 
     @JavascriptInterface

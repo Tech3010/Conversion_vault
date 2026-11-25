@@ -375,57 +375,27 @@
       <section class="sec-card s-info" aria-label="File Information">
         <div class="sec-head">
           <span class="sec-title">1. File Information</span>
-          <span class="sec-tag">FFprobe Deep Stream</span>
+          <span class="sec-tag" id="single-probe-tag">Media Probe</span>
         </div>
         <div class="sec-body">
           <div class="file-banner">
             <div style="min-width:0;">
               <div class="fb-name">No file selected</div>
-              <div class="fb-path">/storage/emulated/0/Movies/AlightMotion</div>
+              <div class="fb-path">—</div>
             </div>
             <span class="fb-size">—</span>
           </div>
-          <div class="info-grid">
-            <div class="info-cell"><span class="info-k">Resolution &amp; FPS</span><span class="info-v">1080×1920 · 60 fps</span></div>
-            <div class="info-cell"><span class="info-k">Video Codec</span><span class="info-v">H.264 (yuv420p)</span></div>
-            <div class="info-cell"><span class="info-k">Source Bitrate</span><span class="info-v">17.1 Mbps (High)</span></div>
-            <div class="info-cell"><span class="info-k">Duration</span><span class="info-v">00:30.0 (1,800 fr)</span></div>
-            <div class="info-cell"><span class="info-k">Audio Stream</span><span class="info-v">AAC-LC · 192k · 48kHz</span></div>
-            <div class="info-cell"><span class="info-k">Detected Metadata</span><span class="info-v c-gold">Camera + GPS EXIF</span></div>
+          <div class="info-grid" id="single-info-grid">
+            <div class="info-cell"><span class="info-k">Status</span><span class="info-v">Reading file metadata...</span></div>
           </div>
 
           <button type="button" id="btn-more-probe" class="btn-more-info" aria-expanded="false">
-            <span id="lbl-more-probe">More FFprobe Info (GOP, Chroma, Color, Audio, Subtitles, Tags)</span>
+            <span id="lbl-more-probe">More File Details &amp; Extracted Tags</span>
             <span id="ico-more-probe">▾</span>
           </button>
 
           <div class="deep-probe-box hidden" id="deep-probe-panel">
-            <span class="probe-group-lbl">Video Stream (v:0) · Frame &amp; Color</span>
-            <div class="info-grid">
-              <div class="info-cell"><span class="info-k">Frame Structure</span><span class="info-v">Inter-Frame (Long-GOP)</span></div>
-              <div class="info-cell"><span class="info-k">GOP &amp; B-Frames</span><span class="info-v">Keyint 60 · 2 B-frames · Closed</span></div>
-              <div class="info-cell"><span class="info-k">Chroma &amp; Location</span><span class="info-v">4:2:0 · left · 8-bit</span></div>
-              <div class="info-cell"><span class="info-k">Color Space / Transfer</span><span class="info-v">BT.709 · BT.709 · TV Limited</span></div>
-              <div class="info-cell"><span class="info-k">Profile / Level / Ref</span><span class="info-v">High @ L4.2 · CABAC · 4 ref</span></div>
-              <div class="info-cell"><span class="info-k">Rate &amp; Timebase</span><span class="info-v">60/1 CFR · tbn 15360</span></div>
-              <div class="info-cell"><span class="info-k">SAR / DAR &amp; Rotation</span><span class="info-v">1:1 · 9:16 · Display 0°</span></div>
-              <div class="info-cell"><span class="info-k">Field Order &amp; HW</span><span class="info-v c-emerald">Progressive · MediaCodec ✓</span></div>
-            </div>
-
-            <span class="probe-group-lbl">Audio (a:0), Subtitles &amp; Container</span>
-            <div class="info-grid">
-              <div class="info-cell"><span class="info-k">Audio Codec / Fmt</span><span class="info-v">AAC-LC · fltp (32-bit)</span></div>
-              <div class="info-cell"><span class="info-k">Channels &amp; Layout</span><span class="info-v">2 ch (Stereo) · 192 kbps</span></div>
-              <div class="info-cell"><span class="info-k">Container &amp; Moov</span><span class="info-v">ISOBMFF (mp42) · Faststart ✓</span></div>
-              <div class="info-cell"><span class="info-k">Subtitles &amp; Chapters</span><span class="info-v">0 Sub Streams · 0 Chapters</span></div>
-            </div>
-
-            <div class="raw-meta-pill">
-              <strong>Raw Extracted FFprobe Tags:</strong><br>
-              major_brand: mp42 · compatible_brands: isommp42 · encoder: Lavf60.16.100<br>
-              creation_time: 2026-11-22T18:14:09.000000Z · start_time: 0.000000s<br>
-              No file metadata loaded yet
-            </div>
+            <div class="raw-meta-pill" id="single-deep-meta">No metadata loaded yet.</div>
           </div>
         </div>
       </section>
@@ -1096,12 +1066,14 @@
       }
     });
 
-        function syncSavedPresetsFromRoom() {
+    function syncSavedPresetsFromRoom() {
       if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
       try {
         const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+        PRESETS.saved = [];
         list.forEach(p => {
-          if (String(p.category || 'Video').toLowerCase().includes('aud') || String(p.category || 'Video').toLowerCase().includes('ima')) return;
+          const catLow = String(p.category || 'Video').toLowerCase();
+          if (catLow.includes('aud') || catLow.includes('ima')) return;
           if (PRESETS.saved.some(x => x.name === p.name)) return;
           let parsed = {};
           try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
@@ -1112,10 +1084,17 @@
             crf: parseInt(p.crfOrBitrate, 10) || 18
           });
           baseCfg.presetName = p.name;
-          PRESETS.saved.unshift({ name: p.name, meta: parsed.specs || shortTag(baseCfg), cfg: baseCfg });
+          PRESETS.saved.push({ name: p.name, meta: parsed.specs || shortTag(baseCfg), cfg: baseCfg });
         });
       } catch (_) {}
     }
+    window.getSingleVideoConfig = function() {
+      return state.hasPreset ? Object.assign({}, state.cfg, { threads: state.threads }) : null;
+    };
+    document.addEventListener('click', (e) => {
+      const lt = e.target.closest('.lib-tab[data-lib="saved"]');
+      if (lt) { syncSavedPresetsFromRoom(); setTimeout(renderModal, 0); }
+    }, true);
     syncSavedPresetsFromRoom();
     renderMain();
     const INFO_DICT = {

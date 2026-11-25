@@ -1840,10 +1840,13 @@
       });
       renderAll();
     };
-        function syncBatchSavedPresetsFromRoom() {
+    function syncBatchSavedPresetsFromRoom() {
       if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
       try {
         const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+        PRESET_LIBRARY.video.saved = [];
+        PRESET_LIBRARY.audio.saved = [];
+        PRESET_LIBRARY.image.saved = [];
         list.forEach(p => {
           const cRaw = String(p.category || 'Video').toLowerCase();
           const cat = cRaw.includes('aud') ? 'audio' : (cRaw.includes('ima') ? 'image' : 'video');
@@ -1855,13 +1858,22 @@
           if (cat === 'video') {
             if (p.codec) baseCfg.codec = p.codec;
             if (p.container) baseCfg.container = p.container;
+            if (p.crfOrBitrate && !parsed.cfg) baseCfg.crf = parseInt(p.crfOrBitrate, 10) || 18;
+          } else if (cat === 'audio') {
+            if (p.container) baseCfg.fmt = p.container;
+            if (p.crfOrBitrate && !parsed.cfg) baseCfg.br = p.crfOrBitrate;
           } else {
             if (p.container) baseCfg.fmt = p.container;
+            if (p.crfOrBitrate && !parsed.cfg) baseCfg.qual = parseInt(p.crfOrBitrate, 10) || 88;
           }
-          PRESET_LIBRARY[cat].saved.unshift({ name: p.name, meta: parsed.specs || shortTagLine(cat, baseCfg), cfg: baseCfg });
+          PRESET_LIBRARY[cat].saved.push({ name: p.name, meta: parsed.specs || shortTagLine(cat, baseCfg), cfg: baseCfg });
         });
       } catch (_) {}
     }
+    document.addEventListener('click', (e) => {
+      const lt = e.target.closest('.lib-tab[data-lib="saved"]');
+      if (lt) { syncBatchSavedPresetsFromRoom(); setTimeout(renderModal, 0); }
+    }, true);
     syncBatchSavedPresetsFromRoom();
     renderAll();
     const INFO_DICT = {
@@ -1937,7 +1949,7 @@
         audio: (state.globalCfg && state.globalCfg.audio) || null,
         image: (state.globalCfg && state.globalCfg.image) || null
       };
-      (state.items || []).forEach(it => {
+      (state.files || []).forEach(it => {
         if (it && it.name && it.cfg) byName[it.name] = it.cfg;
       });
       return { byName, byCat };
