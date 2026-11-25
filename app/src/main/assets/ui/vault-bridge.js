@@ -678,7 +678,8 @@
               '<span style="font-size:12px; font-weight:800; color:var(--emerald);">Native Photo Engine (Skia + Exif + Heif)</span>' +
               '<span style="font-size:10px; font-family:var(--mono); color:var(--muted);">PHOTO FORMAT</span>' +
             '</div>' +
-            '<div id="sp-saved-presets-wrap" style="display:flex; flex-wrap:wrap; gap:6px;"></div>' +
+            '<button type="button" id="btn-sp-toggle-presets" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;"><span id="lbl-sp-presets-cnt">Presets</span><span id="lbl-sp-presets-arrow">▾</span></button>' +
+            '<div id="sp-saved-presets-wrap" style="display:none; flex-wrap:wrap; gap:6px;"></div>' +
             '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
               '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Output Format</label>' +
                 '<select id="sp-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
@@ -737,20 +738,29 @@
             if (mvBtn) mvBtn.disabled = false;
           };
 
+          let spPresetsOpen = false;
+          const BUILTIN_IMG_PRESETS = [
+            { raw: { name: 'WebP Crisp 85%', container: 'webp', crfOrBitrate: '85' }, parsed: { cfg: { fmt: 'webp', qual: 85, scale: 'original', orient: 'auto', meta: 'wipe' } } }
+          ];
           const renderSavedImagePresets = () => {
             const wrap = document.getElementById('sp-saved-presets-wrap');
+            const cntEl = document.getElementById('lbl-sp-presets-cnt');
+            const arrEl = document.getElementById('lbl-sp-presets-arrow');
             if (!wrap) return;
-            const saved = getRoomPresetsForCat('image');
-            if (!saved.length) {
-              wrap.innerHTML = '<span style="font-size:11px; color:var(--muted);">No saved image presets yet.</span>';
-              return;
-            }
-            wrap.innerHTML = saved.map((s, i) =>
-              '<button type="button" data-sp-saved="' + i + '" style="padding:5px 10px; border-radius:999px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11px; font-weight:700; cursor:pointer;">★ ' + s.raw.name.replace(/</g, '&lt;') + '</button>'
+            const roomList = getRoomPresetsForCat('image');
+            const merged = [];
+            const seen = new Set();
+            roomList.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
+            BUILTIN_IMG_PRESETS.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
+            if (cntEl) cntEl.textContent = 'Presets (' + merged.length + ')';
+            if (arrEl) arrEl.textContent = spPresetsOpen ? '▴' : '▾';
+            wrap.style.display = spPresetsOpen ? 'flex' : 'none';
+            wrap.innerHTML = merged.map((s, i) =>
+              '<button type="button" data-sp-saved="' + i + '" style="padding:6px 11px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">' + s.raw.name.replace(/</g, '&lt;') + '</button>'
             ).join('');
             wrap.querySelectorAll('[data-sp-saved]').forEach(btn => {
               btn.addEventListener('click', () => {
-                const s = saved[parseInt(btn.getAttribute('data-sp-saved'), 10)];
+                const s = merged[parseInt(btn.getAttribute('data-sp-saved'), 10)];
                 if (!s) return;
                 const c = s.parsed.cfg || {};
                 const fmt = (c.fmt || c.format || s.raw.container || 'webp').replace(/^\./, '').toLowerCase();
@@ -760,11 +770,18 @@
                 if (c.meta) document.getElementById('sp-meta').value = String(c.meta);
                 const q = parseInt(c.qual || c.quality || s.raw.crfOrBitrate, 10);
                 if (q >= 15 && q <= 100) document.getElementById('sp-qual').value = String(q);
+                spPresetsOpen = false;
+                renderSavedImagePresets();
                 syncPhotoSummary();
-                toast('Applied saved preset: ' + s.raw.name);
+                toast('Applied preset: ' + s.raw.name);
               });
             });
           };
+          const spTgl = document.getElementById('btn-sp-toggle-presets');
+          if (spTgl) spTgl.addEventListener('click', () => {
+            spPresetsOpen = !spPresetsOpen;
+            renderSavedImagePresets();
+          });
 
           document.getElementById('btn-sp-save-preset').addEventListener('click', () => {
             if (!hasBridge || typeof window.AndroidBridge.savePreset !== 'function') return;
@@ -807,7 +824,8 @@
               '<span style="font-size:12px; font-weight:800; color:var(--gold-text);">Audio Format &amp; Codec Selection</span>' +
               '<span style="font-size:10px; font-family:var(--mono); color:var(--muted);">AUDIO MODE</span>' +
             '</div>' +
-            '<div id="sa-saved-presets-wrap" style="display:flex; flex-wrap:wrap; gap:6px;"></div>' +
+            '<button type="button" id="btn-sa-toggle-presets" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;"><span id="lbl-sa-presets-cnt">Presets</span><span id="lbl-sa-presets-arrow">▾</span></button>' +
+            '<div id="sa-saved-presets-wrap" style="display:none; flex-wrap:wrap; gap:6px;"></div>' +
             '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
               '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Audio Format</label>' +
                 '<select id="sa-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
@@ -873,31 +891,51 @@
             if (mvBtn) mvBtn.disabled = false;
           };
 
+          let saPresetsOpen = false;
+          const BUILTIN_AUD_PRESETS = [
+            { raw: { name: 'Opus 192k Transparent', container: 'opus', crfOrBitrate: '192k' }, parsed: { cfg: { fmt: 'opus', br: '192k', ar: '48000', ch: '2', filter: 'none', meta: 'wipe' } } },
+            { raw: { name: 'Loudnorm AAC (-14 LUFS)', container: 'm4a', crfOrBitrate: '192k' }, parsed: { cfg: { fmt: 'm4a', br: '192k', ar: '48000', ch: '2', filter: 'loudnorm', meta: 'wipe' } } }
+          ];
           const renderSavedAudioPresets = () => {
             const wrap = document.getElementById('sa-saved-presets-wrap');
+            const cntEl = document.getElementById('lbl-sa-presets-cnt');
+            const arrEl = document.getElementById('lbl-sa-presets-arrow');
             if (!wrap) return;
-            const saved = getRoomPresetsForCat('audio');
-            if (!saved.length) {
-              wrap.innerHTML = '<span style="font-size:11px; color:var(--muted);">No saved audio presets yet.</span>';
-              return;
-            }
-            wrap.innerHTML = saved.map((s, i) =>
-              '<button type="button" data-sa-saved="' + i + '" style="padding:5px 10px; border-radius:999px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11px; font-weight:700; cursor:pointer;">★ ' + s.raw.name.replace(/</g, '&lt;') + '</button>'
+            const roomList = getRoomPresetsForCat('audio');
+            const merged = [];
+            const seen = new Set();
+            roomList.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
+            BUILTIN_AUD_PRESETS.forEach(s => { if (!seen.has(s.raw.name)) { seen.add(s.raw.name); merged.push(s); } });
+            if (cntEl) cntEl.textContent = 'Presets (' + merged.length + ')';
+            if (arrEl) arrEl.textContent = saPresetsOpen ? '▴' : '▾';
+            wrap.style.display = saPresetsOpen ? 'flex' : 'none';
+            wrap.innerHTML = merged.map((s, i) =>
+              '<button type="button" data-sa-saved="' + i + '" style="padding:6px 11px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">' + s.raw.name.replace(/</g, '&lt;') + '</button>'
             ).join('');
             wrap.querySelectorAll('[data-sa-saved]').forEach(btn => {
               btn.addEventListener('click', () => {
-                const s = saved[parseInt(btn.getAttribute('data-sa-saved'), 10)];
+                const s = merged[parseInt(btn.getAttribute('data-sa-saved'), 10)];
                 if (!s) return;
                 const c = s.parsed.cfg || {};
                 const fmt = (c.fmt || s.raw.container || 'm4a').replace(/^\./, '').toLowerCase();
                 if (Array.from(document.getElementById('sa-fmt').options).some(o => o.value === fmt)) document.getElementById('sa-fmt').value = fmt;
                 const br = c.br || s.raw.crfOrBitrate || '192k';
                 if (Array.from(document.getElementById('sa-br').options).some(o => o.value === br)) document.getElementById('sa-br').value = br;
+                if (c.ar && Array.from(document.getElementById('sa-ar').options).some(o => o.value === String(c.ar))) document.getElementById('sa-ar').value = String(c.ar);
+                if (c.filter && Array.from(document.getElementById('sa-filter').options).some(o => o.value === String(c.filter))) document.getElementById('sa-filter').value = String(c.filter);
+                if (c.meta && Array.from(document.getElementById('sa-meta').options).some(o => o.value === String(c.meta))) document.getElementById('sa-meta').value = String(c.meta);
+                saPresetsOpen = false;
+                renderSavedAudioPresets();
                 syncAudioSummary();
-                toast('Applied saved preset: ' + s.raw.name);
+                toast('Applied preset: ' + s.raw.name);
               });
             });
           };
+          const saTgl = document.getElementById('btn-sa-toggle-presets');
+          if (saTgl) saTgl.addEventListener('click', () => {
+            saPresetsOpen = !saPresetsOpen;
+            renderSavedAudioPresets();
+          });
 
           document.getElementById('btn-sa-save-preset').addEventListener('click', () => {
             if (!hasBridge || typeof window.AndroidBridge.savePreset !== 'function') return;

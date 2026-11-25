@@ -494,12 +494,14 @@
       </div>
 
       <div class="modal-body">
-        <div class="lib-tabs" role="tablist">
-          <button type="button" class="lib-tab active" data-lib="builtin">Built-In Presets</button>
-          <button type="button" class="lib-tab" data-lib="saved">Saved Presets</button>
+        <div class="lib-tabs" style="grid-template-columns:1fr;">
+          <button type="button" id="btn-toggle-presets" class="lib-tab" style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; color:var(--text);">
+            <span>Presets</span>
+            <span id="lbl-toggle-presets-arrow">▾</span>
+          </button>
         </div>
 
-        <div class="preset-cards-row" id="m-preset-grid"></div>
+        <div class="preset-cards-row hidden" id="m-preset-grid"></div>
 
         <div class="telemetry-box" id="m-telemetry-box">
           <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -564,30 +566,9 @@
             audioCodec: 'flac', audioBr: 'lossless', audioAr: '48000', audioCh: 'keep', audioNorm: 'none',
             subMode: 'copy', meta: 'wipe', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'standard'
           }
-        },
-        {
-          name: 'Ultra-Small Share',
-          meta: 'MP4 · 720p30 · CRF 25 · Opus 128k',
-          cfg: {
-            presetName: 'Ultra-Small Share', container: 'mp4', codec: 'libx264', rcMode: 'crf_cap', crf: 25, maxrate: 3,
-            preset: 'medium', gop: '120', bframes: 3, fps: '30', scale: '720', orient: 'auto', pixfmt: 'yuv420p',
-            audioCodec: 'libopus', audioBr: '128k', audioAr: '48000', audioCh: 'stereo', audioNorm: 'loudnorm',
-            subMode: 'strip', meta: 'wipe', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart'
-          }
         }
       ],
-      saved: [
-        {
-          name: 'My Daily Car Edit',
-          meta: 'MP4 · 1080×1920 60fps · AAC 256k',
-          cfg: {
-            presetName: 'My Daily Car Edit', container: 'mp4', codec: 'libx264', rcMode: 'crf_cap', crf: 17, maxrate: 14,
-            preset: 'slower', gop: '120', bframes: 2, fps: '60', scale: '1080_v', orient: 'keep', pixfmt: 'yuv420p',
-            audioCodec: 'aac', audioBr: '256k', audioAr: '48000', audioCh: 'stereo', audioNorm: 'loudnorm',
-            subMode: 'strip', meta: 'deep', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart'
-          }
-        }
-      ]
+      saved: []
     };
 
     const state = {
@@ -595,7 +576,7 @@
       threads: 8,
       cores: 'auto',
       cfg: Object.assign({}, PRESETS.builtin[0].cfg),
-      modal: { open: false, libTab: 'builtin', touched: false, draft: Object.assign({}, PRESETS.builtin[0].cfg) }
+      modal: { open: false, presetsOpen: false, touched: false, draft: Object.assign({}, PRESETS.builtin[0].cfg) }
     };
 
     function showToast(msg) {
@@ -732,16 +713,31 @@
       document.getElementById('btn-move-convert').disabled = false;
     }
 
+    function getAllVideoPresets() {
+      const merged = [];
+      const seen = new Set();
+      (PRESETS.saved || []).forEach(p => { if (!seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
+      (PRESETS.builtin || []).forEach(p => { if (!seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
+      return merged;
+    }
+
     function renderModal() {
-      const { libTab, touched, draft } = state.modal;
-      document.querySelectorAll('.lib-tab').forEach(b => b.classList.toggle('active', b.getAttribute('data-lib') === libTab));
+      const { presetsOpen, touched, draft } = state.modal;
+      const list = getAllVideoPresets();
+      const toggleBtn = document.getElementById('btn-toggle-presets');
+      const arrowEl = document.getElementById('lbl-toggle-presets-arrow');
+      if (toggleBtn) {
+        toggleBtn.classList.toggle('active', presetsOpen);
+        const spanLbl = toggleBtn.querySelector('span');
+        if (spanLbl) spanLbl.textContent = 'Presets (' + list.length + ')';
+      }
+      if (arrowEl) arrowEl.textContent = presetsOpen ? '▴' : '▾';
 
       const grid = document.getElementById('m-preset-grid');
-      const list = PRESETS[libTab] || [];
+      grid.classList.toggle('hidden', !presetsOpen);
       grid.innerHTML = list.map((p, idx) => `
         <button type="button" class="pcard ${touched && draft.presetName === p.cfg.presetName ? 'active' : ''}" data-pick="${idx}">
           <span class="pcard-name">${p.name}</span>
-          <span class="pcard-meta">${p.meta}</span>
         </button>
       `).join('');
 
@@ -992,6 +988,7 @@
     });
     document.getElementById('btn-open-format').addEventListener('click', () => {
       state.modal.open = true;
+      state.modal.presetsOpen = false;
       state.modal.touched = state.hasPreset;
       state.modal.draft = Object.assign({}, state.cfg);
       if (!state.hasPreset) state.modal.draft.presetName = '';
@@ -1042,14 +1039,21 @@
     document.getElementById('btn-move-convert').addEventListener('click', () => showToast('Advancing to Output Destination →'));
 
     document.addEventListener('click', (e) => {
-      const lt = e.target.closest('.lib-tab');
-      if (lt) { state.modal.libTab = lt.getAttribute('data-lib'); renderModal(); return; }
+      const tgl = e.target.closest('#btn-toggle-presets');
+      if (tgl) {
+        syncSavedPresetsFromRoom();
+        state.modal.presetsOpen = !state.modal.presetsOpen;
+        renderModal();
+        return;
+      }
       const pk = e.target.closest('[data-pick]');
       if (pk) {
-        const entry = PRESETS[state.modal.libTab][parseInt(pk.getAttribute('data-pick'), 10)];
+        const list = getAllVideoPresets();
+        const entry = list[parseInt(pk.getAttribute('data-pick'), 10)];
         if (entry) {
           state.modal.draft = Object.assign({}, entry.cfg);
           state.modal.touched = true;
+          state.modal.presetsOpen = false;
           renderModal();
         }
       }
@@ -1091,10 +1095,7 @@
     window.getSingleVideoConfig = function() {
       return state.hasPreset ? Object.assign({}, state.cfg, { threads: state.threads }) : null;
     };
-    document.addEventListener('click', (e) => {
-      const lt = e.target.closest('.lib-tab[data-lib="saved"]');
-      if (lt) { syncSavedPresetsFromRoom(); setTimeout(renderModal, 0); }
-    }, true);
+
     syncSavedPresetsFromRoom();
     renderMain();
     const INFO_DICT = {

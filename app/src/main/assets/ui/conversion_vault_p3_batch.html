@@ -767,12 +767,14 @@
       </div>
 
       <div class="modal-body">
-        <div class="lib-tabs" role="tablist">
-          <button type="button" class="lib-tab active" data-lib="builtin">Built-In Presets</button>
-          <button type="button" class="lib-tab" data-lib="saved">Saved Presets</button>
+        <div class="lib-tabs" style="grid-template-columns:1fr;">
+          <button type="button" id="btn-toggle-presets" class="lib-tab" style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; color:var(--text);">
+            <span>Presets</span>
+            <span id="lbl-toggle-presets-arrow">▾</span>
+          </button>
         </div>
 
-        <div class="preset-cards-row" id="m-preset-grid"></div>
+        <div class="preset-cards-row hidden" id="m-preset-grid"></div>
 
         <div class="telemetry-box" id="m-telemetry-box">
           <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -818,36 +820,19 @@
           {
             name: 'HEVC 10-Bit Archive', meta: 'MKV · H.265 · yuv420p10le · FLAC',
             cfg: { presetName: 'HEVC 10-Bit Archive', container: 'mkv', codec: 'libx265', rcMode: 'crf_only', crf: 19, maxrate: 20, preset: 'slow', gop: 'auto', bframes: 3, fps: 'original', scale: 'original', orient: 'keep', pixfmt: 'yuv420p10le', audioCodec: 'flac', audioBr: 'lossless', audioAr: '48000', audioCh: 'keep', audioNorm: 'none', subMode: 'copy', meta: 'wipe', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'standard' }
-          },
-          {
-            name: 'Ultra-Small Share', meta: 'MP4 · 720p30 · CRF 25 · Opus 128k',
-            cfg: { presetName: 'Ultra-Small Share', container: 'mp4', codec: 'libx264', rcMode: 'crf_cap', crf: 25, maxrate: 3, preset: 'medium', gop: '120', bframes: 3, fps: '30', scale: '720', orient: 'auto', pixfmt: 'yuv420p', audioCodec: 'libopus', audioBr: '128k', audioAr: '48000', audioCh: 'stereo', audioNorm: 'loudnorm', subMode: 'strip', meta: 'wipe', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart' }
           }
         ],
-        saved: [
-          {
-            name: 'My Daily Car Edit', meta: 'MP4 · 1080×1920 60fps · AAC 256k',
-            cfg: { presetName: 'My Daily Car Edit', container: 'mp4', codec: 'libx264', rcMode: 'crf_cap', crf: 17, maxrate: 14, preset: 'slower', gop: '120', bframes: 2, fps: '60', scale: '1080_v', orient: 'keep', pixfmt: 'yuv420p', audioCodec: 'aac', audioBr: '256k', audioAr: '48000', audioCh: 'stereo', audioNorm: 'loudnorm', subMode: 'strip', meta: 'deep', tune: 'none', vfilter: 'none', speed: '1.0', trimStart: '00:00:00', trimEnd: 'End', audioGain: '0dB', faststart: 'faststart' }
-          }
-        ]
+        saved: []
       },
       audio: {
         builtin: [
           {
-            name: 'Opus 192k', meta: 'OPUS · 48kHz · Stereo · Loudnorm',
-            cfg: { presetName: 'Opus 192k', fmt: 'opus', br: '192k', ar: '48000', bitDepth: 'auto', channels: 'stereo', af: 'none', meta: 'wipe' }
+            name: 'Opus 192k Transparent', meta: 'OPUS · 192k · 48kHz · Stereo',
+            cfg: { presetName: 'Opus 192k Transparent', fmt: 'opus', br: '192k', ar: '48000', bitDepth: 'auto', channels: 'stereo', af: 'none', meta: 'wipe' }
           },
           {
-            name: 'Lossless FLAC', meta: 'FLAC · 24-bit · Zero Loss',
-            cfg: { presetName: 'Lossless FLAC', fmt: 'flac', br: 'lossless', ar: '48000', bitDepth: 's24', channels: 'keep', af: 'none', meta: 'wipe' }
-          },
-          {
-            name: 'MP3 320k', meta: 'MP3 · LAME CBR 320k · 44.1kHz',
-            cfg: { presetName: 'MP3 320k', fmt: 'mp3', br: '320k', ar: '44100', bitDepth: 's16', channels: 'stereo', af: 'none', meta: 'wipe' }
-          },
-          {
-            name: 'Loudnorm AAC', meta: 'M4A · 192k · EBU R128 (-14 LUFS)',
-            cfg: { presetName: 'Loudnorm AAC', fmt: 'm4a', br: '192k', ar: '48000', bitDepth: 'auto', channels: 'stereo', af: 'loudnorm', meta: 'wipe' }
+            name: 'Loudnorm AAC (-14 LUFS)', meta: 'M4A · 192k · EBU R128 Loudnorm',
+            cfg: { presetName: 'Loudnorm AAC (-14 LUFS)', fmt: 'm4a', br: '192k', ar: '48000', bitDepth: 'auto', channels: 'stereo', af: 'loudnorm', meta: 'wipe' }
           }
         ],
         saved: []
@@ -857,18 +842,6 @@
           {
             name: 'WebP Crisp 85%', meta: 'WEBP · Q85 · Auto-Orient · Wipe EXIF',
             cfg: { presetName: 'WebP Crisp 85%', fmt: 'webp', qual: 85, scale: 'original', orient: 'auto', colorSpace: 'srgb_444', meta: 'wipe' }
-          },
-          {
-            name: 'Lossless PNG', meta: 'PNG · Bit-Exact RGB · Wipe EXIF',
-            cfg: { presetName: 'Lossless PNG', fmt: 'png', qual: 100, scale: 'original', orient: 'auto', colorSpace: 'lossless_rgb', meta: 'wipe' }
-          },
-          {
-            name: 'AVIF Compact', meta: 'AVIF · Q75 · 1920px · Tiny Size',
-            cfg: { presetName: 'AVIF Compact', fmt: 'avif', qual: 75, scale: '1920', orient: 'auto', colorSpace: 'srgb_420', meta: 'wipe' }
-          },
-          {
-            name: 'JPG High 92%', meta: 'JPG · 4:4:4 · Universal Detail',
-            cfg: { presetName: 'JPG High 92%', fmt: 'jpg', qual: 92, scale: 'original', orient: 'auto', colorSpace: 'srgb_444', meta: 'wipe' }
           }
         ],
         saved: []
@@ -884,7 +857,7 @@
       threads: 8,
       cores: 'auto',
       files: [],
-      modal: { open: false, cat: 'video', targetIds: [], libTab: 'builtin', touched: false, draft: null }
+      modal: { open: false, cat: 'video', targetIds: [], presetsOpen: false, touched: false, draft: null }
     };
 
     function showToast(msg) {
@@ -1239,24 +1212,40 @@
         ? 'Target: ' + firstItem.name
         : 'Target: ' + ids.length + ' selected ' + cat + 's';
       document.getElementById('btn-modal-apply').textContent = 'Apply to ' + ids.length + (ids.length === 1 ? ' File' : ' Files');
+      state.modal.presetsOpen = false;
       syncBatchSavedPresetsFromRoom();
       document.getElementById('preset-modal').classList.remove('hidden');
       renderModal();
     }
 
+    function getAllBatchPresetsForCat(cat) {
+      const merged = [];
+      const seen = new Set();
+      ((PRESET_LIBRARY[cat] && PRESET_LIBRARY[cat].saved) || []).forEach(p => { if (!seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
+      ((PRESET_LIBRARY[cat] && PRESET_LIBRARY[cat].builtin) || []).forEach(p => { if (!seen.has(p.name)) { seen.add(p.name); merged.push(p); } });
+      return merged;
+    }
+
     function renderModal() {
-      const { cat, libTab, touched, draft } = state.modal;
-      document.querySelectorAll('.lib-tab').forEach(b => b.classList.toggle('active', b.getAttribute('data-lib') === libTab));
+      const { cat, presetsOpen, touched, draft } = state.modal;
+      const list = getAllBatchPresetsForCat(cat);
+      const toggleBtn = document.getElementById('btn-toggle-presets');
+      const arrowEl = document.getElementById('lbl-toggle-presets-arrow');
+      if (toggleBtn) {
+        toggleBtn.classList.toggle('active', presetsOpen);
+        const spanLbl = toggleBtn.querySelector('span');
+        if (spanLbl) spanLbl.textContent = 'Presets (' + list.length + ')';
+      }
+      if (arrowEl) arrowEl.textContent = presetsOpen ? '▴' : '▾';
 
       const grid = document.getElementById('m-preset-grid');
-      const list = PRESET_LIBRARY[cat][libTab] || [];
+      grid.classList.toggle('hidden', !presetsOpen);
       if (list.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1; font-size:11.5px; color:var(--muted); padding:10px; border:1px dashed var(--border); border-radius:8px; text-align:center;">No saved presets yet — tune controls below and tap "+ Save Preset".</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1; font-size:11.5px; color:var(--muted); padding:10px; border:1px dashed var(--border); border-radius:8px; text-align:center;">No presets available yet.</div>';
       } else {
         grid.innerHTML = list.map((p, idx) => `
           <button type="button" class="pcard ${touched && draft.presetName === p.cfg.presetName ? 'active' : ''}" data-pick-preset="${idx}">
             <span class="pcard-name">${p.name}</span>
-            <span class="pcard-meta">${p.meta}</span>
           </button>
         `).join('');
       }
@@ -1733,9 +1722,10 @@
         return;
       }
 
-      const libBtn = e.target.closest('.lib-tab');
-      if (libBtn) {
-        state.modal.libTab = libBtn.getAttribute('data-lib');
+      const tglBtn = e.target.closest('#btn-toggle-presets');
+      if (tglBtn) {
+        syncBatchSavedPresetsFromRoom();
+        state.modal.presetsOpen = !state.modal.presetsOpen;
         renderModal();
         return;
       }
@@ -1743,10 +1733,12 @@
       const pickP = e.target.closest('[data-pick-preset]');
       if (pickP) {
         const idx = parseInt(pickP.getAttribute('data-pick-preset'), 10);
-        const entry = PRESET_LIBRARY[state.modal.cat][state.modal.libTab][idx];
+        const list = getAllBatchPresetsForCat(state.modal.cat);
+        const entry = list[idx];
         if (entry) {
           state.modal.draft = Object.assign({}, entry.cfg);
           state.modal.touched = true;
+          state.modal.presetsOpen = false;
           renderModal();
         }
         return;
@@ -1870,10 +1862,7 @@
         });
       } catch (_) {}
     }
-    document.addEventListener('click', (e) => {
-      const lt = e.target.closest('.lib-tab[data-lib="saved"]');
-      if (lt) { syncBatchSavedPresetsFromRoom(); setTimeout(renderModal, 0); }
-    }, true);
+
     syncBatchSavedPresetsFromRoom();
     renderAll();
     const INFO_DICT = {
