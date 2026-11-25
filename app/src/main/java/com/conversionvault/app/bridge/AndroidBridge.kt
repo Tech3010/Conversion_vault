@@ -114,12 +114,19 @@ class AndroidBridge(
             val rawProps = info.allProperties ?: JSONObject()
             val streamsArr = rawProps.optJSONArray("streams") ?: JSONArray()
             var vObj: JSONObject? = null
+            var bestVPixels = -1L
             var aObj: JSONObject? = null
             var subCount = 0
             for (i in 0 until streamsArr.length()) {
                 val s = streamsArr.optJSONObject(i) ?: continue
                 val cType = s.optString("codec_type", "")
-                if (cType.equals("video", true) && vObj == null) vObj = s
+                if (cType.equals("video", true)) {
+                    val px = s.optInt("width", 0).toLong() * s.optInt("height", 0).toLong()
+                    if (vObj == null || px > bestVPixels) {
+                        vObj = s
+                        bestVPixels = px
+                    }
+                }
                 else if (cType.equals("audio", true) && aObj == null) aObj = s
                 else if (cType.equals("subtitle", true)) subCount++
             }

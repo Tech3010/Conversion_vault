@@ -10,6 +10,8 @@ import android.graphics.Matrix
 import android.os.Build
 import androidx.exifinterface.media.ExifInterface
 import androidx.heifwriter.HeifWriter
+import com.arthenica.ffmpegkit.FFprobeKit
+import java.nio.ByteBuffer
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -143,34 +145,68 @@ object NativePhotoEngine {
         var workingBitmap: Bitmap? = null
         try {
             var usedImageDecoder = false
+            val isSuspiciousThumb = { b: Bitmap? ->
+                b != null && b.width <= 400 && b.height <= 400 && inFile.length() > 80_000L
+            }
             val fullResOpts = BitmapFactory.Options().apply {
                 inScaled = false
                 inSampleSize = 1
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
-            workingBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+
+            // Stage 1: ImageDecoder from File (NO isMutableRequired so HDR/10-bit/P3 HEICs never throw!)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 try {
                     val src = ImageDecoder.createSource(inFile)
-                    val bmp = ImageDecoder.decodeBitmap(src) { decoder, info, _ ->
+                    val bmp = ImageDecoder.decodeBitmap(src) { decoder, _, _ ->
                         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                        decoder.isMutableRequired = true
-                        decoder.setTargetSampleSize(1)
-                        if (info.size.width > 0 && info.size.height > 0) {
-                            decoder.setTargetSize(info.size.width, info.size.height)
-                        }
+                        decoder.memorySizePolicy = ImageDecoder.MEMORY_POLICY_DEFAULT
                     }
-                    usedImageDecoder = true
-                    bmp
-                } catch (_: Throwable) {
-                    BitmapFactory.decodeFile(inFile.absolutePath, fullResOpts)
-                }
-            } else {
-                BitmapFactory.decodeFile(inFile.absolutePath, fullResOpts)
+                    if (!isSuspiciousThumb(bmp)) {
+                        workingBitmap = bmp
+                        usedImageDecoder = true
+                    } else {
+                        bmp.recycle()
+                    }
+                } catch (_: Throwable) {}
             }
 
+            // Stage 2: ImageDecoder from ByteBuffer (bypasses some vendor FileInputStream HEIC quirks)
+            if (workingBitmap == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    val bytes = inFile.readBytes()
+                    val src = ImageDecoder.createSource(ByteBuffer.wrap(bytes))
+                    val bmp = ImageDecoder.decodeBitmap(src) { decoder, _, _ ->
+                        decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                        decoder.memorySizePolicy = ImageDecoder.MEMORY_POLICY_DEFAULT
+                    }
+                    if (!isSuspiciousThumb(bmp)) {
+                        workingBitmap = bmp
+                        usedImageDecoder = true
+                    } else {
+                        bmp.recycle()
+                    }
+                } catch (_: Throwable) {}
+            }
+
+            // Stage 3: BitmapFactory with explicit inScaled = false, inSampleSize = 1
             if (workingBitmap == null) {
-                val ffArgs = buildFfmpegImageFallback(inputPath, outputPath, spec)
-                return Result.FallbackToFfmpeg(ffArgs, "Input format decoded via FFmpeg fallback")
+                try {
+                    val bmp = BitmapFactory.decodeFile(inFile.absolutePath, fullResOpts)
+                    if (bmp != null && !isSuspiciousThumb(bmp)) {
+                        workingBitmap = bmp
+                        usedImageDecoder = false
+                    } else {
+                        bmp?.recycle()
+                    }
+                } catch (_: Throwable) {}
+            }
+
+            // Stage 4: FFmpeg fallback with explicit largest-resolution stream map (never picks 192x144 HEIC thumbnail!)
+            if (workingBitmap == null) {
+                val bestStreamMap = findLargestVideoStreamMap(inFile.absolutePath)
+                val ffArgs = buildFfmpegImageFallback(inputPath, outputPath, spec, alreadyTransformed = false, streamMapFlag = bestStreamMap)
+                return Result.FallbackToFfmpeg(ffArgs, "Input format decoded via FFmpeg full-res stream fallback")
             }
 
             val origW = workingBitmap.width
@@ -443,11 +479,35 @@ object NativePhotoEngine {
         }
     }
 
+    private fun findLargestVideoStreamMap(inputPath: String): String {
+        return try {
+            val info = FFprobeKit.getMediaInformation(inputPath)?.mediaInformation ?: return ""
+            val streams = info.allProperties?.optJSONArray("streams") ?: return ""
+            var bestIdx = -1
+            var bestPixels = -1L
+            for (i in 0 until streams.length()) {
+                val s = streams.optJSONObject(i) ?: continue
+                if (!s.optString("codec_type", "").equals("video", true)) continue
+                val w = s.optInt("width", 0).toLong()
+                val h = s.optInt("height", 0).toLong()
+                val px = w * h
+                if (px > bestPixels) {
+                    bestPixels = px
+                    bestIdx = s.optInt("index", i)
+                }
+            }
+            if (bestIdx >= 0) "-map 0:$bestIdx " else ""
+        } catch (_: Throwable) {
+            ""
+        }
+    }
+
     private fun buildFfmpegImageFallback(
         inputPath: String,
         outputPath: String,
         spec: PhotoSpec,
-        alreadyTransformed: Boolean = false
+        alreadyTransformed: Boolean = false,
+        streamMapFlag: String = ""
     ): String {
         val fmt = spec.format.lowercase(Locale.US).removePrefix(".")
         val vfParts = mutableListOf<String>()
@@ -479,6 +539,6 @@ object NativePhotoEngine {
             "png" -> "-c:v png "
             else -> ""
         }
-        return "-y -i \"$inputPath\" ${vfFlag}${metaFlag}${codecFlag}-frames:v 1 \"$outputPath\""
+        return "-y -i \"$inputPath\" ${streamMapFlag}${vfFlag}${metaFlag}${codecFlag}-frames:v 1 \"$outputPath\""
     }
 }
