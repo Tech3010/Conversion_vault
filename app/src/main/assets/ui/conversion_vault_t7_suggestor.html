@@ -103,7 +103,7 @@
         </button>
         <div>
           <div class="page-title">Smart Format Suggestor</div>
-          <div class="page-sub">DEVICE · PURPOSE · CUSTOM METRIC</div>
+          <div class="page-sub">PICK ANY 1 NEED · 4 TAILORED PRESETS</div>
         </div>
       </div>
       <span class="suggest-badge">★ SUGGESTOR</span>
@@ -114,10 +114,9 @@
       <section class="card-box" aria-label="Target Device">
         <div class="sec-head">
           <span class="sec-lbl">1. Target Device</span>
-          <span class="sec-note">Pick 1 or Skip</span>
+          <span class="sec-note">Pick any 1 across all groups</span>
         </div>
         <div class="chip-wrap" id="grp-device">
-          <button type="button" class="s-chip is-none" data-val="none">None / Skip</button>
           <button type="button" class="s-chip active" data-val="poco">This Device (Detecting...)</button>
           <button type="button" class="s-chip" data-val="android">Android Phone (General)</button>
           <button type="button" class="s-chip" data-val="apple">iPhone / iPad</button>
@@ -134,11 +133,10 @@
       <section class="card-box" aria-label="Purpose or Goal">
         <div class="sec-head">
           <span class="sec-lbl">2. Purpose / Goal</span>
-          <span class="sec-note">Pick 1 or Skip</span>
+          <span class="sec-note">Pick any 1 across all groups</span>
         </div>
         <div class="chip-wrap" id="grp-purpose">
-          <button type="button" class="s-chip is-none" data-val="none">None / Skip</button>
-          <button type="button" class="s-chip active" data-val="reels">Social / Reels &amp; Shorts</button>
+          <button type="button" class="s-chip" data-val="reels">Social / Reels &amp; Shorts</button>
           <button type="button" class="s-chip" data-val="edit">Video Editing (Alight / CapCut)</button>
           <button type="button" class="s-chip" data-val="archive">Archive / Master Storage</button>
           <button type="button" class="s-chip" data-val="share">Chat / Fast Share</button>
@@ -152,11 +150,10 @@
       <section class="card-box" aria-label="Priority Metric">
         <div class="sec-head">
           <span class="sec-lbl">3. Custom Priority Metric</span>
-          <span class="sec-note">Pick 1 or Skip</span>
+          <span class="sec-note">Pick any 1 across all groups</span>
         </div>
         <div class="chip-wrap" id="grp-metric">
-          <button type="button" class="s-chip is-none" data-val="none">None / Skip</button>
-          <button type="button" class="s-chip active" data-val="balanced">Balanced (Sweet Spot)</button>
+          <button type="button" class="s-chip" data-val="balanced">Balanced (Sweet Spot)</button>
           <button type="button" class="s-chip" data-val="quality">Max Quality Preserved</button>
           <button type="button" class="s-chip" data-val="size">Smallest File Size</button>
           <button type="button" class="s-chip" data-val="speed">Processing Speed / Battery</button>
@@ -176,7 +173,7 @@
   </div>
   <div class="toast" id="toast">Ready</div>
   <script>
-    const state = { device: 'this_device', purpose: 'reels', metric: 'balanced' };
+    let activeChoice = 'this_device';
     let deviceTel = null;
 
     function loadDeviceTelemetry() {
@@ -199,272 +196,238 @@
       setTimeout(() => t.classList.remove('show'), 1800);
     }
 
-    // 24 real-world FFmpeg profiles scored dynamically across all 640 (10 devices x 8 purposes x 8 metrics) combinations
-    const PROFILES = [
-      // VIDEO PROFILES
-      { id:'h264_reels_60', kind:'video', name:'H.264 60fps Reels HQ', cont:'.mp4', codec:'h264_8',
-        spec:'.mp4 · libx264 · yuv420p · CRF 18 · Max 12M · AAC 192k · +faststart',
-        quality:86, size:68, speed:80, compat:98, edit:65,
-        purposes:{ reels:100, share:78, stream:82, archive:65, edit:60, none:90 },
-        why:'Sweet spot for Instagram Reels, YouTube Shorts, and smooth 60fps playback without platform re-compression artifacts.' },
-      { id:'h264_master_16', kind:'video', name:'H.264 8-Bit Master (CRF 16)', cont:'.mp4', codec:'h264_8',
-        spec:'.mp4 · libx264 · yuv420p · CRF 16 · slow · AAC 320k · +faststart',
-        quality:96, size:52, speed:55, compat:96, edit:72,
-        purposes:{ reels:88, archive:90, stream:85, edit:75, share:50, none:84 },
-        why:'Visually lossless 8-bit H.264 that plays on virtually every phone, TV, browser, and computer.' },
-      { id:'h264_compact_share', kind:'video', name:'H.264 Fast Share (CRF 23)', cont:'.mp4', codec:'h264_8',
-        spec:'.mp4 · libx264 · yuv420p · CRF 23 · Max 4M · AAC 128k · +faststart',
-        quality:74, size:88, speed:88, compat:99, edit:50,
-        purposes:{ share:100, reels:78, stream:70, archive:55, edit:40, none:78 },
-        why:'Small, fast-uploading MP4 engineered for WhatsApp, Telegram, Discord, and instant mobile sharing.' },
-      { id:'h264_720p_safe', kind:'video', name:'720p30 Universal Safe MP4', cont:'.mp4', codec:'h264_8',
-        spec:'.mp4 · libx264 · Main@L3.1 · 720p30 · CRF 22 · AAC 128k · +faststart',
-        quality:64, size:90, speed:94, compat:100, edit:45,
-        purposes:{ share:86, stream:76, reels:60, archive:48, edit:35, none:72 },
-        why:'Guaranteed playback on older Android phones, car head units, projectors, and USB TV ports.' },
-      { id:'h264_ultrafast', kind:'video', name:'H.264 Fast Battery-Saver', cont:'.mp4', codec:'h264_8',
-        spec:'.mp4 · libx264 · yuv420p · preset veryfast · CRF 20 · AAC 192k · +faststart',
-        quality:78, size:66, speed:100, compat:98, edit:62,
-        purposes:{ share:88, reels:82, stream:74, archive:58, edit:65, none:80 },
-        why:'Encodes up to 3x faster with minimal heat and battery drain while keeping universal MP4 compatibility.' },
-      { id:'h264_alli_edit', kind:'video', name:'H.264 All-I Zero-Lag Edit', cont:'.mp4', codec:'h264_8',
-        spec:'.mp4 · libx264 · Intra -g 1 · 0 B-Frames · CRF 15 · AAC 320k',
-        quality:95, size:28, speed:84, compat:85, edit:100,
-        purposes:{ edit:100, archive:74, reels:55, stream:40, share:20, none:62 },
-        why:'Every frame is an independent keyframe for instant, stutter-free timeline scrubbing in CapCut and Alight Motion.' },
-      { id:'h264_422_pro', kind:'video', name:'H.264 4:2:2 Pro Intermediate', cont:'.mov', codec:'h264_422',
-        spec:'.mov · libx264 · yuv422p · Intra -g 1 · CRF 14 · PCM 24-bit',
-        quality:100, size:18, speed:72, compat:48, edit:98,
-        purposes:{ edit:96, archive:84, reels:35, stream:20, share:10, none:50 },
-        why:'Double chroma resolution and uncompressed PCM audio for heavy color grading and desktop NLE workflows.' },
-      { id:'h264_shortgop_edit', kind:'video', name:'H.264 Short-GOP Edit (1080p60)', cont:'.mp4', codec:'h264_8',
-        spec:'.mp4 · libx264 · -g 15 · 0 B-Frames · CRF 17 · AAC 256k',
-        quality:90, size:58, speed:82, compat:92, edit:92,
-        purposes:{ edit:94, reels:80, archive:72, stream:65, share:52, none:75 },
-        why:'Half the file size of All-I while preserving snappy timeline seeking on mobile editors.' },
-      { id:'hevc_8bit_mp4', kind:'video', name:'HEVC 8-Bit Efficient MP4', cont:'.mp4', codec:'hevc_8',
-        spec:'.mp4 · libx265 · yuv420p · tag hvc1 · CRF 20 · AAC 192k · +faststart',
-        quality:88, size:86, speed:62, compat:84, edit:52,
-        purposes:{ archive:86, stream:90, reels:80, share:88, edit:45, none:84 },
-        why:'Saves ~35% storage over H.264 with broad modern TV, iPhone, and Android hardware decode support.' },
-      { id:'hevc_10bit_mkv', kind:'video', name:'HEVC 10-Bit Archive (MKV)', cont:'.mkv', codec:'hevc_10',
-        spec:'.mkv · libx265 · yuv420p10le · CRF 19 · slow · FLAC Lossless',
-        quality:96, size:84, speed:46, compat:68, edit:42,
-        purposes:{ archive:100, stream:94, reels:50, share:45, edit:40, none:78 },
-        why:'Cuts archive size ~45% while eliminating color banding with 10-bit gradients and lossless FLAC audio.' },
-      { id:'hevc_10bit_apple', kind:'video', name:'HEVC 10-Bit HDR MP4 (hvc1)', cont:'.mp4', codec:'hevc_10',
-        spec:'.mp4 · libx265 · yuv420p10le · tag hvc1 · CRF 18 · AAC 256k · +faststart',
-        quality:95, size:82, speed:48, compat:78, edit:50,
-        purposes:{ archive:96, stream:92, reels:82, share:70, edit:52, none:82 },
-        why:'Native 10-bit HEVC inside MP4 with hvc1 tag for seamless playback on iPhone, Mac, Samsung, and modern TVs.' },
-      { id:'hevc_10bit_master', kind:'video', name:'HEVC 10-Bit Master (CRF 16)', cont:'.mkv', codec:'hevc_10',
-        spec:'.mkv · libx265 · yuv420p10le · CRF 16 · slower · FLAC Lossless',
-        quality:99, size:72, speed:30, compat:66, edit:38,
-        purposes:{ archive:98, stream:86, reels:40, share:30, edit:35, none:72 },
-        why:'Near-master 10-bit archival fidelity for 4K/HDR footage at a fraction of raw file size.' },
-      { id:'av1_compact', kind:'video', name:'AV1 Ultra-Compact (SVT-AV1)', cont:'.mp4', codec:'av1',
-        spec:'.mp4 · libsvtav1 · yuv420p · CRF 26 · preset 6 · Opus 128k',
-        quality:86, size:100, speed:40, compat:62, edit:25,
-        purposes:{ archive:88, share:94, stream:86, reels:64, edit:15, none:74 },
-        why:'Smallest possible video file size at high clarity for modern AV1-capable phones, PCs, and web browsers.' },
-      { id:'vp9_web', kind:'video', name:'VP9 WebM Streaming', cont:'.webm', codec:'vp9',
-        spec:'.webm · libvpx-vp9 · yuv420p · CRF 24 · Opus 160k',
-        quality:84, size:90, speed:38, compat:68, edit:25,
-        purposes:{ stream:88, share:82, archive:70, reels:55, edit:15, none:68 },
-        why:'Royalty-free open web video format ideal for browsers and HTML5 embeds.' },
+    function buildThisDeviceRecs() {
+      const model = (deviceTel && deviceTel.model) ? deviceTel.model : 'This Device';
+      const c = (deviceTel && deviceTel.codecs) ? deviceTel.codecs : { h264HwDecode: true, hevc10bitHwDecode: true, av1HwDecode: false };
+      const recs = [
+        {
+          name: 'H.264 60fps Daily Master',
+          spec: '.mp4 · libx264 · yuv420p (8-bit) · CRF 18 · Max 12M · AAC 192k · +faststart',
+          why: 'Hardware-decoded smoothly on ' + model + ' with zero H.264 10-bit decode bugs and crisp motion.'
+        }
+      ];
+      if (c.hevc10bitHwDecode) {
+        recs.push({
+          name: 'HEVC 10-Bit Space Saver',
+          spec: '.mkv · libx265 · yuv420p10le · CRF 19 · slow · Opus 192k',
+          why: 'Verified HEVC 10-bit HW decode on ' + model + ' — cuts file size ~45% with zero color banding.'
+        });
+      } else {
+        recs.push({
+          name: 'HEVC 8-Bit Efficient MP4',
+          spec: '.mp4 · libx265 · yuv420p · tag hvc1 · CRF 20 · AAC 192k · +faststart',
+          why: 'Safe 8-bit HEVC tailored for ' + model + ' (avoids unsupported 10-bit HW decode).'
+        });
+      }
+      if (c.av1HwDecode) {
+        recs.push({
+          name: 'AV1 Ultra-Compact (HW Ready)',
+          spec: '.mp4 · libsvtav1 · yuv420p · CRF 26 · preset 6 · Opus 128k',
+          why: 'Hardware AV1 decode detected on ' + model + ' — smallest storage footprint at crisp clarity.'
+        });
+      } else {
+        recs.push({
+          name: 'H.264 All-I Zero-Lag Edit',
+          spec: '.mp4 · libx264 · Intra -g 1 · 0 B-Frames · CRF 15 · AAC 320k',
+          why: 'Instant timeline scrubbing on ' + model + ' in CapCut and Alight Motion.'
+        });
+      }
+      recs.push({
+        name: 'Opus 192k + WebP 85% Companion',
+        spec: '.opus (192k 48kHz) for Audio · .webp (Q85) for Images',
+        why: 'Native Android support on ' + model + ' with best quality-per-MB for audio and photos.'
+      });
+      return recs;
+    }
 
-      // AUDIO PROFILES
-      { id:'opus_192', kind:'audio', name:'Opus 192k Transparent', cont:'.opus', codec:'opus',
-        spec:'.opus · libopus · 192 kbps · 48kHz Stereo',
-        quality:94, size:92, speed:95, compat:78, edit:65,
-        purposes:{ audio:100, share:90, archive:80, stream:88, none:90 },
-        why:'Highest audio fidelity per megabyte on Android, PC, and modern web browsers.' },
-      { id:'opus_96_norm', kind:'audio', name:'Opus 96k Loudnorm (Compact)', cont:'.opus', codec:'opus',
-        spec:'.opus · libopus · 96 kbps · 48kHz · EBU R128 (-14 LUFS)',
-        quality:82, size:100, speed:96, compat:76, edit:55,
-        purposes:{ audio:88, share:100, stream:82, archive:62, none:80 },
-        why:'Ultra-small balanced-volume audio ideal for podcasts, voice notes, and chat sharing.' },
-      { id:'aac_256_m4a', kind:'audio', name:'AAC-LC 256k (.m4a)', cont:'.m4a', codec:'aac',
-        spec:'.m4a · AAC-LC · 256 kbps · 48kHz Stereo',
-        quality:92, size:84, speed:94, compat:96, edit:78,
-        purposes:{ audio:96, share:88, stream:92, archive:80, edit:82, none:92 },
-        why:'Native hardware playback on Apple, Android, Smart TVs, and modern car stereos.' },
-      { id:'mp3_320_cbr', kind:'audio', name:'MP3 320k CBR Universal', cont:'.mp3', codec:'mp3',
-        spec:'.mp3 · libmp3lame · 320 kbps CBR · 44.1kHz Stereo',
-        quality:86, size:74, speed:92, compat:100, edit:70,
-        purposes:{ audio:92, share:82, stream:84, archive:70, none:86 },
-        why:'100% universal playback across every car head unit, USB stereo, and older player.' },
-      { id:'mp3_192_norm', kind:'audio', name:'MP3 192k Loudnorm Drive Mix', cont:'.mp3', codec:'mp3',
-        spec:'.mp3 · libmp3lame · 192 kbps · EBU R128 (-14 LUFS)',
-        quality:78, size:88, speed:92, compat:100, edit:60,
-        purposes:{ audio:86, share:92, stream:80, archive:58, none:78 },
-        why:'Evens out quiet and loud tracks automatically while staying 100% compatible with car USB ports.' },
-      { id:'flac_24', kind:'audio', name:'FLAC 24-Bit Lossless', cont:'.flac', codec:'flac',
-        spec:'.flac · 24-bit · 48kHz · Bit-Exact Lossless',
-        quality:100, size:48, speed:90, compat:78, edit:96,
-        purposes:{ audio:96, archive:100, edit:95, stream:80, share:35, none:84 },
-        why:'Bit-exact studio-grade archival audio with ~45% lossless compression.' },
-      { id:'wav_pcm', kind:'audio', name:'WAV PCM 16-Bit Uncompressed', cont:'.wav', codec:'wav',
-        spec:'.wav · PCM s16le · 44.1kHz Stereo · Uncompressed',
-        quality:100, size:18, speed:100, compat:98, edit:100,
-        purposes:{ edit:100, audio:82, archive:86, share:15, none:70 },
-        why:'Zero-decode-overhead uncompressed audio for editors and legacy stereos that reject FLAC.' },
+    const PLAYBOOKS = {
+      android: [
+        { name: 'H.264 8-Bit Universal MP4', spec: '.mp4 · libx264 · yuv420p · CRF 19 · AAC 192k · +faststart', why: 'Plays on 100% of Android phones with full hardware acceleration and instant gallery thumbnails.' },
+        { name: 'HEVC 8-Bit Storage Saver', spec: '.mp4 · libx265 · yuv420p · tag hvc1 · CRF 20 · AAC 192k · +faststart', why: 'Saves ~35% phone storage on Android 9+ devices without 10-bit decode hiccups.' },
+        { name: 'Opus 192k Android Audio', spec: '.opus · libopus · 192 kbps · 48kHz Stereo', why: 'Native Android media support with superior clarity per MB over MP3.' },
+        { name: 'WebP 85% Gallery Photo', spec: '.webp · Q85 · sRGB 4:4:4 · Auto-Orient', why: '~30% smaller than JPEG while staying sharp in Google Photos and Android galleries.' }
+      ],
+      apple: [
+        { name: 'HEVC 10-Bit Apple MP4 (hvc1)', spec: '.mp4 · libx265 · yuv420p10le · tag hvc1 · CRF 18 · AAC 256k · +faststart', why: 'Uses Apple-required hvc1 tag for native Photos, QuickTime, and AirDrop playback.' },
+        { name: 'H.264 High-Profile MP4', spec: '.mp4 · libx264 · yuv420p · High@L4.2 · CRF 18 · AAC 256k · +faststart', why: 'Zero-issue compatibility across every iPhone, iPad, Mac, and iMovie timeline.' },
+        { name: 'AAC-LC 256k (.m4a)', spec: '.m4a · AAC-LC · 256 kbps · 48kHz Stereo', why: 'Apple-native transparent audio format supported by Files, Music, and AirPods.' },
+        { name: 'JPG High 92% Universal', spec: '.jpg · Q92 · sRGB 4:4:4 · Auto-Orient', why: 'Opens cleanly in iOS Photos, iMessage, and macOS Preview without WebP/AVIF friction.' }
+      ],
+      pc: [
+        { name: 'HEVC 10-Bit Archival MKV', spec: '.mkv · libx265 · yuv420p10le · CRF 18 · slow · FLAC Lossless', why: 'Desktop players (VLC, mpv, MPC) handle 10-bit MKV + lossless FLAC effortlessly.' },
+        { name: 'AV1 Ultra-Compact MP4', spec: '.mp4 · libsvtav1 · yuv420p · CRF 24 · preset 6 · Opus 160k', why: 'Modern PCs and GPUs decode AV1 cleanly while slashing archive disk usage.' },
+        { name: 'H.264 4:2:2 Pro Edit Master', spec: '.mov · libx264 · yuv422p · Intra -g 1 · CRF 14 · PCM 24-bit', why: 'Built for DaVinci Resolve, Premiere Pro, and After Effects color grading.' },
+        { name: 'FLAC 24-Bit Studio Audio', spec: '.flac · 24-bit · 48kHz · Bit-Exact Lossless', why: 'Bit-exact archival audio for desktop DACs and lossless libraries.' }
+      ],
+      smart_tv: [
+        { name: 'TV-Safe H.264 1080p/4K MP4', spec: '.mp4 · libx264 · yuv420p · High@L4.2 · CRF 18 · AAC 256k · +faststart', why: 'Guaranteed USB & DLNA playback on Samsung, LG, Sony, and Android Smart TVs.' },
+        { name: '4K Smart TV HEVC 10-Bit MP4', spec: '.mp4 · libx265 · yuv420p10le · tag hvc1 · CRF 19 · AAC 256k · +faststart', why: 'Ideal for 4K HDR Smart TVs — cuts file size ~45% with smooth hardware decode.' },
+        { name: 'Smart TV Surround AC3 MKV', spec: '.mkv · libx264 · yuv420p · CRF 18 · AC3 5.1 448k', why: 'Preserves Dolby Digital 5.1 passthrough for TV soundbars and AV receivers.' },
+        { name: 'Ultra-Safe 1080p30 USB MP4', spec: '.mp4 · libx264 · Main@L4.0 · 1080p30 · CRF 20 · AAC 192k · +faststart', why: 'Fallback for older Smart TVs that reject 60fps or High-profile streams.' }
+      ],
+      projector: [
+        { name: 'Projector USB Safe 1080p H.264', spec: '.mp4 · libx264 · yuv420p · Main@L4.1 · CRF 19 · AAC 192k · +faststart', why: 'Avoids unsupported HEVC/MKV/Opus codecs that cause "Unsupported Format" on USB projectors.' },
+        { name: '720p30 Legacy Projector MP4', spec: '.mp4 · libx264 · yuv420p · Main@L3.1 · 720p30 · CRF 21 · AAC 128k · +faststart', why: 'Plays cleanly even on budget LED projectors with basic MediaTek/Allwinner USB chips.' },
+        { name: 'MP3 320k Presentation Audio', spec: '.mp3 · libmp3lame · 320 kbps CBR · 44.1kHz Stereo', why: 'Zero-fail audio playback from FAT32/exFAT USB sticks.' },
+        { name: 'JPG 1920px Slide Graphic', spec: '.jpg · 1920px Scale · Q92 · sRGB 4:4:4', why: 'Crisp full-HD still slides recognized by every projector firmware.' }
+      ],
+      car: [
+        { name: 'Car Stereo MP3 320k CBR', spec: '.mp3 · libmp3lame · 320 kbps CBR · 44.1kHz Stereo', why: 'Universal USB & Bluetooth head-unit support with zero VBR seek glitches.' },
+        { name: 'Loudnorm Drive Mix MP3 192k', spec: '.mp3 · libmp3lame · 192 kbps · EBU R128 (-14 LUFS)', why: 'Keeps quiet and loud tracks at an even volume while driving.' },
+        { name: 'Car Display 720p30 Safe MP4', spec: '.mp4 · libx264 · Main@L3.1 · 720p30 · CRF 22 · AAC 128k · +faststart', why: 'Lightweight H.264 video tailored for Android Auto / aftermarket head units.' },
+        { name: 'WAV PCM 16-Bit Fallback', spec: '.wav · PCM s16le · 44.1kHz Stereo · Uncompressed', why: 'Lossless audio fallback for factory stereos that reject FLAC.' }
+      ],
+      old_phone: [
+        { name: '720p30 Low-CPU Safe MP4', spec: '.mp4 · libx264 · Main@L3.1 · 720p30 · CRF 22 · Max 4M · AAC 128k · +faststart', why: 'Smooth hardware decoding on older 32-bit/budget SoCs with minimal battery drain.' },
+        { name: '1080p30 Baseline H.264', spec: '.mp4 · libx264 · yuv420p · Main@L4.0 · CRF 21 · AAC 128k · +faststart', why: 'Crisp 1080p playback without heavy 60fps, HEVC, or 10-bit decoder load.' },
+        { name: 'MP3 192k Lightweight Audio', spec: '.mp3 · libmp3lame · 192 kbps · 44.1kHz Stereo', why: 'Tiny size and 100% compatibility on older Android media players.' },
+        { name: 'JPG Compact 1920px Q85', spec: '.jpg · 1920px Scale · Q85 · 4:2:0', why: 'Opens instantly on low-RAM phones without WebP/AVIF lag.' }
+      ],
+      web: [
+        { name: 'Web Streaming H.264 +faststart', spec: '.mp4 · libx264 · yuv420p · CRF 20 · Max 6M · AAC 160k · +faststart', why: 'Starts playing immediately in Chrome, Safari, Firefox, and Edge via front-loaded moov atom.' },
+        { name: 'VP9 WebM Open Video', spec: '.webm · libvpx-vp9 · yuv420p · CRF 24 · Opus 160k', why: 'Royalty-free smaller web video ideal for HTML5 embeds and desktop browsers.' },
+        { name: 'AV1 Compact Web MP4', spec: '.mp4 · libsvtav1 · yuv420p · CRF 26 · preset 6 · Opus 128k', why: 'Lowest bandwidth usage for modern browsers with native AV1 support.' },
+        { name: 'WebP Q85 + AVIF Q75 Images', spec: '.webp (Q85) or .avif (Q75) · 1920px · sRGB', why: 'Fastest page-load image formats for modern websites and portfolios.' }
+      ],
+      reels: [
+        { name: '60fps Reels / Shorts HQ', spec: '.mp4 · libx264 · yuv420p · CRF 18 · Max 12M · 60fps · AAC 192k · +faststart', why: 'Matches Instagram Reels & YouTube Shorts ingest limits so platforms don’t crush your sharpness.' },
+        { name: 'Reels Master CRF 16 (High Motion)', spec: '.mp4 · libx264 · yuv420p · CRF 16 · slow · Max 15M · AAC 256k · +faststart', why: 'Extra bitrate headroom for fast car edits, night lighting, and heavy transitions.' },
+        { name: 'Fast-Upload 30fps Reels MP4', spec: '.mp4 · libx264 · yuv420p · 30fps · CRF 19 · Max 8M · AAC 192k · +faststart', why: 'Smaller upload size with clean sharpness for talking-head and lifestyle reels.' },
+        { name: 'Forensic-Clean Social MP4', spec: '.mp4 · libx264 · CRF 18 · -map_metadata -1 · +bitexact · +faststart', why: 'Strips GPS, device model, and editor tags before uploading publicly.' }
+      ],
+      edit: [
+        { name: 'H.264 All-I Zero-Lag Edit', spec: '.mp4 · libx264 · Intra -g 1 · 0 B-Frames · CRF 15 · AAC 320k', why: 'Every frame is an independent keyframe for buttery timeline scrubbing in Alight Motion & CapCut.' },
+        { name: 'Short-GOP 1080p60 Edit', spec: '.mp4 · libx264 · -g 15 · 0 B-Frames · CRF 17 · AAC 256k', why: 'Half the file size of All-I while keeping fast frame-accurate seeking.' },
+        { name: 'H.264 4:2:2 Pro Master', spec: '.mov · libx264 · yuv422p · Intra -g 1 · CRF 14 · PCM 24-bit', why: 'Extra chroma precision for heavy LUTs, green screen, and desktop grading.' },
+        { name: 'WAV PCM 16-Bit Edit Audio', spec: '.wav · PCM s16le · 48kHz Stereo · Uncompressed', why: 'Zero decode latency for beat-synced transitions and sound design.' }
+      ],
+      archive: [
+        { name: 'HEVC 10-Bit Archive MKV', spec: '.mkv · libx265 · yuv420p10le · CRF 18 · slow · FLAC Lossless', why: 'Cuts long-term storage ~45% while preserving 10-bit gradients and lossless audio.' },
+        { name: 'HEVC 10-Bit Master CRF 16', spec: '.mkv · libx265 · yuv420p10le · CRF 16 · slower · FLAC Lossless', why: 'Near-master archival fidelity for irreplaceable 4K/HDR footage.' },
+        { name: 'H.264 8-Bit Forever Archive', spec: '.mp4 · libx264 · yuv420p · CRF 16 · slow · AAC 320k · +faststart', why: 'Future-proof universal archive playable on any device decades from now.' },
+        { name: 'Lossless FLAC 24-Bit + PNG', spec: '.flac (24-bit) for Audio · .png (RGB24) for Stills', why: 'Zero generational loss for master music stems and original graphics.' }
+      ],
+      share: [
+        { name: 'WhatsApp / Chat Fast MP4', spec: '.mp4 · libx264 · yuv420p · CRF 23 · Max 4M · AAC 128k · +faststart', why: 'Fast upload and crisp playback under WhatsApp, Telegram, and Discord size limits.' },
+        { name: '720p30 Ultra-Light Share', spec: '.mp4 · libx264 · 720p30 · CRF 24 · Max 2.5M · AAC 96k · +faststart', why: 'Tiny MB footprint for slow mobile data and group chats.' },
+        { name: 'HEVC Compact Share MP4', spec: '.mp4 · libx265 · yuv420p · tag hvc1 · CRF 23 · AAC 128k · +faststart', why: 'Higher clarity at very small sizes when sharing between modern phones.' },
+        { name: 'Opus 96k Voice / Audio Share', spec: '.opus · libopus · 96 kbps · EBU R128 (-14 LUFS)', why: 'Crystal-clear voice & music clips at tiny kilobyte sizes.' }
+      ],
+      stream: [
+        { name: 'Plex / Jellyfin Direct-Play MP4', spec: '.mp4 · libx264 · yuv420p · High@L4.1 · CRF 19 · AAC 256k · +faststart', why: 'Avoids server transcoding on nearly every TV, Fire Stick, and phone client.' },
+        { name: '4K HEVC 10-Bit Direct-Play MKV', spec: '.mkv · libx265 · yuv420p10le · CRF 19 · AC3 5.1 / AAC 256k', why: 'High-efficiency home server streaming for 4K TVs and Shield/Apple TV.' },
+        { name: 'Web-Ready 1080p Stream MP4', spec: '.mp4 · libx264 · yuv420p · CRF 20 · Max 8M · AAC 192k · +faststart', why: 'Smooth remote streaming over Wi-Fi or 5G without buffering.' },
+        { name: '720p Low-Bandwidth Stream', spec: '.mp4 · libx264 · 720p30 · CRF 22 · Max 3M · AAC 128k · +faststart', why: 'Reliable playback over congested cellular connections.' }
+      ],
+      audio: [
+        { name: 'Opus 192k Transparent', spec: '.opus · libopus · 192 kbps · 48kHz Stereo', why: 'Best perceptual quality per MB on Android, PC, and modern browsers.' },
+        { name: 'FLAC 24-Bit Lossless', spec: '.flac · 24-bit · 48kHz · Bit-Exact Lossless', why: 'Studio-exact lossless archive at ~45% smaller size than WAV.' },
+        { name: 'AAC-LC 256k (.m4a)', spec: '.m4a · AAC-LC · 256 kbps · 48kHz Stereo', why: 'Clean high frequencies with native Apple, Android, and TV playback.' },
+        { name: 'MP3 320k CBR Universal', spec: '.mp3 · libmp3lame · 320 kbps CBR · 44.1kHz Stereo', why: 'Guaranteed to play on every car stereo, phone, and legacy player.' }
+      ],
+      photo: [
+        { name: 'WebP Crisp 85%', spec: '.webp · Q85 · sRGB 4:4:4 · Auto-Orient', why: '~30% smaller than JPG with razor-sharp detail for Android and web.' },
+        { name: 'Lossless PNG 24-Bit', spec: '.png · RGB24 Lossless · Keep Original Resolution', why: 'Zero compression artifacts for thumbnails, UI assets, and archival graphics.' },
+        { name: 'AVIF Compact Q75', spec: '.avif · Q75 · 1920px · sRGB 4:2:0', why: 'Smallest next-gen photo format for tight storage and fast web galleries.' },
+        { name: 'JPG High 92% Universal', spec: '.jpg · Q92 · sRGB 4:4:4 · Auto-Orient', why: 'Opens on 100% of devices, editors, TVs, and print labs.' }
+      ],
+      balanced: [
+        { name: 'H.264 Balanced Master (CRF 19)', spec: '.mp4 · libx264 · yuv420p · CRF 19 · preset fast · AAC 192k · +faststart', why: 'Ideal everyday balance of sharp detail, fast encode speed, and universal playback.' },
+        { name: 'HEVC 8-Bit Balanced (CRF 20)', spec: '.mp4 · libx265 · yuv420p · tag hvc1 · CRF 20 · AAC 192k · +faststart', why: 'Saves ~35% space with crisp clarity across modern phones and TVs.' },
+        { name: 'Opus 192k Balanced Audio', spec: '.opus · libopus · 192 kbps · 48kHz Stereo', why: 'Transparent listening quality at a fraction of FLAC file size.' },
+        { name: 'WebP 85% Balanced Image', spec: '.webp · Q85 · sRGB 4:4:4 · Auto-Orient', why: 'Clean visual quality with ~30% savings over JPEG.' }
+      ],
+      quality: [
+        { name: 'HEVC 10-Bit Master (CRF 16)', spec: '.mkv · libx265 · yuv420p10le · CRF 16 · slower · FLAC Lossless', why: 'Maximum visual fidelity with 10-bit gradient precision and lossless audio.' },
+        { name: 'H.264 Visual-Lossless (CRF 15)', spec: '.mp4 · libx264 · yuv420p · CRF 15 · slow · AAC 320k · +faststart', why: 'Indistinguishable from source on 8-bit displays with universal playback.' },
+        { name: 'H.264 4:2:2 Pro Intermediate', spec: '.mov · libx264 · yuv422p · Intra -g 1 · CRF 14 · PCM 24-bit', why: 'Highest chroma fidelity for color grading and post-production.' },
+        { name: 'FLAC 24-Bit + Lossless PNG', spec: '.flac (24-bit) · .png (RGB24 Lossless)', why: 'Zero lossy compression for audio masters and still frames.' }
+      ],
+      size: [
+        { name: 'AV1 Ultra-Compact (SVT-AV1)', spec: '.mp4 · libsvtav1 · yuv420p · CRF 28 · preset 7 · Opus 96k', why: 'Smallest possible video file size at watchable clarity.' },
+        { name: 'HEVC High-Compression MP4', spec: '.mp4 · libx265 · yuv420p · tag hvc1 · CRF 24 · AAC 128k · +faststart', why: 'Cuts file size by 50–65% while staying playable on modern phones & TVs.' },
+        { name: '720p30 Compact H.264', spec: '.mp4 · libx264 · 720p30 · CRF 24 · Max 2.5M · AAC 96k · +faststart', why: 'Tiny size with 100% compatibility on older devices and chat apps.' },
+        { name: 'Opus 96k + AVIF Q70', spec: '.opus (96k) for Audio · .avif (Q70) for Images', why: 'Minimum storage footprint for audio collections and photo archives.' }
+      ],
+      speed: [
+        { name: 'Instant Stream Copy (-c copy)', spec: '.mp4 / .mkv · -c copy · +faststart (Zero Re-Encode)', why: 'Completes in ~1 second with zero battery drain whenever you only need remuxing, trimming, or scrubbing.' },
+        { name: 'H.264 Veryfast Battery-Saver', spec: '.mp4 · libx264 · preset veryfast · CRF 20 · AAC 192k · +faststart', why: 'Encodes up to 3x faster with minimal phone heat and battery draw.' },
+        { name: 'H.264 Ultrafast Quick Export', spec: '.mp4 · libx264 · preset ultrafast · CRF 19 · AAC 192k', why: 'Fastest possible software re-encode when time matters most.' },
+        { name: 'AAC 192k + JPG Q90 Fast', spec: '.m4a (AAC 192k) · .jpg (Q90)', why: 'Near-instant encoding for audio and image batches.' }
+      ],
+      compat: [
+        { name: 'Universal H.264 8-Bit MP4', spec: '.mp4 · libx264 · yuv420p · Main@L4.0 · CRF 19 · AAC 192k · +faststart', why: 'Plays on 99.9% of phones, Smart TVs, browsers, Windows, Mac, and editors.' },
+        { name: 'Legacy 720p30 Safe MP4', spec: '.mp4 · libx264 · yuv420p · Main@L3.1 · 720p30 · CRF 21 · AAC 128k · +faststart', why: 'Guaranteed fallback for car stereos, projectors, and older budget phones.' },
+        { name: 'MP3 320k CBR Audio', spec: '.mp3 · libmp3lame · 320 kbps CBR · 44.1kHz Stereo', why: 'Supported by virtually every audio device made in the last 25 years.' },
+        { name: 'JPG High 92% sRGB', spec: '.jpg · Q92 · sRGB 4:4:4 · Auto-Orient', why: 'Universally accepted by every gallery, OS, website, and printer.' }
+      ],
+      raw: [
+        { name: 'H.264 All-I Zero-Lag Edit', spec: '.mp4 · libx264 · Intra -g 1 · 0 B-Frames · CRF 15 · AAC 320k', why: 'Zero frame-decode lag when scrubbing forward/backward in mobile editors.' },
+        { name: 'H.264 4:2:2 Pro Intermediate', spec: '.mov · libx264 · yuv422p · Intra -g 1 · CRF 14 · PCM 24-bit', why: 'Rich 4:2:2 color sampling and uncompressed PCM for pro grading.' },
+        { name: 'Short-GOP 1080p60 Edit', spec: '.mp4 · libx264 · -g 15 · 0 B-Frames · CRF 17 · AAC 256k', why: 'Fast scrubbing at half the storage cost of full All-I.' },
+        { name: 'WAV PCM 16-Bit + PNG 24-Bit', spec: '.wav (48kHz PCM) · .png (RGB24 Lossless)', why: 'Uncompressed audio and pixel-exact stills for timeline overlays.' }
+      ],
+      privacy: [
+        { name: 'Forensic Stream Copy (Zero Loss)', spec: 'Same Ext · -c copy · -map_metadata -1 · -map_chapters -1 · +bitexact', why: 'Wipes GPS, device model, timestamps, chapters & encoder fingerprints in 1 second with zero quality loss.' },
+        { name: 'Clean Social Re-Encode MP4', spec: '.mp4 · libx264 · CRF 18 · -map_metadata -1 · +bitexact · -sn -dn · +faststart', why: 'Re-encodes cleanly and strips all EXIF, telemetry, subtitle, and vendor data tracks.' },
+        { name: 'Clean Audio Scrub (.opus / .mp3)', spec: '-vn · -map_metadata -1 · +bitexact · Opus 192k or MP3 320k', why: 'Removes ID3 tags, album art, and recorder software fingerprints.' },
+        { name: 'Clean Photo Scrub (.webp / .jpg)', spec: '-map_metadata -1 · WebP Q85 or JPG Q92', why: 'Erases camera EXIF, lens model, and GPS coordinates before sharing.' }
+      ]
+    };
 
-      // IMAGE PROFILES
-      { id:'webp_85', kind:'photo', name:'WebP Crisp 85%', cont:'.webp', codec:'webp',
-        spec:'.webp · Q85 · sRGB 4:4:4 · Auto-Orient',
-        quality:90, size:90, speed:92, compat:86, edit:70,
-        purposes:{ photo:100, share:94, reels:80, archive:78, none:90 },
-        why:'~30% smaller than JPG with crisp edges on Android, PC, and all modern web browsers.' },
-      { id:'png_24', kind:'photo', name:'Lossless PNG 24-Bit', cont:'.png', codec:'png',
-        spec:'.png · RGB24 Lossless · Keep Original Resolution',
-        quality:100, size:38, speed:86, compat:100, edit:100,
-        purposes:{ photo:92, archive:100, edit:100, share:45, none:84 },
-        why:'Zero-loss pixel-exact image for thumbnails, graphics, and archival masters.' },
-      { id:'avif_75', kind:'photo', name:'AVIF Ultra-Compact Q75', cont:'.avif', codec:'avif',
-        spec:'.avif · Q75 · 1920px · sRGB 4:2:0',
-        quality:88, size:100, speed:55, compat:70, edit:40,
-        purposes:{ photo:90, share:96, archive:82, none:80 },
-        why:'Smallest next-gen photo format for web galleries and tight storage.' },
-      { id:'jpg_92', kind:'photo', name:'JPG High 92% Universal', cont:'.jpg', codec:'jpg',
-        spec:'.jpg · Q92 · sRGB 4:4:4 · Auto-Orient',
-        quality:92, size:76, speed:98, compat:100, edit:80,
-        purposes:{ photo:96, share:88, archive:80, none:92 },
-        why:'Opens on 100% of phones, TVs, projectors, car displays, and print labs.' },
-      { id:'jpg_1920_85', kind:'photo', name:'JPG Compact 1920px Q85', cont:'.jpg', codec:'jpg',
-        spec:'.jpg · 1920px Scale · Q85 · 4:2:0',
-        quality:80, size:92, speed:99, compat:100, edit:65,
-        purposes:{ photo:86, share:96, archive:60, none:80 },
-        why:'Fastest loading and tiny file size with guaranteed universal display support.' }
+    const RANK_META = [
+      { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1' },
+      { rank: '2 · STRONG ALT', cls: 'rank-2', rp: 'rp-2' },
+      { rank: '3 · SMART PICK', cls: 'rank-3', rp: 'rp-3' },
+      { rank: '4 · SAFE OPTION', cls: 'rank-4', rp: 'rp-4' }
     ];
 
-    function isCompatible(p, device) {
-      if (device === 'car' || device === 'old_phone' || device === 'projector') {
-        if (['hevc_10', 'av1', 'vp9', 'h264_422', 'opus', 'avif'].includes(p.codec)) return false;
-        if (p.cont === '.mkv' || p.cont === '.webm') return false;
-      }
-      if (device === 'apple') {
-        if (p.cont === '.mkv' || p.cont === '.webm' || p.codec === 'opus' || p.codec === 'vp9') return false;
-      }
-      if (device === 'smart_tv') {
-        if (p.codec === 'h264_422' || p.codec === 'vp9' || p.codec === 'opus') return false;
-      }
-      if (device === 'web') {
-        if (p.cont === '.mkv' || p.cont === '.mov' || p.codec === 'h264_422' || p.codec === 'hevc_10') return false;
-      }
-      if (device === 'this_device' && deviceTel && deviceTel.codecs) {
-        if (p.codec === 'hevc_10' && deviceTel.codecs.hevc10bitHwDecode === false) return false;
-        if (p.codec === 'av1' && deviceTel.codecs.av1HwDecode === false) return false;
-      }
-      return true;
-    }
-
-    function deviceBonus(p, device) {
-      let b = 0;
-      if (device === 'apple' && (p.id === 'hevc_10bit_apple' || p.id === 'aac_256_m4a' || p.cont === '.mp4' || p.cont === '.mov')) b += 14;
-      if (device === 'smart_tv' && (p.cont === '.mp4' || p.codec === 'hevc_8' || p.codec === 'hevc_10' || p.codec === 'h264_8')) b += 12;
-      if (device === 'car' && (p.codec === 'mp3' || p.codec === 'aac' || p.id === 'h264_720p_safe')) b += 16;
-      if (device === 'old_phone' && (p.id === 'h264_720p_safe' || p.id === 'h264_compact_share' || p.codec === 'mp3' || p.codec === 'jpg')) b += 16;
-      if (device === 'projector' && (p.codec === 'h264_8' || p.codec === 'jpg')) b += 14;
-      if (device === 'web' && (p.cont === '.mp4' || p.cont === '.webm' || p.codec === 'webp' || p.codec === 'avif' || p.codec === 'opus')) b += 14;
-      if (device === 'pc' && (p.cont === '.mkv' || p.codec === 'hevc_10' || p.codec === 'av1' || p.codec === 'flac' || p.codec === 'h264_422')) b += 10;
-      if (device === 'this_device' && deviceTel && deviceTel.codecs) {
-        if (p.codec === 'av1' && deviceTel.codecs.av1HwDecode) b += 10;
-        if (p.codec === 'hevc_10' && deviceTel.codecs.hevc10bitHwDecode) b += 10;
-      }
-      return b;
-    }
-
-    function generateRecommendations() {
-      const { device, purpose, metric } = state;
-      const priv = metric === 'privacy' ? ' · Forensic Scrub (+bitexact)' : ' · Wipe Metadata';
-      const wantKind = purpose === 'photo' ? 'photo' : (purpose === 'audio' ? 'audio' : 'video');
-
-      let candidates = PROFILES.filter(p => p.kind === wantKind && isCompatible(p, device));
-      if (candidates.length < 4) {
-        candidates = PROFILES.filter(p => p.kind === wantKind);
-      }
-
-      const scored = candidates.map(p => {
-        const pScore = (p.purposes[purpose] !== undefined ? p.purposes[purpose] : p.purposes.none || 70);
-        let mScore = 0;
-        if (metric === 'quality') mScore = p.quality * 1.15;
-        else if (metric === 'size') mScore = p.size * 1.15;
-        else if (metric === 'speed') mScore = p.speed * 1.15;
-        else if (metric === 'compat') mScore = p.compat * 1.15;
-        else if (metric === 'raw') mScore = p.edit * 1.2 + p.quality * 0.3;
-        else if (metric === 'privacy') mScore = p.compat * 0.5 + p.quality * 0.5;
-        else mScore = (p.quality * 0.35 + p.size * 0.30 + p.speed * 0.15 + p.compat * 0.20);
-
-        const total = pScore * 1.2 + mScore + deviceBonus(p, device);
-        return { p, total };
-      }).sort((a, b) => b.total - a.total);
-
-      const top4 = scored.slice(0, 4);
-      const rankMeta = [
-        { rank: '1 · BEST MATCH', cls: 'rank-1', rp: 'rp-1' },
-        { rank: '2 · STRONG ALT', cls: 'rank-2', rp: 'rp-2' },
-        { rank: '3 · SMART TRADE-OFF', cls: 'rank-3', rp: 'rp-3' },
-        { rank: '4 · SAFE FALLBACK', cls: 'rank-4', rp: 'rp-4' }
-      ];
-
-      const devLabel = (device === 'this_device' && deviceTel && deviceTel.model)
-        ? deviceTel.model
-        : (document.querySelector('#grp-device .s-chip.active')?.textContent || 'Selected Device');
-
-      return top4.map((item, idx) => ({
-        ...rankMeta[idx],
-        name: item.p.name,
-        spec: item.p.spec + priv,
-        why: item.p.why + ' (Matched for ' + devLabel + ')'
-      }));
-    }
-
     function render() {
-      const devTxt = document.querySelector('#grp-device .s-chip.active')?.textContent || 'Any';
-      const purTxt = document.querySelector('#grp-purpose .s-chip.active')?.textContent || 'Any';
-      const metTxt = document.querySelector('#grp-metric .s-chip.active')?.textContent || 'Any';
-      document.getElementById('combo-lbl').textContent = `${devTxt.split(' (')[0]} · ${purTxt.split(' (')[0]} · ${metTxt.split(' (')[0]}`;
+      const activeEl = document.querySelector('.s-chip.active');
+      const lbl = activeEl ? activeEl.textContent.trim() : 'This Device';
+      document.getElementById('combo-lbl').textContent = 'Tailored for: ' + lbl;
 
-      const recs = generateRecommendations();
-      document.getElementById('rec-list').innerHTML = recs.map(r => `
-        <article class="rec-card ${r.cls}">
-          <div class="rec-top">
-            <span class="rec-name">${r.name}</span>
-            <span class="rank-pill ${r.rp}">${r.rank}</span>
-          </div>
-          <div class="rec-spec">${r.spec}</div>
-          <div class="rec-why">${r.why}</div>
-          <div class="rec-acts">
-            <button type="button" class="btn-use" data-act="use" data-name="${r.name}">Use Preset ↗</button>
-            <button type="button" class="btn-sec" data-act="save" data-name="${r.name}">Save Preset</button>
-            <button type="button" class="btn-sec" data-act="test" data-name="${r.name}">Test Sample ↗</button>
-          </div>
-        </article>
-      `).join('');
+      const list = activeChoice === 'this_device' ? buildThisDeviceRecs() : (PLAYBOOKS[activeChoice] || PLAYBOOKS.balanced);
+      document.getElementById('rec-list').innerHTML = list.slice(0, 4).map((r, idx) => {
+        const rm = RANK_META[idx];
+        return `
+          <article class="rec-card ${rm.cls}">
+            <div class="rec-top">
+              <span class="rec-name">${r.name}</span>
+              <span class="rank-pill ${rm.rp}">${rm.rank}</span>
+            </div>
+            <div class="rec-spec">${r.spec}</div>
+            <div class="rec-why">${r.why}</div>
+            <div class="rec-acts">
+              <button type="button" class="btn-use" data-act="use" data-name="${r.name}">Use Preset ↗</button>
+              <button type="button" class="btn-sec" data-act="save" data-name="${r.name}">Save Preset</button>
+              <button type="button" class="btn-sec" data-act="test" data-name="${r.name}">Test Sample ↗</button>
+            </div>
+          </article>
+        `;
+      }).join('');
     }
 
-    function bindGroup(id, key) {
-      document.getElementById(id).addEventListener('click', e => {
-        const b = e.target.closest('.s-chip'); if (!b) return;
-        document.querySelectorAll('#' + id + ' .s-chip').forEach(x => x.classList.remove('active'));
-        b.classList.add('active');
-        state[key] = b.getAttribute('data-val');
-        render();
-      });
-    }
+    // Mutually exclusive single selection across ALL 3 groups (Device, Purpose, Priority)
+    document.querySelector('main.content').addEventListener('click', (e) => {
+      const chip = e.target.closest('.s-chip');
+      if (!chip) return;
+      document.querySelectorAll('.s-chip').forEach(x => x.classList.remove('active'));
+      chip.classList.add('active');
+      activeChoice = chip.getAttribute('data-val') || 'this_device';
+      render();
+    });
 
-    bindGroup('grp-device', 'device');
-    bindGroup('grp-purpose', 'purpose');
-    bindGroup('grp-metric', 'metric');
-
-    document.getElementById('rec-list').addEventListener('click', e => {
-      const b = e.target.closest('button[data-act]'); if (!b) return;
-      const act = b.getAttribute('data-act'), name = b.getAttribute('data-name');
+    document.getElementById('rec-list').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-act]');
+      if (!b) return;
+      const act = b.getAttribute('data-act');
+      const name = b.getAttribute('data-name');
       if (act === 'use') showToast('Loaded ' + name + ' into Master Studio →');
       if (act === 'save') {
         if (window.AndroidBridge && window.AndroidBridge.savePreset) {
-          window.AndroidBridge.savePreset(JSON.stringify({ name: name, category: state.purpose === 'audio' ? 'Audio' : (state.purpose === 'photo' ? 'Image' : 'Video') }));
+          const cat = activeChoice === 'audio' ? 'Audio' : (activeChoice === 'photo' ? 'Image' : 'Video');
+          window.AndroidBridge.savePreset(JSON.stringify({ name: name, category: cat }));
         }
         showToast('Saved ' + name + ' to Presets Hub ✓');
       }
@@ -475,6 +438,5 @@
     loadDeviceTelemetry();
     render();
   </script>
-  <script src="vault-bridge.js"></script>
 </body>
 </html>

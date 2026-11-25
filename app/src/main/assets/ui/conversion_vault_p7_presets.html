@@ -1012,11 +1012,24 @@
       const specs = buildAutoSpec(cat, modalCfg.draft);
       const bars = computeModalBars(cat, modalCfg.draft);
       const desc = document.getElementById('m-desc').value.trim() || 'User-created preset template.';
-      state.templates.unshift({ id: Date.now(), cat, origin: 'saved', name: nm, desc, specs, qual: bars.qual, comp: bars.comp, speed: bars.speed, compat: bars.compat, edit: bars.edit, batt: bars.batt });
+      const tplObj = { id: Date.now(), cat, origin: 'saved', name: nm, desc, specs, qual: bars.qual, comp: bars.comp, speed: bars.speed, compat: bars.compat, edit: bars.edit, batt: bars.batt, cfg: Object.assign({}, modalCfg.draft, { presetName: nm }) };
+      state.templates.unshift(tplObj);
+      if (window.AndroidBridge && typeof window.AndroidBridge.savePreset === 'function') {
+        try {
+          window.AndroidBridge.savePreset(JSON.stringify({
+            name: nm,
+            category: cat === 'audio' ? 'Audio' : (cat === 'image' ? 'Image' : 'Video'),
+            codec: (modalCfg.draft && (modalCfg.draft.codec || modalCfg.draft.fmt)) || 'libx264',
+            container: (modalCfg.draft && (modalCfg.draft.container || modalCfg.draft.fmt)) || 'mp4',
+            crfOrBitrate: String((modalCfg.draft && (modalCfg.draft.crf || modalCfg.draft.br || modalCfg.draft.qual)) || '18'),
+            extraFlags: JSON.stringify({ desc, specs, bars, cfg: tplObj.cfg })
+          }));
+        } catch (_) {}
+      }
       document.getElementById('tpl-modal').classList.add('hidden');
       state.filter = 'all';
       render();
-      showToast('Saved "' + nm + '" to Presets Hub');
+      showToast('Saved "' + nm + '" (synced to Studio & Batch)');
     });
 
     document.addEventListener('click', (e) => {
@@ -1089,6 +1102,30 @@
       render();
     });
 
+        (function loadNativePresetsIntoHub() {
+      if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
+      try {
+        const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+        list.forEach((p, idx) => {
+          if (state.templates.some(t => t.name === p.name)) return;
+          let parsed = {};
+          try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
+          const cat = String(p.category || 'Video').toLowerCase().includes('aud') ? 'audio'
+                    : (String(p.category || 'Video').toLowerCase().includes('ima') ? 'image' : 'video');
+          const bars = parsed.bars || { qual: 88, comp: 75, speed: 70, compat: 90, edit: 72, batt: 80 };
+          state.templates.unshift({
+            id: 90000 + idx,
+            cat: cat,
+            origin: 'saved',
+            name: p.name,
+            desc: parsed.desc || 'Saved custom preset (synced across Single & Batch).',
+            specs: parsed.specs || ('.' + (p.container || 'mp4') + ' · ' + (p.codec || 'libx264') + ' · ' + (p.crfOrBitrate || '18')),
+            qual: bars.qual, comp: bars.comp, speed: bars.speed, compat: bars.compat, edit: bars.edit, batt: bars.batt,
+            cfg: parsed.cfg || null
+          });
+        });
+      } catch (_) {}
+    })();
     render();
     const INFO_DICT = {
       'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',

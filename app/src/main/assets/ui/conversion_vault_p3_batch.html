@@ -1669,10 +1669,22 @@
       const newName = 'Saved ' + cat.toUpperCase() + ' #' + count;
       const savedCopy = Object.assign({}, draft, { presetName: newName });
       PRESET_LIBRARY[cat].saved.push({ name: newName, meta: shortTagLine(cat, savedCopy), cfg: savedCopy });
+      if (window.AndroidBridge && typeof window.AndroidBridge.savePreset === 'function') {
+        try {
+          window.AndroidBridge.savePreset(JSON.stringify({
+            name: newName,
+            category: cat === 'audio' ? 'Audio' : (cat === 'image' ? 'Image' : 'Video'),
+            codec: savedCopy.codec || savedCopy.fmt || 'libx264',
+            container: savedCopy.container || savedCopy.fmt || 'mp4',
+            crfOrBitrate: String(savedCopy.crf || savedCopy.br || savedCopy.qual || '18'),
+            extraFlags: JSON.stringify({ specs: shortTagLine(cat, savedCopy), cfg: savedCopy })
+          }));
+        } catch (_) {}
+      }
       state.modal.draft.presetName = newName;
       state.modal.libTab = 'saved';
       renderModal();
-      showToast('Saved "' + newName + '"');
+      showToast('Saved "' + newName + '" (synced to Presets & Single)');
     });
 
     document.getElementById('btn-modal-apply').addEventListener('click', () => {
@@ -1826,6 +1838,28 @@
       });
       renderAll();
     };
+        (function syncBatchSavedPresetsFromRoom() {
+      if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
+      try {
+        const list = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+        list.forEach(p => {
+          const cRaw = String(p.category || 'Video').toLowerCase();
+          const cat = cRaw.includes('aud') ? 'audio' : (cRaw.includes('ima') ? 'image' : 'video');
+          if (!PRESET_LIBRARY[cat] || PRESET_LIBRARY[cat].saved.some(x => x.name === p.name)) return;
+          let parsed = {};
+          try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
+          const baseCfg = Object.assign({}, PRESET_LIBRARY[cat].builtin[0].cfg, parsed.cfg || {});
+          baseCfg.presetName = p.name;
+          if (cat === 'video') {
+            if (p.codec) baseCfg.codec = p.codec;
+            if (p.container) baseCfg.container = p.container;
+          } else {
+            if (p.container) baseCfg.fmt = p.container;
+          }
+          PRESET_LIBRARY[cat].saved.unshift({ name: p.name, meta: parsed.specs || shortTagLine(cat, baseCfg), cfg: baseCfg });
+        });
+      } catch (_) {}
+    })();
     renderAll();
     const INFO_DICT = {
       'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',
