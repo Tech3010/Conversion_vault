@@ -171,7 +171,7 @@
 
       @keyframes cvPageEnter {
         from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
+        to { opacity: 1; transform: none; }
       }
       @keyframes cvPulse {
         0%, 100% { transform: scale(1); opacity: 1; }
@@ -181,8 +181,11 @@
         from { opacity: 0; transform: translateY(14px) scale(0.98); }
         to { opacity: 1; transform: translateY(0) scale(1); }
       }
-      .app-frame, main.content {
-        animation: cvPageEnter 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+      .app-frame {
+        transform: none !important;
+      }
+      main.content {
+        animation: cvPageEnter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
       }
       .pulse-dot {
         animation: cvPulse 1.8s ease-in-out infinite;
