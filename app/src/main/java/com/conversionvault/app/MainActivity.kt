@@ -203,7 +203,16 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) webView.goBack() else finish()
+                val curUrl = webView.url ?: ""
+                if (curUrl.contains("p4a_convert_single.html") || curUrl.contains("p4_convert_batch.html")) {
+                    loadUiPage("conversion_vault_p1_home.html")
+                } else if (curUrl.contains("p1_home.html")) {
+                    finish()
+                } else if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    loadUiPage("conversion_vault_p1_home.html")
+                }
             }
         })
     }

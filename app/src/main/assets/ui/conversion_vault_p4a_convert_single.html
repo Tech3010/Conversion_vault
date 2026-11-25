@@ -224,6 +224,127 @@
     .toast.show { opacity: 1; }
   </style>
   <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Top Bar -->
+    <header class="app-bar">
+      <div class="bar-left">
+        <button type="button" id="btn-go-home" class="back-btn" aria-label="Go to Home"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>
+        <div>
+          <div class="page-title">Vault Engine · Single File</div>
+          <div class="page-sub">STEP 4 · LIVE FFMPEG TELEMETRY</div>
+        </div>
+      </div>
+      <span class="engine-state-pill state-running" id="engine-pill">
+        <span class="pulse-dot"></span>
+        <span id="engine-pill-txt">RUNNING</span>
+      </span>
+    </header>
+
+    <main class="content">
+      <!-- 1. HERO PIT-WALL TELEMETRY -->
+      <section class="pit-hero" id="pit-hero" aria-label="Single File Telemetry">
+        <div class="file-pill-row">
+          <div style="min-width:0;">
+            <div class="fp-name">Loading file...</div>
+            <div class="fp-preset">60fps Reels HQ · .mp4 · libx264 · 60fps · CRF 18 · AAC 192k</div>
+          </div>
+          <span class="fp-type">VIDEO</span>
+        </div>
+
+        <div class="pit-top">
+          <div>
+            <div class="pit-lbl" id="pit-lbl">Encoding Stream (v:0 + a:0)</div>
+            <div class="pit-pct" id="pit-pct">0%</div>
+          </div>
+          <div class="pit-time-block">
+            <div class="pit-eta" id="pit-eta">ETA 00:41</div>
+            <div class="pit-elapsed" id="pit-elapsed">Elapsed 00:00</div>
+          </div>
+        </div>
+
+        <div class="master-track">
+          <div class="master-fill" id="master-fill"></div>
+        </div>
+
+        <div class="telemetry-6">
+          <div class="tele-cell">
+            <span class="tele-k">Encode Speed</span>
+            <span class="tele-v c-emerald" id="tele-speed">44 fps · 0.73x RT</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Frame Counter</span>
+            <span class="tele-v" id="tele-frames">0 / 1,800 fr</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Live Bitrate</span>
+            <span class="tele-v c-gold" id="tele-br">0.0 Mbps</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Quantizer (q)</span>
+            <span class="tele-v" id="tele-q">q=18.0</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Device CPU</span>
+            <span class="tele-v" id="tele-cpu">88% · 41°C Cool</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Output Written</span>
+            <span class="tele-v" id="tele-size">0.0 / 26.8 MB</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. OUTPUT DESTINATION & RESULT -->
+      <section class="dest-card" aria-label="Output File Path">
+        <span class="dest-k">Target Output Path</span>
+        <span class="dest-path">/storage/emulated/0/ConversionVault/Vault_Core/Videos/Loading file...</span>
+        <div class="dest-delta hidden" id="done-summary"></div>
+      </section>
+
+      <!-- 3. TOGGLEABLE FFMPEG CONSOLE LOG + TERMUX / SSH EXPORT -->
+      <section class="sec-card" aria-label="FFmpeg Console Stream">
+        <button type="button" id="btn-toggle-console" class="console-toggle" aria-expanded="true">
+          <span>&gt;_ FFmpeg Live Console &amp; Termux / SSH</span>
+          <span id="console-ico">▴</span>
+        </button>
+        <div class="cmd-tools-bar">
+          <label class="path-chk-lbl">
+            <input type="checkbox" id="chk-inc-path">
+            <span>Include Directory Paths</span>
+          </label>
+          <div class="cmd-btn-group">
+            <button type="button" id="btn-copy-cmd" class="btn-cmd-act">Copy Command</button>
+            <button type="button" id="btn-export-sh" class="btn-cmd-act">Export .sh</button>
+          </div>
+        </div>
+        <div class="console-body" id="console-body"></div>
+      </section>
+    </main>
+
+    <!-- Bottom Pit-Stop Control Bar -->
+    <footer class="bottom-bar" id="footer-running">
+      <button type="button" id="btn-pause" class="btn-secondary">Queue &amp; History ↗</button>
+      <button type="button" id="btn-abort" class="btn-danger">■ Stop</button>
+    </footer>
+
+    <footer class="bottom-bar hidden" id="footer-done">
+      <button type="button" id="btn-share" class="btn-secondary">Share File ↗</button>
+      <button type="button" id="btn-open-folder" class="btn-primary">Open in File Manager ↗</button>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
     let activeJobId = '';
     let lastJob = null;
     let pollTimer = null;
@@ -282,7 +403,7 @@
       }
 
       const pitLbl = document.getElementById('pit-lbl');
-      if (pitLbl) pitLbl.textContent = j.module + ' · ' + (j.mediaType || 'Media');
+      if (pitLbl) pitLbl.textContent = (j.module || 'Vault_Core') + ' · ' + (j.mediaType || 'Media');
 
       const pctEl = document.getElementById('pit-pct');
       if (pctEl) pctEl.textContent = pct + '%';
@@ -331,7 +452,7 @@
           doneSum.textContent = '✓ Saved (' + fmtMB(j.outputSizeBytes) + ') in ' + fmtClock(elapsedSec);
         } else if (st === 'FAILED') {
           doneSum.classList.remove('hidden');
-          doneSum.textContent = '✗ Failed: ' + (j.errorLog || 'Check console below').slice(0, 120);
+          doneSum.textContent = '✗ Failed: ' + (j.errorLog || 'Check console below').slice(0, 140);
         } else {
           doneSum.classList.add('hidden');
         }
@@ -380,6 +501,11 @@
         pollJob();
       }
     };
+
+    document.getElementById('btn-go-home')?.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p1_home.html');
+    }, true);
 
     document.getElementById('btn-toggle-console')?.addEventListener('click', () => {
       const body = document.getElementById('console-body');
