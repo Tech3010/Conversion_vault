@@ -7,10 +7,12 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.FFmpegSession
 import com.arthenica.ffmpegkit.ReturnCode
@@ -20,6 +22,7 @@ import com.conversionvault.app.data.VaultDatabase
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.io.File
+import java.util.Locale
 
 class ConversionForegroundService : Service() {
 
@@ -48,42 +51,66 @@ class ConversionForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ConversionVault::EncodeWakeLock")
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ConversionVault::EncodeWakeLock")
+        } catch (_: Throwable) {}
+    }
+
+    private fun startForegroundSafe(statusText: String) {
+        try {
+            val notif = buildSessionNotification(statusText)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceCompat.startForeground(
+                    this,
+                    SESSION_NOTIFICATION_ID,
+                    notif,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                startForeground(SESSION_NOTIFICATION_ID, notif)
+            }
+        } catch (_: Throwable) {}
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_EXIT_SESSION -> {
-                activeSession?.let { FFmpegKit.cancel(it.sessionId) }
-                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                nm.cancel(JOB_NOTIFICATION_ID)
-                if (wakeLock?.isHeld == true) wakeLock?.release()
+                try { activeSession?.let { FFmpegKit.cancel(it.sessionId) } } catch (_: Throwable) {}
+                try {
+                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    nm.cancel(JOB_NOTIFICATION_ID)
+                } catch (_: Throwable) {}
+                try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Throwable) {}
                 sendBroadcast(Intent(ACTION_FINISH_APP).setPackage(packageName))
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Throwable) {}
                 stopSelf()
                 return START_NOT_STICKY
             }
             ACTION_CANCEL_ACTIVE -> {
-                activeSession?.let { FFmpegKit.cancel(it.sessionId) }
+                try { activeSession?.let { FFmpegKit.cancel(it.sessionId) } } catch (_: Throwable) {}
                 activeJobId?.let { id ->
                     serviceScope.launch {
-                        val dao = VaultDatabase.getInstance(applicationContext).jobDao()
-                        dao.getJobById(id)?.let { job ->
-                            dao.upsertJob(job.copy(status = "CANCELLED", updatedAt = System.currentTimeMillis()))
-                            emitEvent("job_cancelled", job.id, 0, 0f, "")
-                        }
+                        try {
+                            val dao = VaultDatabase.getInstance(applicationContext).jobDao()
+                            dao.getJobById(id)?.let { job ->
+                                dao.upsertJob(job.copy(status = "CANCELLED", updatedAt = System.currentTimeMillis()))
+                                emitEvent("job_cancelled", job.id, 0, 0f, "")
+                            }
+                        } catch (_: Throwable) {}
                     }
                 }
-                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                nm.cancel(JOB_NOTIFICATION_ID)
+                try {
+                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    nm.cancel(JOB_NOTIFICATION_ID)
+                } catch (_: Throwable) {}
                 updateSessionNotification("Engine session active · Ready")
             }
             ACTION_START_SESSION -> {
-                startForeground(SESSION_NOTIFICATION_ID, buildSessionNotification("Engine session active · Ready"))
+                startForegroundSafe("Engine session active · Ready")
             }
             ACTION_START_QUEUE, null -> {
-                startForeground(SESSION_NOTIFICATION_ID, buildSessionNotification("Engine session active · Processing queue"))
+                startForegroundSafe("Engine session active · Processing queue")
                 if (!isProcessing) {
                     isProcessing = true
                     processNextInQueue()
@@ -97,92 +124,121 @@ class ConversionForegroundService : Service() {
         serviceScope.launch {
             val dao = VaultDatabase.getInstance(applicationContext).jobDao()
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            while (true) {
-                val job = dao.getNextQueuedJob() ?: break
-                activeJobId = job.id
-                if (wakeLock?.isHeld == false) wakeLock?.acquire(60 * 60 * 1000L)
+            try {
+                while (true) {
+                    val job = dao.getNextQueuedJob() ?: break
+                    activeJobId = job.id
+                    try { if (wakeLock?.isHeld == false) wakeLock?.acquire(60 * 60 * 1000L) } catch (_: Throwable) {}
 
-                val running = job.copy(status = "RUNNING", updatedAt = System.currentTimeMillis())
-                dao.upsertJob(running)
-                emitEvent("job_started", job.id, 0, 0f, "")
-                updateSessionNotification("Engine session active · Encoding 1 job")
-                nm.notify(JOB_NOTIFICATION_ID, buildJobNotification("Encoding ${File(job.outputPath).name}", "Starting FFmpeg...", 0, true))
+                    val running = job.copy(status = "RUNNING", updatedAt = System.currentTimeMillis())
+                    dao.upsertJob(running)
+                    emitEvent("job_started", job.id, 0, 0f, "")
+                    updateSessionNotification("Engine session active · Encoding 1 job")
+                    try {
+                        nm.notify(JOB_NOTIFICATION_ID, buildJobNotification("Encoding ${File(job.outputPath).name}", "Starting FFmpeg...", 0, true))
+                    } catch (_: Throwable) {}
 
-                val success = executeJobBlocking(running)
-                val finished = dao.getJobById(job.id) ?: running
-                if (finished.status != "CANCELLED") {
-                    val finalStatus = if (success) "DONE" else "FAILED"
-                    dao.upsertJob(finished.copy(status = finalStatus, progressPct = if (success) 100 else finished.progressPct, updatedAt = System.currentTimeMillis()))
-                    emitEvent(if (success) "job_done" else "job_failed", job.id, if (success) 100 else finished.progressPct, 0f, "")
+                    val result = executeJobBlocking(running)
+                    val finished = dao.getJobById(job.id) ?: running
+                    if (finished.status != "CANCELLED") {
+                        val finalStatus = if (result.first) "DONE" else "FAILED"
+                        dao.upsertJob(
+                            finished.copy(
+                                status = finalStatus,
+                                progressPct = if (result.first) 100 else finished.progressPct,
+                                errorLog = if (result.first) "" else result.second,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                        emitEvent(if (result.first) "job_done" else "job_failed", job.id, if (result.first) 100 else finished.progressPct, 0f, result.second)
 
-                    if (success && job.originalPolicy == "DELETE_AFTER_VERIFY") {
-                        val outFile = File(job.outputPath)
-                        val inFile = File(job.inputPath)
-                        if (outFile.exists() && outFile.length() > 0 && inFile.exists() && inFile.absolutePath != outFile.absolutePath) {
-                            inFile.delete()
+                        if (result.first && job.originalPolicy == "DELETE_AFTER_VERIFY") {
+                            try {
+                                val outFile = File(job.outputPath)
+                                val inFile = File(job.inputPath)
+                                if (outFile.exists() && outFile.length() > 0 && inFile.exists() && inFile.absolutePath != outFile.absolutePath) {
+                                    inFile.delete()
+                                }
+                            } catch (_: Throwable) {}
                         }
                     }
+                    activeJobId = null
+                    activeSession = null
                 }
-                activeJobId = null
-                activeSession = null
+            } catch (t: Throwable) {
+                activeJobId?.let { id ->
+                    try {
+                        dao.getJobById(id)?.let { j ->
+                            dao.upsertJob(j.copy(status = "FAILED", errorLog = "${t.javaClass.simpleName}: ${t.message}", updatedAt = System.currentTimeMillis()))
+                        }
+                    } catch (_: Throwable) {}
+                }
+            } finally {
+                try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Throwable) {}
+                isProcessing = false
+                try { nm.cancel(JOB_NOTIFICATION_ID) } catch (_: Throwable) {}
+                updateSessionNotification("Engine session active · Ready")
             }
-
-            if (wakeLock?.isHeld == true) wakeLock?.release()
-            isProcessing = false
-            nm.cancel(JOB_NOTIFICATION_ID)
-            updateSessionNotification("Engine session active · Ready")
         }
     }
 
-    private suspend fun executeJobBlocking(job: JobEntity): Boolean = suspendCancellableCoroutine { cont ->
-        val dao = VaultDatabase.getInstance(applicationContext).jobDao()
+    private suspend fun executeJobBlocking(job: JobEntity): Pair<Boolean, String> = suspendCancellableCoroutine { cont ->
         val durationMs = job.durationMs.coerceAtLeast(1L)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        activeSession = FFmpegKit.executeAsync(
-            job.commandArgs,
-            { session ->
-                val rc = session.returnCode
-                val ok = ReturnCode.isSuccess(rc)
-                if (!ok && !ReturnCode.isCancel(rc)) {
-                    serviceScope.launch {
-                        dao.getJobById(job.id)?.let { current ->
-                            dao.upsertJob(current.copy(errorLog = session.failStackTrace ?: session.allLogsAsString.takeLast(800)))
-                        }
+        try {
+            File(job.outputPath).parentFile?.mkdirs()
+            activeSession = FFmpegKit.executeAsync(
+                job.commandArgs,
+                { session ->
+                    val rc = session.returnCode
+                    val ok = ReturnCode.isSuccess(rc)
+                    val err = if (ok || ReturnCode.isCancel(rc)) "" else {
+                        (session.failStackTrace ?: session.allLogsAsString ?: "FFmpeg failed (code $rc)").takeLast(800)
                     }
+                    if (cont.isActive) cont.resumeWith(Result.success(Pair(ok, err)))
+                },
+                { _ -> },
+                { stats ->
+                    try {
+                        val pct = if (job.durationMs > 0) {
+                            ((stats.time.toDouble() / durationMs.toDouble()) * 100.0).toInt().coerceIn(0, 99)
+                        } else 0
+                        val fps = stats.videoFps
+                        val speed = String.format(Locale.US, "%.2fx", stats.speed)
+                        nm.notify(JOB_NOTIFICATION_ID, buildJobNotification("Encoding ${File(job.outputPath).name}", "$pct% · ${fps.toInt()} fps · $speed", pct, false))
+                        emitEvent("job_progress", job.id, pct, fps, speed)
+                    } catch (_: Throwable) {}
                 }
-                if (cont.isActive) cont.resumeWith(Result.success(ok))
-            },
-            { _ -> },
-            { stats ->
-                val pct = if (job.durationMs > 0) {
-                    ((stats.time.toDouble() / durationMs.toDouble()) * 100.0).toInt().coerceIn(0, 99)
-                } else 0
-                val fps = stats.videoFps
-                val speed = String.format("%.2fx", stats.speed)
-                nm.notify(JOB_NOTIFICATION_ID, buildJobNotification("Encoding ${File(job.outputPath).name}", "$pct% · ${fps.toInt()} fps · $speed", pct, false))
-                emitEvent("job_progress", job.id, pct, fps, speed)
+            )
+        } catch (t: Throwable) {
+            if (cont.isActive) {
+                cont.resumeWith(Result.success(Pair(false, "${t.javaClass.simpleName}: ${t.message}")))
             }
-        )
+        }
     }
 
-    private fun emitEvent(type: String, jobId: String, pct: Int, fps: Float, speed: String) {
-        val payload = JSONObject().apply {
-            put("type", type)
-            put("jobId", jobId)
-            put("progress", pct)
-            put("fps", fps)
-            put("speed", speed)
-        }.toString()
-        sendBroadcast(Intent(BROADCAST_PROGRESS).apply {
-            setPackage(packageName)
-            putExtra(EXTRA_EVENT_JSON, payload)
-        })
+    private fun emitEvent(type: String, jobId: String, pct: Int, fps: Float, detail: String) {
+        try {
+            val payload = JSONObject().apply {
+                put("type", type)
+                put("jobId", jobId)
+                put("progress", pct)
+                put("fps", fps)
+                put("speed", detail)
+            }.toString()
+            sendBroadcast(Intent(BROADCAST_PROGRESS).apply {
+                setPackage(packageName)
+                putExtra(EXTRA_EVENT_JSON, payload)
+            })
+        } catch (_: Throwable) {}
     }
 
     private fun updateSessionNotification(statusText: String) {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(SESSION_NOTIFICATION_ID, buildSessionNotification(statusText))
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(SESSION_NOTIFICATION_ID, buildSessionNotification(statusText))
+        } catch (_: Throwable) {}
     }
 
     private fun buildSessionNotification(statusText: String): Notification {
@@ -241,7 +297,7 @@ class ConversionForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        if (wakeLock?.isHeld == true) wakeLock?.release()
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Throwable) {}
         serviceScope.cancel()
         super.onDestroy()
     }

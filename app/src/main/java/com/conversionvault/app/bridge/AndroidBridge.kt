@@ -65,6 +65,7 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun probeFile(uriOrPath: String): String {
+        return try {
         val path = VaultStorageManager.resolveInputPath(context, uriOrPath)
         val file = File(path)
         val infoSession = FFprobeKit.getMediaInformation(path)
@@ -141,10 +142,18 @@ class AndroidBridge(
                 put("error", infoSession.failStackTrace ?: "FFprobe failed to read file")
             }.toString()
         }
+        } catch (t: Throwable) {
+            JSONObject().apply {
+                put("ok", false)
+                put("path", uriOrPath)
+                put("error", "${t.javaClass.simpleName}: ${t.message}")
+            }.toString()
+        }
     }
 
     @JavascriptInterface
     fun enqueueJob(jobJsonStr: String): String {
+        return try {
         val req = JSONObject(jobJsonStr)
         val id = req.optString("id", UUID.randomUUID().toString())
         val module = req.optString("module", "Vault_Core")
@@ -186,13 +195,23 @@ class AndroidBridge(
         val svcIntent = Intent(context, ConversionForegroundService::class.java).apply {
             action = ConversionForegroundService.ACTION_START_QUEUE
         }
-        ContextCompat.startForegroundService(context, svcIntent)
+        try {
+            ContextCompat.startForegroundService(context, svcIntent)
+        } catch (_: Throwable) {
+            try { context.startService(svcIntent) } catch (_: Throwable) {}
+        }
 
-        return JSONObject().apply {
+        JSONObject().apply {
             put("ok", true)
             put("jobId", id)
             put("outputPath", outFile.absolutePath)
         }.toString()
+        } catch (t: Throwable) {
+            JSONObject().apply {
+                put("ok", false)
+                put("error", "${t.javaClass.simpleName}: ${t.message}")
+            }.toString()
+        }
     }
 
     @JavascriptInterface
@@ -382,16 +401,28 @@ class AndroidBridge(
         }
 
         Thread {
-            val session = FFmpegKit.execute(finalCmd)
-            val ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
-            val res = JSONObject().apply {
-                put("ok", ok)
-                put("type", type)
-                put("name", outFile.name)
-                put("path", outFile.absolutePath)
-                put("sizeBytes", if (outFile.exists()) outFile.length() else 0L)
-                put("error", if (ok) "" else (session.allLogsAsString.takeLast(300)))
-            }.toString()
+            val res = try {
+                outFile.parentFile?.mkdirs()
+                val session = FFmpegKit.execute(finalCmd)
+                val ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
+                JSONObject().apply {
+                    put("ok", ok)
+                    put("type", type)
+                    put("name", outFile.name)
+                    put("path", outFile.absolutePath)
+                    put("sizeBytes", if (outFile.exists()) outFile.length() else 0L)
+                    put("error", if (ok) "" else (session.failStackTrace ?: session.allLogsAsString ?: "FFmpeg error").takeLast(300))
+                }.toString()
+            } catch (t: Throwable) {
+                JSONObject().apply {
+                    put("ok", false)
+                    put("type", type)
+                    put("name", outFile.name)
+                    put("path", outFile.absolutePath)
+                    put("sizeBytes", 0L)
+                    put("error", "${t.javaClass.simpleName}: ${t.message}")
+                }.toString()
+            }
             activity.runOnUiThread {
                 activity.evalJsFromBridge("window.onSampleGenerated && window.onSampleGenerated($res);")
             }
@@ -428,6 +459,7 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun runIntegrityCheck(uriOrPath: String, deepScan: Boolean): String {
+        return try {
         val path = VaultStorageManager.resolveInputPath(context, uriOrPath)
         val file = File(path)
         val probe = FFprobeKit.getMediaInformation(path)
@@ -450,19 +482,36 @@ class AndroidBridge(
             put("decodeErrorCount", decodeErrors)
             put("errorSnippet", errorSnippet)
         }.toString()
+        } catch (t: Throwable) {
+            JSONObject().apply {
+                put("ok", false)
+                put("path", uriOrPath)
+                put("decodeErrorCount", 1)
+                put("errorSnippet", "${t.javaClass.simpleName}: ${t.message}")
+            }.toString()
+        }
     }
 
     @JavascriptInterface
     fun runQuickBenchmark(): String {
-        val start = System.nanoTime()
-        val session = FFmpegKit.execute("-f lavfi -i testsrc2=size=1280x720:rate=60 -t 0.3 -c:v libx264 -preset ultrafast -f null -")
-        val elapsedSec = (System.nanoTime() - start) / 1_000_000_000.0
-        val ok = ReturnCode.isSuccess(session.returnCode)
-        return JSONObject().apply {
-            put("ok", ok)
-            put("elapsedSec", elapsedSec)
-            put("approxFps", if (elapsedSec > 0) (18.0 / elapsedSec) else 0.0)
-        }.toString()
+        return try {
+            val start = System.nanoTime()
+            val session = FFmpegKit.execute("-f lavfi -i testsrc2=size=1280x720:rate=60 -t 0.3 -c:v libx264 -preset ultrafast -f null -")
+            val elapsedSec = (System.nanoTime() - start) / 1_000_000_000.0
+            val ok = ReturnCode.isSuccess(session.returnCode)
+            JSONObject().apply {
+                put("ok", ok)
+                put("elapsedSec", elapsedSec)
+                put("approxFps", if (elapsedSec > 0) (18.0 / elapsedSec) else 0.0)
+                put("error", if (ok) "" else (session.failStackTrace ?: session.allLogsAsString ?: "Benchmark failed").takeLast(200))
+            }.toString()
+        } catch (t: Throwable) {
+            JSONObject().apply {
+                put("ok", false)
+                put("approxFps", 0.0)
+                put("error", "${t.javaClass.simpleName}: ${t.message}")
+            }.toString()
+        }
     }
 
     @JavascriptInterface

@@ -35,13 +35,18 @@ object VaultStorageManager {
     )
 
     fun getRootDir(context: Context, customRootPath: String? = null): File {
-        val base = if (!customRootPath.isNullOrBlank()) {
+        val preferred = if (!customRootPath.isNullOrBlank()) {
             File(customRootPath)
         } else {
             File(Environment.getExternalStorageDirectory(), DEFAULT_ROOT_NAME)
         }
-        if (!base.exists()) base.mkdirs()
-        return base
+        try {
+            if (!preferred.exists()) preferred.mkdirs()
+            if (preferred.exists() && preferred.canWrite()) return preferred
+        } catch (_: Throwable) {}
+        val fallback = File(context.getExternalFilesDir(null) ?: context.filesDir, DEFAULT_ROOT_NAME)
+        if (!fallback.exists()) fallback.mkdirs()
+        return fallback
     }
 
     fun ensureVaultFolders(context: Context, customRootPath: String? = null): File {

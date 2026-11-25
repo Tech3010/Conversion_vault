@@ -471,6 +471,8 @@
     if (res && res.ok) {
       toast('Queued in ' + moduleName);
       navigateTo('conversion_vault_p5_queue_history.html');
+    } else {
+      toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
     }
   }
 
@@ -603,25 +605,36 @@
         if (!files.length) { toast('Pick file(s) first'); return; }
         if (!hasBridge) { toast('Native engine runs inside Android APK'); return; }
         const outNameEl = document.getElementById('inp-fname');
+        const probe = JSON.parse(safeGet('cv_last_probe', '{}') || '{}');
+        let queuedCount = 0;
+        let lastErr = '';
         files.forEach((f, idx) => {
           const c = classifyExt(f.name);
           const bucket = c === 'a' ? 'Audios' : (c === 'i' ? 'Images' : 'Videos');
           const mType = c === 'a' ? 'Audio' : (c === 'i' ? 'Image' : 'Video');
           const ext = c === 'a' ? 'm4a' : (c === 'i' ? 'webp' : 'mp4');
           const args = c === 'a' ? '-y -i {INPUT} -c:a aac -b:a 192k {OUTPUT}'
-                     : (c === 'i' ? '-y -i {INPUT} -q:v 85 {OUTPUT}'
-                                  : '-y -i {INPUT} -c:v libx264 -crf 20 -preset medium -c:a aac -b:a 192k {OUTPUT}');
-          window.AndroidBridge.enqueueJob(JSON.stringify({
+                     : (c === 'i' ? '-y -i {INPUT} -c:v libwebp -quality 85 {OUTPUT}'
+                                  : '-y -i {INPUT} -c:v libx264 -pix_fmt yuv420p -crf 20 -preset fast -c:a aac -b:a 192k -movflags +faststart {OUTPUT}');
+          const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify({
             module: 'Vault_Core',
             subBucket: bucket,
             mediaType: mType,
             inputPath: f.path,
             outputBaseName: (idx === 0 && outNameEl) ? outNameEl.value : '',
             outputExt: ext,
+            durationMs: idx === 0 ? Math.round((probe.durationSec || 0) * 1000) : 0,
             commandArgs: args
-          }));
+          })));
+          if (res && res.ok) queuedCount++;
+          else lastErr = (res && res.error) || 'Failed to queue job';
         });
-        navigateTo('conversion_vault_p5_queue_history.html');
+        if (queuedCount > 0) {
+          toast('Queued ' + queuedCount + ' job(s) in Vault Core');
+          navigateTo('conversion_vault_p5_queue_history.html');
+        } else {
+          toast('Engine error: ' + lastErr);
+        }
       }, true);
     }
 
@@ -715,6 +728,8 @@
           if (res && res.ok) {
             toast('Queued Metadata Modifier → ' + (res.outputPath || '').split('/').pop());
             navigateTo('conversion_vault_p5_queue_history.html');
+          } else {
+            toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
           }
         } else if (['conversion_vault_t2_compressor.html','conversion_vault_t3_audio.html','conversion_vault_t5_trim_gif.html','conversion_vault_t6_thumbnail.html'].includes(page)) {
           const files = getActiveFiles();
@@ -760,6 +775,8 @@
           if (res && res.ok) {
             toast('Queued in ' + modName + ' → ' + (res.outputPath || '').split('/').pop());
             navigateTo('conversion_vault_p5_queue_history.html');
+          } else {
+            toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
           }
         } else if (page === 'conversion_vault_t8_integrity.html') {
           const files = getActiveFiles();
