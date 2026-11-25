@@ -101,6 +101,34 @@
     style.textContent = `
       
       
+      
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        overflow-x: hidden !important;
+        background: var(--bg) !important;
+      }
+      .app-frame {
+        width: 100% !important;
+        max-width: 540px !important;
+        min-height: 100% !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
+      }
+      main.content {
+        padding-bottom: 92px !important;
+        box-sizing: border-box !important;
+      }
+      .bottom-nav, .bottom-bar, .bottom-cta-bar {
+        width: 100% !important;
+        max-width: 540px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        bottom: 0 !important;
+        box-sizing: border-box !important;
+      }
+
       html[data-theme="dark"] {
         --bg: #070a10;
         --surface: #0d121d;

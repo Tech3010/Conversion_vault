@@ -7,6 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,7 +26,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
@@ -36,6 +41,7 @@ import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var rootContainer: FrameLayout
     private lateinit var webView: WebView
     private lateinit var assetLoader: WebViewAssetLoader
     private var currentPickerMode: String = "single"
@@ -164,12 +170,34 @@ class MainActivity : AppCompatActivity() {
             addJavascriptInterface(AndroidBridge(this@MainActivity), "AndroidBridge")
         }
 
-        setContentView(webView)
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+        rootContainer = FrameLayout(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            addView(
+                webView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+        setContentView(rootContainer)
+
+        val extraGestureGapPx = (8 * resources.displayMetrics.density).toInt()
+        ViewCompat.setOnApplyWindowInsetsListener(rootContainer) { v, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom + extraGestureGapPx)
             insets
         }
+        ViewCompat.requestApplyInsets(rootContainer)
+
+        val savedTheme = getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+            .getString("theme", "dark") ?: "dark"
+        applySystemBarTheme(savedTheme)
 
         loadUiPage("conversion_vault_p1_home.html")
 
@@ -230,6 +258,21 @@ class MainActivity : AppCompatActivity() {
             }.toString()
             evalJs("window.onVaultFilesPicked && window.onVaultFilesPicked($payload);")
         }.start()
+    }
+
+    fun applySystemBarTheme(theme: String) {
+        val isLight = theme.equals("light", ignoreCase = true)
+        val bgColor = Color.parseColor(if (isLight) "#FFFFFF" else "#070A10")
+        if (::rootContainer.isInitialized) {
+            rootContainer.setBackgroundColor(bgColor)
+        }
+        @Suppress("DEPRECATION")
+        window.statusBarColor = bgColor
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = bgColor
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.isAppearanceLightStatusBars = isLight
+        controller.isAppearanceLightNavigationBars = isLight
     }
 
     fun evalJsFromBridge(script: String) { evalJs(script) }

@@ -344,7 +344,11 @@ class AndroidBridge(
     fun saveSettings(settingsJsonStr: String): String {
         val o = JSONObject(settingsJsonStr)
         prefs.edit().apply {
-            if (o.has("theme")) putString("theme", o.getString("theme"))
+            if (o.has("theme")) {
+                val t = o.getString("theme")
+                putString("theme", t)
+                activity.runOnUiThread { activity.applySystemBarTheme(t) }
+            }
             if (o.has("defaultVaultFolder")) putString("default_vault_folder", o.getString("defaultVaultFolder"))
             if (o.has("originalSourcePolicy")) putString("original_source_policy", o.getString("originalSourcePolicy"))
             if (o.has("sampleRetentionDays")) putInt("sample_retention_days", o.getInt("sampleRetentionDays"))
