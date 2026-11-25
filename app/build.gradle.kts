@@ -67,4 +67,5 @@ dependencies {
 
     // FFmpegKit 6.1.4 GPL with 16 KB page-size support for Android 15+
     implementation("io.github.jamaismagic.ffmpeg:ffmpeg-kit-main-full-gpl-16kb:6.1.4")
+    implementation("com.arthenica:smart-exception-java:0.2.1")
 }
