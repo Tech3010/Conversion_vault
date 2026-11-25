@@ -308,6 +308,14 @@
         <span class="dest-k">Target Output Path</span>
         <span class="dest-path">—</span>
         <div class="dest-delta hidden" id="done-summary"></div>
+      <div id="ask-delete-source-box" class="hidden" style="margin-top:10px; padding:11px 12px; border-radius:10px; border:1px dashed rgba(219,10,64,0.5); background:rgba(219,10,64,0.07); display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:12px; font-weight:700; color:var(--text);" id="ask-delete-title">Delete original source file?</div>
+        <div style="font-size:11px; color:var(--muted);" id="ask-delete-sub">Your converted file is saved and verified.</div>
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button type="button" id="btn-ask-keep-src" style="padding:6px 12px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">Keep Original</button>
+          <button type="button" id="btn-ask-del-src" style="padding:6px 12px; border-radius:7px; border:1px solid var(--crimson); background:var(--crimson); color:#ffffff; font-size:11.5px; font-weight:700; cursor:pointer;">Delete Source</button>
+        </div>
+      </div>
       </section>
 
       <!-- 3. TOGGLEABLE FFMPEG CONSOLE LOG + TERMUX / SSH EXPORT -->
@@ -345,9 +353,10 @@
       <button type="button" id="btn-abort" class="btn-danger">■ Stop</button>
     </footer>
 
-    <footer class="bottom-bar hidden" id="footer-done">
-      <button type="button" id="btn-share" class="btn-secondary">Share File ↗</button>
-      <button type="button" id="btn-open-folder" class="btn-primary">Open in File Manager ↗</button>
+    <footer class="bottom-bar hidden" id="footer-done" style="gap:8px;">
+      <button type="button" id="btn-open-file" class="btn-primary" style="flex:1.2;">Open File ▶</button>
+      <button type="button" id="btn-open-folder" class="btn-secondary" style="flex:1.1;">File Manager</button>
+      <button type="button" id="btn-share" class="btn-secondary" style="flex:0.8;">Share</button>
     </footer>
   </div>
 
@@ -466,6 +475,20 @@
         if (st === 'DONE') {
           doneSum.classList.remove('hidden');
           doneSum.textContent = '✓ Saved (' + fmtMB(j.outputSizeBytes) + ') in ' + fmtClock(elapsedSec);
+          try {
+            if (!window.__cvAskedSourceIds) window.__cvAskedSourceIds = new Set();
+            const askBox = document.getElementById('ask-delete-source-box');
+            let srcPol = String(j.originalPolicy || '').toLowerCase();
+            if (!srcPol && window.AndroidBridge && window.AndroidBridge.getSettings) {
+              srcPol = String((JSON.parse(window.AndroidBridge.getSettings() || '{}').originalSourcePolicy) || 'keep').toLowerCase();
+            }
+            if (askBox && srcPol === 'ask' && j.inputPath && j.inputPath !== j.outputPath && !window.__cvAskedSourceIds.has(j.id)) {
+              askBox.classList.remove('hidden');
+              const tEl = document.getElementById('ask-delete-title');
+              if (tEl) tEl.textContent = 'Delete original "' + inName + '"?';
+              window.__cvPendingDeleteSrcJob = { id: j.id, path: j.inputPath, name: inName };
+            }
+          } catch (_) {}
         } else if (st === 'FAILED') {
           doneSum.classList.remove('hidden');
           doneSum.textContent = '✗ Failed: ' + (j.errorLog || 'Check console below').slice(0, 140);
@@ -671,10 +694,21 @@
       if (lastJob && lastJob.outputPath && window.AndroidBridge) window.AndroidBridge.shareFile(lastJob.outputPath);
     });
 
-    document.getElementById('btn-open-folder')?.addEventListener('click', () => {
+    document.getElementById('btn-open-file')?.addEventListener('click', () => {
       if (!lastJob || !window.AndroidBridge) return;
-      if (lastJob.status === 'DONE' && lastJob.outputPath) {
+      if (lastJob.outputPath && window.AndroidBridge.openFile) {
         window.AndroidBridge.openFile(lastJob.outputPath);
+      } else {
+        showToast('No output file ready yet');
+      }
+    });
+
+    document.getElementById('btn-open-folder')?.addEventListener('click', () => {
+      if (!window.AndroidBridge || !window.AndroidBridge.openFolder) return;
+      if (lastJob && lastJob.outputPath) {
+        const idx = lastJob.outputPath.lastIndexOf('/');
+        const dir = idx > 0 ? lastJob.outputPath.substring(0, idx) : '';
+        window.AndroidBridge.openFolder(dir);
       } else {
         window.AndroidBridge.openFolder('');
       }
@@ -683,6 +717,23 @@
     activeJobId = resolveActiveJobId();
     pollJob();
     pollTimer = setInterval(pollJob, 500);
+
+    document.getElementById('btn-ask-keep-src')?.addEventListener('click', () => {
+      const p = window.__cvPendingDeleteSrcJob;
+      if (p && window.__cvAskedSourceIds) window.__cvAskedSourceIds.add(p.id);
+      document.getElementById('ask-delete-source-box')?.classList.add('hidden');
+    });
+    document.getElementById('btn-ask-del-src')?.addEventListener('click', () => {
+      const p = window.__cvPendingDeleteSrcJob;
+      if (p && p.path && window.AndroidBridge && typeof window.AndroidBridge.deleteSourceFile === 'function') {
+        try {
+          const r = JSON.parse(window.AndroidBridge.deleteSourceFile(p.path) || '{}');
+          if (typeof showToast === 'function') showToast(r.deleted ? ('Deleted original: ' + p.name) : 'Original file already removed');
+        } catch (_) {}
+      }
+      if (p && window.__cvAskedSourceIds) window.__cvAskedSourceIds.add(p.id);
+      document.getElementById('ask-delete-source-box')?.classList.add('hidden');
+    });
   </script>
   <script src="vault-bridge.js"></script>
 </body>

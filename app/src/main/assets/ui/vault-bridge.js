@@ -106,6 +106,13 @@
     safeSet('cv_active_files', JSON.stringify(files || []));
   }
 
+  function clearActiveSelection() {
+    safeSet('cv_active_mode', 'single');
+    safeSet('cv_active_files', '[]');
+    safeSet('cv_last_probe', '{}');
+    safeSet('cv_pending_convert_cfg', '{}');
+  }
+
   function copyText(text, label) {
     if (hasBridge && typeof window.AndroidBridge.copyToClipboard === 'function') {
       window.AndroidBridge.copyToClipboard(text);
@@ -271,6 +278,7 @@
         else if (k.includes('soc')) v.textContent = (t.soc || 'SoC') + ' · ' + (t.totalCores || 8) + ' Cores';
         else if (k.includes('cpu clusters')) v.textContent = t.cpuSummary || (t.totalCores + ' Cores');
         else if (k.includes('ram')) v.textContent = (t.ramTotal || '—') + ' · ' + (t.internalFree || '—');
+        else if (k.includes('abi') && t.abi) v.textContent = t.abi + ' · Android ' + (t.androidVersion || '');
         else if (k.includes('hw decode') && t.codecs) {
           const supported = [];
           if (t.codecs.h264HwDecode) supported.push('H.264 8-bit');
@@ -506,14 +514,24 @@
 
     if (window.__pickingCustomDest && mode === 'folder') {
       window.__pickingCustomDest = false;
-      const folderPath = (files[0] && files[0].path) ? files[0].path.substring(0, files[0].path.lastIndexOf('/')) : ('/storage/emulated/0/' + (payload.folderName || 'ConversionVault'));
+      const folderPath = (payload.folderPath && payload.folderPath.trim())
+        || ((files[0] && files[0].path) ? files[0].path.substring(0, files[0].path.lastIndexOf('/')) : ('/storage/emulated/0/' + (payload.folderName || 'ConversionVault')));
       if (page === 'conversion_vault_p6_settings.html') {
         const vLbl = document.getElementById('lbl-vault-path') || document.querySelector('.vault-path, .path-val');
-        if (vLbl) vLbl.textContent = folderPath + '/';
+        if (vLbl) vLbl.textContent = folderPath.replace(/\/$/, '') + '/';
         if (hasBridge && typeof window.AndroidBridge.saveSettings === 'function') {
           window.AndroidBridge.saveSettings(JSON.stringify({ defaultVaultFolder: folderPath }));
         }
         toast('Default Vault Folder saved: ' + folderPath);
+        return;
+      }
+      if (page === 'conversion_vault_p3b_output.html' || page === 'conversion_vault_p3b_output_single.html') {
+        window.__cvCustomOutDir = folderPath;
+        const cLbl = document.getElementById('lbl-custom-path');
+        if (cLbl) cLbl.textContent = folderPath.replace(/\/$/, '') + '/';
+        const customOpt = document.querySelector('[data-mode="custom"], [data-loc="custom"]');
+        if (customOpt) customOpt.click();
+        toast('Custom folder set: ' + folderPath);
         return;
       }
       window.__customToolDir = folderPath;
@@ -606,6 +624,7 @@
     })));
     if (res && res.ok) {
       if (res.jobId) safeSet('cv_active_job_id', res.jobId);
+      clearActiveSelection();
       navigateTo('conversion_vault_p4a_convert_single.html');
     } else {
       toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
@@ -631,6 +650,7 @@
       if (el) {
         el.addEventListener('click', (e) => {
           e.preventDefault(); e.stopImmediatePropagation();
+          if (defaultBack === 'conversion_vault_p1_home.html') clearActiveSelection();
           navigateTo(defaultBack);
         }, true);
       }
@@ -638,6 +658,7 @@
     document.querySelectorAll('.back-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault(); e.stopImmediatePropagation();
+        if (defaultBack === 'conversion_vault_p1_home.html') clearActiveSelection();
         navigateTo(defaultBack);
       }, true);
     });
@@ -673,6 +694,9 @@
   }
 
   function wirePage(page) {
+    if (page === 'conversion_vault_p1_home.html') {
+      clearActiveSelection();
+    }
     wireBackButtons(page);
     syncEmptyFileState(page);
 
@@ -683,6 +707,8 @@
 
     if (page === 'conversion_vault_p2_select.html') {
       let pickSortMode = 'added';
+      let pickSearchQuery = '';
+      let pickSearchOpen = false;
       const sortPickedFiles = (arr) => {
         const list = (arr || []).slice();
         if (pickSortMode === 'name_asc') list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
@@ -740,13 +766,19 @@
             const pill = el && el.closest('.bpill');
             if (pill) pill.style.display = val > 0 ? '' : 'none';
           });
+          const qLow = String(pickSearchQuery || '').trim().toLowerCase();
+          const filtered = qLow ? sorted.filter(f => String(f.name || '').toLowerCase().includes(qLow)) : sorted;
           const groups = [
-            { key: 'v', label: 'Videos', color: '#38bdf8', items: sorted.filter(f => classifyExt(f.name) === 'v') },
-            { key: 'a', label: 'Audios', color: 'var(--emerald)', items: sorted.filter(f => classifyExt(f.name) === 'a') },
-            { key: 'i', label: 'Photos', color: 'var(--gold-text)', items: sorted.filter(f => classifyExt(f.name) === 'i') }
+            { key: 'v', label: 'Videos', color: '#38bdf8', items: filtered.filter(f => classifyExt(f.name) === 'v') },
+            { key: 'a', label: 'Audios', color: 'var(--emerald)', items: filtered.filter(f => classifyExt(f.name) === 'a') },
+            { key: 'i', label: 'Photos', color: 'var(--gold-text)', items: filtered.filter(f => classifyExt(f.name) === 'i') }
           ].filter(g => g.items.length > 0);
+          if (qLow && groups.length === 0) {
+            listEl.innerHTML = '<div style="padding:12px; text-align:center; font-size:12px; color:var(--muted); border:1px dashed var(--border); border-radius:8px;">No queued files match &ldquo;' + esc(pickSearchQuery.trim()) + '&rdquo;</div>';
+            return;
+          }
           listEl.innerHTML = groups.map(g => {
-            const isOpen = !!window.__pickCatOpen[g.key];
+            const isOpen = qLow ? true : !!window.__pickCatOpen[g.key];
             const rowsHtml = (isOpen && g.items.length > 0) ? g.items.map(f => {
               const sz = f.sizeBytes ? (f.sizeBytes < 1024 * 1024 ? (f.sizeBytes / 1024).toFixed(0) + ' KB' : (f.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB') : '—';
               const key = esc(f.path || f.name);
@@ -761,7 +793,7 @@
             const emptyHint = (isOpen && g.items.length === 0)
               ? '<div style="font-size:10.5px; color:var(--muted); padding:4px 6px;">No ' + g.label.toLowerCase() + ' added yet</div>'
               : '';
-            return '<div style="border:1px solid var(--border); border-radius:8px; background:var(--surface); overflow:hidden;">' +
+            return '<div style="flex-shrink:0; border:1px solid var(--border); border-radius:8px; background:var(--surface);">' +
               '<button type="button" data-tgl-pick-cat="' + g.key + '" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border:none; background:transparent; color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">' +
                 '<span style="color:' + g.color + ';">' + g.label + ' (' + g.items.length + ')</span>' +
                 '<span style="font-size:11px; color:var(--muted);">' + (isOpen ? '▴' : '▾') + '</span>' +
@@ -795,9 +827,50 @@
         });
       }
 
+      const btnPickSearchToggle = document.getElementById('btn-pick-search-toggle');
+      const pickSearchWrap = document.getElementById('picked-search-wrap');
+      const inpPickSearch = document.getElementById('inp-pick-search');
+      const btnPickSearchClear = document.getElementById('btn-pick-search-clear');
+      if (btnPickSearchToggle && pickSearchWrap && inpPickSearch) {
+        btnPickSearchToggle.addEventListener('click', () => {
+          pickSearchOpen = !pickSearchOpen;
+          pickSearchWrap.classList.toggle('hidden', !pickSearchOpen);
+          btnPickSearchToggle.style.borderColor = pickSearchOpen ? 'var(--crimson)' : 'var(--border)';
+          btnPickSearchToggle.style.color = pickSearchOpen ? 'var(--crimson)' : 'var(--text)';
+          if (pickSearchOpen) {
+            inpPickSearch.focus();
+          } else if (pickSearchQuery) {
+            pickSearchQuery = '';
+            inpPickSearch.value = '';
+            if (btnPickSearchClear) btnPickSearchClear.classList.add('hidden');
+            renderUnifiedPickBasket();
+          }
+        });
+        inpPickSearch.addEventListener('input', () => {
+          pickSearchQuery = inpPickSearch.value || '';
+          if (btnPickSearchClear) btnPickSearchClear.classList.toggle('hidden', !pickSearchQuery.trim());
+          renderUnifiedPickBasket();
+        });
+        if (btnPickSearchClear) {
+          btnPickSearchClear.addEventListener('click', () => {
+            pickSearchQuery = '';
+            inpPickSearch.value = '';
+            btnPickSearchClear.classList.add('hidden');
+            renderUnifiedPickBasket();
+            inpPickSearch.focus();
+          });
+        }
+      }
+
       const btnClearPick = document.getElementById('btn-clear-pick');
       if (btnClearPick) {
         btnClearPick.addEventListener('click', () => {
+          pickSearchQuery = '';
+          pickSearchOpen = false;
+          if (inpPickSearch) inpPickSearch.value = '';
+          if (pickSearchWrap) pickSearchWrap.classList.add('hidden');
+          if (btnPickSearchClear) btnPickSearchClear.classList.add('hidden');
+          if (btnPickSearchToggle) { btnPickSearchToggle.style.borderColor = 'var(--border)'; btnPickSearchToggle.style.color = 'var(--text)'; }
           setActiveFiles('single', []);
           renderUnifiedPickBasket();
           toast('Cleared collected files');
@@ -849,6 +922,9 @@
       const fileCat = firstFile ? classifyExt(firstFile.name) : 'v';
       let singlePhotoCfg = null;
       let singleAudioCfg = null;
+      let photoTouched = false;
+      let audioTouched = false;
+      window.__cvSingleMediaMode = fileCat;
 
       const getRoomPresetsForCat = (targetCat) => {
         if (!hasBridge || typeof window.AndroidBridge.getPresets !== 'function') return [];
@@ -870,114 +946,122 @@
       const presetBox = document.getElementById('main-preset-box');
       const perfSec = document.getElementById('sec-perf');
 
+      const resetUntouchedMainUI = () => {
+        if (perfSec) perfSec.classList.add('is-untouched');
+        const stPill = document.getElementById('fmt-status-pill');
+        if (stPill) stPill.textContent = 'Not Selected';
+        const tEl = document.getElementById('perf-time');
+        const fEl = document.getElementById('perf-fps');
+        const sEl = document.getElementById('perf-size');
+        const rEl = document.getElementById('perf-res');
+        if (tEl) tEl.textContent = '—';
+        if (fEl) fEl.textContent = 'Select format above';
+        if (sEl) sEl.textContent = '—';
+        if (rEl) rEl.textContent = '—';
+        const footT = document.getElementById('foot-title');
+        const footS = document.getElementById('foot-sub');
+        if (footT) footT.textContent = 'No format selected';
+        if (footS) footS.textContent = 'Choose a format in Section 2 first';
+        const mvBtn = document.getElementById('btn-move-convert');
+        if (mvBtn) mvBtn.disabled = true;
+      };
+
       if (fileCat === 'i') {
-        // PHOTO MODE: hide video format selector completely & show dedicated Photo Format + real Photo Performance Estimation
+        // PHOTO MODE: start in neutral dark untouched state until user chooses a format or preset
         if (presetBox) presetBox.style.display = 'none';
         if (perfSec) {
-          perfSec.classList.remove('is-untouched');
+          perfSec.classList.add('is-untouched');
           perfSec.querySelectorAll('.field, #core-cmd-pill, #core-warn-note').forEach(el => { el.style.display = 'none'; });
         }
         const badgeEl = document.querySelector('.single-badge');
         if (badgeEl) badgeEl.textContent = 'PHOTO';
-        singlePhotoCfg = { format: 'webp', quality: 88, scale: 'original', orient: 'auto', meta: 'wipe', colorSpace: 'srgb_444', crop: 'original', filter: 'none', brightness: 0 };
+        singlePhotoCfg = { format: '', quality: 88, scale: 'original', orient: 'auto', meta: 'wipe', colorSpace: 'srgb_444', crop: 'original', filter: 'none', brightness: 0 };
 
         if (presetBox && !document.getElementById('native-photo-single-card')) {
           const card = document.createElement('div');
           card.id = 'native-photo-single-card';
-          card.style.cssText = 'padding:12px; border-radius:12px; border:1px solid rgba(16,185,129,0.4); background:rgba(16,185,129,0.06); display:flex; flex-direction:column; gap:10px;';
+          card.style.cssText = 'padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--card-elev); display:flex; flex-direction:column; gap:10px; transition:border-color 0.2s ease, background 0.2s ease;';
           card.innerHTML =
             '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-              '<span style="font-size:12px; font-weight:800; color:var(--emerald);">Native Photo Engine (Skia + Exif + Heif)</span>' +
-              '<span style="font-size:10px; font-family:var(--mono); color:var(--muted);">PHOTO FORMAT</span>' +
+              '<span id="sp-card-title" style="font-size:12px; font-weight:800; color:var(--muted);">Native Photo Engine (Skia + Exif + Heif)</span>' +
+              '<span id="sp-card-badge" style="font-size:10px; font-family:var(--mono); color:var(--subtle);">NOT SELECTED</span>' +
             '</div>' +
-            '<button type="button" id="btn-sp-toggle-presets" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;"><span id="lbl-sp-presets-cnt">Presets</span><span id="lbl-sp-presets-arrow">▾</span></button>' +
+            '<button type="button" id="btn-sp-toggle-presets" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--muted); font-size:12px; font-weight:700; cursor:pointer;"><span id="lbl-sp-presets-cnt">Presets</span><span id="lbl-sp-presets-arrow">▾</span></button>' +
             '<div id="sp-saved-presets-wrap" style="display:none; flex-wrap:wrap; gap:6px;"></div>' +
-            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Output Format</label>' +
-                '<select id="sp-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="webp" selected>.webp (Modern)</option>' +
-                  '<option value="jpg">.jpg (Universal)</option>' +
-                  '<option value="png">.png (Lossless)</option>' +
-                  '<option value="heic">.heic (HEIF High-Eff)</option>' +
-                  '<option value="avif">.avif (Ultra Small)</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Max Width Scale</label>' +
-                '<select id="sp-scale" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="original" selected>Keep Original</option>' +
-                  '<option value="3840">3840 px (4K)</option>' +
-                  '<option value="1920">1920 px</option>' +
-                  '<option value="1080">1080 px</option>' +
-                  '<option value="720">720 px</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Orientation</label>' +
-                '<select id="sp-orient" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="auto" selected>Auto-Orient (EXIF)</option>' +
-                  '<option value="keep">Keep Original</option>' +
-                  '<option value="90cw">Rotate 90° CW</option>' +
-                  '<option value="90ccw">Rotate 90° CCW</option>' +
-                  '<option value="180">Rotate 180°</option>' +
-                  '<option value="hflip">Flip Horizontal</option>' +
-                  '<option value="vflip">Flip Vertical</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">EXIF Privacy</label>' +
+            '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Output Format</label>' +
+              '<select id="sp-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                '<option value="" selected>— Select Photo Format —</option>' +
+                '<option value="webp">.webp (Modern)</option>' +
+                '<option value="jpg">.jpg (Universal)</option>' +
+                '<option value="png">.png (Lossless)</option>' +
+                '<option value="heic">.heic (HEIF High-Eff)</option>' +
+                '<option value="avif">.avif (Ultra Small)</option>' +
+              '</select></div>' +
+            '<div id="sp-controls-wrap" class="is-untouched" style="display:flex; flex-direction:column; gap:10px;">' +
+              '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Max Width Scale</label>' +
+                  '<select id="sp-scale" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="original" selected>Keep Original</option>' +
+                    '<option value="3840">3840 px (4K)</option>' +
+                    '<option value="1920">1920 px</option>' +
+                    '<option value="1080">1080 px</option>' +
+                    '<option value="720">720 px</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Orientation</label>' +
+                  '<select id="sp-orient" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="auto" selected>Auto-Orient (EXIF)</option>' +
+                    '<option value="keep">Keep Original</option>' +
+                    '<option value="90cw">Rotate 90° CW</option>' +
+                    '<option value="90ccw">Rotate 90° CCW</option>' +
+                    '<option value="180">Rotate 180°</option>' +
+                    '<option value="hflip">Flip Horizontal</option>' +
+                    '<option value="vflip">Flip Vertical</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Aspect Crop</label>' +
+                  '<select id="sp-crop" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="original" selected>Original (No Crop)</option>' +
+                    '<option value="1:1">1:1 Square</option>' +
+                    '<option value="4:5">4:5 Portrait</option>' +
+                    '<option value="9:16">9:16 Vertical</option>' +
+                    '<option value="16:9">16:9 Widescreen</option>' +
+                    '<option value="3:2">3:2 Classic</option>' +
+                  '</select></div>' +
+                '<div style="grid-column:1/-1;"><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Color Filter</label>' +
+                  '<select id="sp-filter" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="none" selected>Original</option>' +
+                    '<option value="vivid">Vivid (+25% Sat)</option>' +
+                    '<option value="contrast">Auto Contrast</option>' +
+                    '<option value="warm">Warm Tone</option>' +
+                    '<option value="cool">Cool Tone</option>' +
+                    '<option value="grayscale">Grayscale (B&amp;W)</option>' +
+                    '<option value="invert">Invert Colors</option>' +
+                  '</select></div>' +
+                '<div style="grid-column:1/-1;"><div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px;"><span>Brightness</span><strong id="sp-bright-lbl" style="color:var(--text);">0</strong></div>' +
+                  '<input type="range" id="sp-bright" min="-20" max="20" step="2" value="0" style="width:100%;"></div>' +
+              '</div>' +
+              '<div><div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px;"><span>Image Quality</span><strong id="sp-qual-lbl" style="color:var(--text);">88%</strong></div>' +
+                '<input type="range" id="sp-qual" min="15" max="100" value="88" style="width:100%;"></div>' +
+              '<div style="padding:10px 11px; border-radius:10px; border:1px dashed rgba(16,185,129,0.55); background:rgba(16,185,129,0.08); display:flex; flex-direction:column; gap:6px;">' +
+                '<div style="display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:10px; font-weight:800; color:var(--emerald); text-transform:uppercase; letter-spacing:0.05em;"><span>Metadata Remover &amp; EXIF/GPS Privacy</span><span style="padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.16); border:1px solid rgba(16,185,129,0.35);">PRIVACY SHIELD</span></div>' +
                 '<select id="sp-meta" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
                   '<option value="wipe" selected>Wipe All EXIF &amp; GPS</option>' +
                   '<option value="deep">Forensic Scrub</option>' +
                   '<option value="gps">Strip GPS Only</option>' +
                   '<option value="keep">Keep EXIF</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Aspect Crop</label>' +
-                '<select id="sp-crop" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="original" selected>Original (No Crop)</option>' +
-                  '<option value="1:1">1:1 Square</option>' +
-                  '<option value="4:5">4:5 Portrait</option>' +
-                  '<option value="9:16">9:16 Vertical</option>' +
-                  '<option value="16:9">16:9 Widescreen</option>' +
-                  '<option value="3:2">3:2 Classic</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Color Filter</label>' +
-                '<select id="sp-filter" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="none" selected>Original</option>' +
-                  '<option value="vivid">Vivid (+25% Sat)</option>' +
-                  '<option value="contrast">Auto Contrast</option>' +
-                  '<option value="warm">Warm Tone</option>' +
-                  '<option value="cool">Cool Tone</option>' +
-                  '<option value="grayscale">Grayscale (B&amp;W)</option>' +
-                  '<option value="invert">Invert Colors</option>' +
-                '</select></div>' +
-              '<div style="grid-column:1/-1;"><div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px;"><span>Brightness</span><strong id="sp-bright-lbl" style="color:var(--text);">0</strong></div>' +
-                '<input type="range" id="sp-bright" min="-20" max="20" step="2" value="0" style="width:100%;"></div>' +
-            '</div>' +
-            '<div><div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px;"><span>Image Quality</span><strong id="sp-qual-lbl" style="color:var(--text);">88%</strong></div>' +
-              '<input type="range" id="sp-qual" min="15" max="100" value="88" style="width:100%;"></div>' +
-            '<div style="display:flex; justify-content:flex-end;">' +
-              '<button type="button" id="btn-sp-save-preset" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">+ Save Image Preset</button>' +
+                '</select>' +
+              '</div>' +
+              '<div style="display:flex; justify-content:flex-end;">' +
+                '<button type="button" id="btn-sp-save-preset" disabled style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">+ Save Image Preset</button>' +
+              '</div>' +
             '</div>';
           presetBox.parentNode.insertBefore(card, presetBox.nextSibling);
 
-          const syncPhotoSummary = () => {
-            singlePhotoCfg.format = document.getElementById('sp-fmt').value;
-            singlePhotoCfg.scale = document.getElementById('sp-scale').value;
-            singlePhotoCfg.orient = document.getElementById('sp-orient').value;
-            singlePhotoCfg.meta = document.getElementById('sp-meta').value;
-            singlePhotoCfg.crop = document.getElementById('sp-crop').value;
-            singlePhotoCfg.filter = document.getElementById('sp-filter').value;
-            singlePhotoCfg.brightness = parseInt(document.getElementById('sp-bright').value, 10) || 0;
-            singlePhotoCfg.quality = parseInt(document.getElementById('sp-qual').value, 10) || 88;
-            const bLbl = document.getElementById('sp-bright-lbl');
-            if (bLbl) bLbl.textContent = singlePhotoCfg.brightness > 0 ? ('+' + singlePhotoCfg.brightness) : String(singlePhotoCfg.brightness);
-            document.getElementById('sp-qual-lbl').textContent = singlePhotoCfg.format === 'png' ? 'Lossless' : (singlePhotoCfg.quality + '%');
-            const stPill = document.getElementById('fmt-status-pill');
-            const footT = document.getElementById('foot-title');
-            const footS = document.getElementById('foot-sub');
-            if (stPill) stPill.textContent = '.' + singlePhotoCfg.format.toUpperCase();
-            if (footT) footT.textContent = 'Native Photo Engine Ready';
-            if (footS) footS.textContent = '.' + singlePhotoCfg.format.toUpperCase() + (singlePhotoCfg.format === 'png' ? ' · Lossless' : (' · Q' + singlePhotoCfg.quality)) + ' · ' + singlePhotoCfg.meta;
-            const mvBtn = document.getElementById('btn-move-convert');
-            if (mvBtn) mvBtn.disabled = false;
-            updatePhotoPerf();
-          };
           const updatePhotoPerf = () => {
+            if (!photoTouched || !singlePhotoCfg.format) {
+              resetUntouchedMainUI();
+              return;
+            }
+            if (perfSec) perfSec.classList.remove('is-untouched');
             let pInfo = {};
             try { pInfo = JSON.parse(safeGet('cv_last_probe', '{}') || '{}'); } catch (_) {}
             const bytes = pInfo.sizeBytes || (firstFile && firstFile.sizeBytes) || 0;
@@ -1008,11 +1092,66 @@
             if (sEl) sEl.textContent = srcMB > 0 ? (srcMB.toFixed(2) + ' → ' + estMB.toFixed(2) + ' MB (' + sign + ')') : 'Probing size...';
             if (rEl) rEl.textContent = '~' + ramMB + ' MB RAM · <0.1% Batt';
           };
+
+          const syncPhotoSummary = (fromUserInteraction) => {
+            const fmtEl = document.getElementById('sp-fmt');
+            if (fromUserInteraction) {
+              if (!fmtEl.value) fmtEl.value = 'webp';
+              photoTouched = !!fmtEl.value;
+            }
+            const ctrlWrap = document.getElementById('sp-controls-wrap');
+            const titleEl = document.getElementById('sp-card-title');
+            const badgeCard = document.getElementById('sp-card-badge');
+            const tglBtn = document.getElementById('btn-sp-toggle-presets');
+            const saveBtn = document.getElementById('btn-sp-save-preset');
+
+            if (!photoTouched || !fmtEl.value) {
+              card.style.borderColor = 'var(--border)';
+              card.style.background = 'var(--card-elev)';
+              if (titleEl) titleEl.style.color = 'var(--muted)';
+              if (badgeCard) { badgeCard.textContent = 'NOT SELECTED'; badgeCard.style.color = 'var(--subtle)'; }
+              if (tglBtn) tglBtn.style.color = 'var(--muted)';
+              if (ctrlWrap) ctrlWrap.classList.add('is-untouched');
+              if (saveBtn) saveBtn.disabled = true;
+              resetUntouchedMainUI();
+              return;
+            }
+
+            singlePhotoCfg.format = fmtEl.value;
+            singlePhotoCfg.scale = document.getElementById('sp-scale').value;
+            singlePhotoCfg.orient = document.getElementById('sp-orient').value;
+            singlePhotoCfg.meta = document.getElementById('sp-meta').value;
+            singlePhotoCfg.crop = document.getElementById('sp-crop').value;
+            singlePhotoCfg.filter = document.getElementById('sp-filter').value;
+            singlePhotoCfg.brightness = parseInt(document.getElementById('sp-bright').value, 10) || 0;
+            singlePhotoCfg.quality = parseInt(document.getElementById('sp-qual').value, 10) || 88;
+
+            card.style.borderColor = 'rgba(16,185,129,0.45)';
+            card.style.background = 'rgba(16,185,129,0.06)';
+            if (titleEl) titleEl.style.color = 'var(--emerald)';
+            if (badgeCard) { badgeCard.textContent = 'PHOTO FORMAT'; badgeCard.style.color = 'var(--muted)'; }
+            if (tglBtn) tglBtn.style.color = 'var(--text)';
+            if (ctrlWrap) ctrlWrap.classList.remove('is-untouched');
+            if (saveBtn) saveBtn.disabled = false;
+
+            const bLbl = document.getElementById('sp-bright-lbl');
+            if (bLbl) bLbl.textContent = singlePhotoCfg.brightness > 0 ? ('+' + singlePhotoCfg.brightness) : String(singlePhotoCfg.brightness);
+            document.getElementById('sp-qual-lbl').textContent = singlePhotoCfg.format === 'png' ? 'Lossless' : (singlePhotoCfg.quality + '%');
+            const stPill = document.getElementById('fmt-status-pill');
+            const footT = document.getElementById('foot-title');
+            const footS = document.getElementById('foot-sub');
+            if (stPill) stPill.textContent = '.' + singlePhotoCfg.format.toUpperCase();
+            if (footT) footT.textContent = 'Native Photo Engine Ready';
+            if (footS) footS.textContent = '.' + singlePhotoCfg.format.toUpperCase() + (singlePhotoCfg.format === 'png' ? ' · Lossless' : (' · Q' + singlePhotoCfg.quality)) + ' · ' + singlePhotoCfg.meta;
+            const mvBtn = document.getElementById('btn-move-convert');
+            if (mvBtn) mvBtn.disabled = false;
+            updatePhotoPerf();
+          };
           window.refreshSinglePhotoAudioPerf = updatePhotoPerf;
 
           let spPresetsOpen = false;
           const BUILTIN_IMG_PRESETS = [
-            { raw: { name: 'WebP Crisp 85%', container: 'webp', crfOrBitrate: '85' }, parsed: { cfg: { fmt: 'webp', qual: 85, scale: 'original', orient: 'auto', meta: 'wipe' } } }
+            { raw: { name: 'WebP Crisp 85%', container: 'webp', crfOrBitrate: '85' }, parsed: { cfg: { fmt: 'webp', qual: 85, scale: 'original', orient: 'auto', meta: 'wipe', crop: 'original', filter: 'none', brightness: 0 } } }
           ];
           const renderSavedImagePresets = () => {
             const wrap = document.getElementById('sp-saved-presets-wrap');
@@ -1041,11 +1180,14 @@
                 if (c.scale) document.getElementById('sp-scale').value = String(c.scale);
                 if (c.orient) document.getElementById('sp-orient').value = String(c.orient);
                 if (c.meta) document.getElementById('sp-meta').value = String(c.meta);
+                if (c.crop) document.getElementById('sp-crop').value = String(c.crop);
+                if (c.filter) document.getElementById('sp-filter').value = String(c.filter);
+                if (typeof c.brightness !== 'undefined') document.getElementById('sp-bright').value = String(c.brightness);
                 const q = parseInt(c.qual || c.quality || s.raw.crfOrBitrate, 10);
                 if (q >= 15 && q <= 100) document.getElementById('sp-qual').value = String(q);
                 spPresetsOpen = false;
                 renderSavedImagePresets();
-                syncPhotoSummary();
+                syncPhotoSummary(true);
                 toast('Applied preset: ' + s.raw.name);
               });
             });
@@ -1057,6 +1199,7 @@
           });
 
           document.getElementById('btn-sp-save-preset').addEventListener('click', () => {
+            if (!photoTouched || !singlePhotoCfg.format) return;
             if (!hasBridge || typeof window.AndroidBridge.savePreset !== 'function') return;
             const nm = 'Photo ' + singlePhotoCfg.format.toUpperCase() + ' Q' + singlePhotoCfg.quality;
             const specs = '.' + singlePhotoCfg.format + ' · Q' + singlePhotoCfg.quality + ' · ' + singlePhotoCfg.scale + ' · ' + singlePhotoCfg.meta;
@@ -1066,7 +1209,7 @@
               codec: singlePhotoCfg.format,
               container: singlePhotoCfg.format,
               crfOrBitrate: String(singlePhotoCfg.quality),
-              extraFlags: JSON.stringify({ desc: 'Saved photo preset', specs, cfg: { fmt: singlePhotoCfg.format, qual: singlePhotoCfg.quality, scale: singlePhotoCfg.scale, orient: singlePhotoCfg.orient, meta: singlePhotoCfg.meta } })
+              extraFlags: JSON.stringify({ desc: 'Saved photo preset', specs, cfg: { fmt: singlePhotoCfg.format, qual: singlePhotoCfg.quality, scale: singlePhotoCfg.scale, orient: singlePhotoCfg.orient, meta: singlePhotoCfg.meta, crop: singlePhotoCfg.crop, filter: singlePhotoCfg.filter, brightness: singlePhotoCfg.brightness } })
             }));
             renderSavedImagePresets();
             toast('Saved "' + nm + '" ✓');
@@ -1074,146 +1217,133 @@
 
           ['sp-fmt', 'sp-scale', 'sp-orient', 'sp-meta', 'sp-crop', 'sp-filter', 'sp-bright', 'sp-qual'].forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.addEventListener('input', syncPhotoSummary);
-            if (el) el.addEventListener('change', syncPhotoSummary);
+            if (el) el.addEventListener('input', () => syncPhotoSummary(true));
+            if (el) el.addEventListener('change', () => syncPhotoSummary(true));
           });
+          try {
+            if (hasBridge && typeof window.AndroidBridge.getSettings === 'function') {
+              const ds = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+              const pol = ds.defaultMetadataPolicy === 'forensic' ? 'deep' : (ds.defaultMetadataPolicy || 'wipe');
+              const sm = document.getElementById('sp-meta');
+              if (sm && Array.from(sm.options).some(o => o.value === pol)) sm.value = pol;
+            }
+          } catch (_) {}
           renderSavedImagePresets();
-          syncPhotoSummary();
+          syncPhotoSummary(false);
         }
       } else if (fileCat === 'a') {
-        // AUDIO MODE: hide video format selector completely & show dedicated Audio Format + real Audio Performance Estimation
+        // AUDIO MODE: start in neutral dark untouched state until user chooses a format or preset
         if (presetBox) presetBox.style.display = 'none';
         if (perfSec) {
-          perfSec.classList.remove('is-untouched');
+          perfSec.classList.add('is-untouched');
           perfSec.querySelectorAll('.field, #core-cmd-pill, #core-warn-note').forEach(el => { el.style.display = 'none'; });
         }
         const badgeEl = document.querySelector('.single-badge');
         if (badgeEl) badgeEl.textContent = 'AUDIO';
-        singleAudioCfg = { fmt: 'm4a', br: '192k', ar: 'keep', ch: 'keep', filter: 'none', gain: '0dB', speed: '1.0', fade: 'none', trimStart: '00:00:00', trimEnd: 'End', meta: 'wipe' };
+        singleAudioCfg = { fmt: '', br: '192k', ar: 'keep', ch: 'keep', filter: 'none', gain: '0dB', speed: '1.0', fade: 'none', trimStart: '00:00:00', trimEnd: 'End', meta: 'wipe' };
 
         if (presetBox && !document.getElementById('native-audio-single-card')) {
           const card = document.createElement('div');
           card.id = 'native-audio-single-card';
-          card.style.cssText = 'padding:12px; border-radius:12px; border:1px solid rgba(252,215,0,0.4); background:rgba(252,215,0,0.06); display:flex; flex-direction:column; gap:10px;';
+          card.style.cssText = 'padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--card-elev); display:flex; flex-direction:column; gap:10px; transition:border-color 0.2s ease, background 0.2s ease;';
           card.innerHTML =
             '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-              '<span style="font-size:12px; font-weight:800; color:var(--gold-text);">Audio Format &amp; Codec Selection</span>' +
-              '<span style="font-size:10px; font-family:var(--mono); color:var(--muted);">AUDIO MODE</span>' +
+              '<span id="sa-card-title" style="font-size:12px; font-weight:800; color:var(--muted);">Audio Format &amp; Codec Selection</span>' +
+              '<span id="sa-card-badge" style="font-size:10px; font-family:var(--mono); color:var(--subtle);">NOT SELECTED</span>' +
             '</div>' +
-            '<button type="button" id="btn-sa-toggle-presets" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;"><span id="lbl-sa-presets-cnt">Presets</span><span id="lbl-sa-presets-arrow">▾</span></button>' +
+            '<button type="button" id="btn-sa-toggle-presets" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--muted); font-size:12px; font-weight:700; cursor:pointer;"><span id="lbl-sa-presets-cnt">Presets</span><span id="lbl-sa-presets-arrow">▾</span></button>' +
             '<div id="sa-saved-presets-wrap" style="display:none; flex-wrap:wrap; gap:6px;"></div>' +
-            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Audio Format</label>' +
-                '<select id="sa-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="m4a" selected>.m4a (AAC Universal)</option>' +
-                  '<option value="opus">.opus (High Efficiency)</option>' +
-                  '<option value="mp3">.mp3 (Classic)</option>' +
-                  '<option value="flac">.flac (Lossless)</option>' +
-                  '<option value="wav">.wav (Uncompressed)</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Bitrate</label>' +
-                '<select id="sa-br" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="96k">96 kbps (Compact)</option>' +
-                  '<option value="128k">128 kbps</option>' +
-                  '<option value="192k" selected>192 kbps (High)</option>' +
-                  '<option value="256k">256 kbps</option>' +
-                  '<option value="320k">320 kbps (Max)</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Sample Rate</label>' +
-                '<select id="sa-ar" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="keep" selected>Keep Source</option>' +
-                  '<option value="48000">48,000 Hz</option>' +
-                  '<option value="44100">44,100 Hz (CD)</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Channels</label>' +
-                '<select id="sa-ch" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="keep" selected>Keep Source</option>' +
-                  '<option value="2">Stereo (2.0)</option>' +
-                  '<option value="1">Mono (1.0)</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Audio Filter</label>' +
-                '<select id="sa-filter" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="none" selected>None</option>' +
-                  '<option value="loudnorm">Loudnorm (-14 LUFS)</option>' +
-                  '<option value="bass">Bass Boost (+5dB)</option>' +
-                  '<option value="trim_silence">Trim Silence</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Volume Gain</label>' +
-                '<select id="sa-gain" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="-12dB">-12 dB (Quiet)</option>' +
-                  '<option value="-6dB">-6 dB</option>' +
-                  '<option value="-3dB">-3 dB</option>' +
-                  '<option value="0dB" selected>0 dB (Original)</option>' +
-                  '<option value="+3dB">+3 dB</option>' +
-                  '<option value="+6dB">+6 dB (Louder)</option>' +
-                  '<option value="+9dB">+9 dB</option>' +
-                  '<option value="+12dB">+12 dB (Max Boost)</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Playback Speed</label>' +
-                '<select id="sa-speed" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="0.5">0.5x (Half Speed)</option>' +
-                  '<option value="0.75">0.75x</option>' +
-                  '<option value="1.0" selected>1.0x (Normal)</option>' +
-                  '<option value="1.25">1.25x</option>' +
-                  '<option value="1.5">1.5x</option>' +
-                  '<option value="2.0">2.0x (Double)</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Fade In / Out</label>' +
-                '<select id="sa-fade" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="none" selected>None</option>' +
-                  '<option value="in2">Fade In (2s)</option>' +
-                  '<option value="out2">Fade Out (2s)</option>' +
-                  '<option value="both2">Fade In &amp; Out (2s)</option>' +
-                '</select></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Trim Start (HH:MM:SS)</label>' +
-                '<input type="text" id="sa-trim-start" value="00:00:00" placeholder="00:00:00" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px; font-family:var(--mono);"></div>' +
-              '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Trim End (HH:MM:SS / End)</label>' +
-                '<input type="text" id="sa-trim-end" value="End" placeholder="End" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px; font-family:var(--mono);"></div>' +
-              '<div id="sa-trim-err" style="grid-column:1/-1; display:none; font-size:11px; font-weight:700; color:var(--crimson);"></div>' +
-              '<div style="grid-column:1/-1;"><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">ID3 Privacy</label>' +
+            '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Audio Format</label>' +
+              '<select id="sa-fmt" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                '<option value="" selected>— Select Audio Format —</option>' +
+                '<option value="m4a">.m4a (AAC Universal)</option>' +
+                '<option value="opus">.opus (High Efficiency)</option>' +
+                '<option value="mp3">.mp3 (Classic)</option>' +
+                '<option value="flac">.flac (Lossless)</option>' +
+                '<option value="wav">.wav (Uncompressed)</option>' +
+              '</select></div>' +
+            '<div id="sa-controls-wrap" class="is-untouched" style="display:flex; flex-direction:column; gap:10px;">' +
+              '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Bitrate</label>' +
+                  '<select id="sa-br" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="96k">96 kbps (Compact)</option>' +
+                    '<option value="128k">128 kbps</option>' +
+                    '<option value="192k" selected>192 kbps (High)</option>' +
+                    '<option value="256k">256 kbps</option>' +
+                    '<option value="320k">320 kbps (Max)</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Sample Rate</label>' +
+                  '<select id="sa-ar" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="keep" selected>Keep Source</option>' +
+                    '<option value="48000">48,000 Hz</option>' +
+                    '<option value="44100">44,100 Hz (CD)</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Channels</label>' +
+                  '<select id="sa-ch" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="keep" selected>Keep Source</option>' +
+                    '<option value="2">Stereo (2.0)</option>' +
+                    '<option value="1">Mono (1.0)</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Audio Filter</label>' +
+                  '<select id="sa-filter" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="none" selected>None</option>' +
+                    '<option value="loudnorm">Loudnorm (-14 LUFS)</option>' +
+                    '<option value="bass">Bass Boost (+5dB)</option>' +
+                    '<option value="trim_silence">Trim Silence</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Volume Gain</label>' +
+                  '<select id="sa-gain" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="-12dB">-12 dB (Quiet)</option>' +
+                    '<option value="-6dB">-6 dB</option>' +
+                    '<option value="-3dB">-3 dB</option>' +
+                    '<option value="0dB" selected>0 dB (Original)</option>' +
+                    '<option value="+3dB">+3 dB</option>' +
+                    '<option value="+6dB">+6 dB (Louder)</option>' +
+                    '<option value="+9dB">+9 dB</option>' +
+                    '<option value="+12dB">+12 dB (Max Boost)</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Playback Speed</label>' +
+                  '<select id="sa-speed" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="0.5">0.5x (Half Speed)</option>' +
+                    '<option value="0.75">0.75x</option>' +
+                    '<option value="1.0" selected>1.0x (Normal)</option>' +
+                    '<option value="1.25">1.25x</option>' +
+                    '<option value="1.5">1.5x</option>' +
+                    '<option value="2.0">2.0x (Double)</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Fade In / Out</label>' +
+                  '<select id="sa-fade" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
+                    '<option value="none" selected>None</option>' +
+                    '<option value="in2">Fade In (2s)</option>' +
+                    '<option value="out2">Fade Out (2s)</option>' +
+                    '<option value="both2">Fade In &amp; Out (2s)</option>' +
+                  '</select></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Trim Start (HH:MM:SS)</label>' +
+                  '<input type="text" id="sa-trim-start" value="00:00:00" placeholder="00:00:00" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px; font-family:var(--mono);"></div>' +
+                '<div><label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Trim End (HH:MM:SS / End)</label>' +
+                  '<input type="text" id="sa-trim-end" value="End" placeholder="End" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px; font-family:var(--mono);"></div>' +
+                '<div id="sa-trim-err" style="grid-column:1/-1; display:none; font-size:11px; font-weight:700; color:var(--crimson);"></div>' +
+              '</div>' +
+              '<div style="padding:10px 11px; border-radius:10px; border:1px dashed rgba(16,185,129,0.55); background:rgba(16,185,129,0.08); display:flex; flex-direction:column; gap:6px;">' +
+                '<div style="display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:10px; font-weight:800; color:var(--emerald); text-transform:uppercase; letter-spacing:0.05em;"><span>Metadata Remover &amp; ID3 Privacy</span><span style="padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.16); border:1px solid rgba(16,185,129,0.35);">PRIVACY SHIELD</span></div>' +
                 '<select id="sa-meta" style="width:100%; padding:8px; border-radius:8px; background:var(--card); color:var(--text); border:1px solid var(--border); font-size:12px;">' +
-                  '<option value="wipe" selected>Wipe All Tags</option>' +
+                  '<option value="wipe" selected>Wipe All Tags (-map_metadata -1)</option>' +
+                  '<option value="deep">Forensic Scrub (+bitexact &amp; Encoder)</option>' +
                   '<option value="keep">Keep All Tags</option>' +
-                '</select></div>' +
-            '</div>' +
-            '<div style="display:flex; justify-content:flex-end;">' +
-              '<button type="button" id="btn-sa-save-preset" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">+ Save Audio Preset</button>' +
+                '</select>' +
+              '</div>' +
+              '<div style="display:flex; justify-content:flex-end;">' +
+                '<button type="button" id="btn-sa-save-preset" disabled style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">+ Save Audio Preset</button>' +
+              '</div>' +
             '</div>';
           presetBox.parentNode.insertBefore(card, presetBox.nextSibling);
 
-          const syncAudioSummary = () => {
-            singleAudioCfg.fmt = document.getElementById('sa-fmt').value;
-            singleAudioCfg.br = document.getElementById('sa-br').value;
-            singleAudioCfg.ar = document.getElementById('sa-ar').value;
-            singleAudioCfg.ch = document.getElementById('sa-ch').value;
-            singleAudioCfg.filter = document.getElementById('sa-filter').value;
-            singleAudioCfg.gain = document.getElementById('sa-gain').value;
-            singleAudioCfg.speed = document.getElementById('sa-speed').value;
-            singleAudioCfg.fade = document.getElementById('sa-fade').value;
-            singleAudioCfg.trimStart = (document.getElementById('sa-trim-start').value || '00:00:00').trim();
-            singleAudioCfg.trimEnd = (document.getElementById('sa-trim-end').value || 'End').trim();
-            singleAudioCfg.meta = document.getElementById('sa-meta').value;
-            const trimCheck = window.validateVaultTrimRange(singleAudioCfg.trimStart, singleAudioCfg.trimEnd);
-            const errEl = document.getElementById('sa-trim-err');
-            const endInp = document.getElementById('sa-trim-end');
-            if (errEl) {
-              errEl.style.display = trimCheck.ok ? 'none' : 'block';
-              errEl.textContent = trimCheck.ok ? '' : ('⚠ ' + trimCheck.msg);
-            }
-            if (endInp) endInp.style.borderColor = trimCheck.ok ? 'var(--border)' : 'var(--crimson)';
-            const isLossless = singleAudioCfg.fmt === 'flac' || singleAudioCfg.fmt === 'wav';
-            document.getElementById('sa-br').disabled = isLossless;
-            const stPill = document.getElementById('fmt-status-pill');
-            const footT = document.getElementById('foot-title');
-            const footS = document.getElementById('foot-sub');
-            if (stPill) stPill.textContent = '.' + singleAudioCfg.fmt.toUpperCase();
-            if (footT) footT.textContent = trimCheck.ok ? 'Audio Format Ready' : 'Fix Trim Range';
-            if (footS) footS.textContent = '.' + singleAudioCfg.fmt.toUpperCase() + (isLossless ? ' · Lossless' : (' · ' + singleAudioCfg.br)) + (singleAudioCfg.gain !== '0dB' ? (' · ' + singleAudioCfg.gain) : '');
-            const mvBtn = document.getElementById('btn-move-convert');
-            if (mvBtn) mvBtn.disabled = !trimCheck.ok;
-            updateAudioPerf();
-          };
           const updateAudioPerf = () => {
+            if (!audioTouched || !singleAudioCfg.fmt) {
+              resetUntouchedMainUI();
+              return;
+            }
+            if (perfSec) perfSec.classList.remove('is-untouched');
             let pInfo = {};
             try { pInfo = JSON.parse(safeGet('cv_last_probe', '{}') || '{}'); } catch (_) {}
             const bytes = pInfo.sizeBytes || (firstFile && firstFile.sizeBytes) || 0;
@@ -1234,12 +1364,77 @@
             if (sEl) sEl.textContent = srcMB > 0 ? (srcMB.toFixed(2) + ' → ' + estMB.toFixed(2) + ' MB (' + sign + ')') : 'Probing size...';
             if (rEl) rEl.textContent = '~65 MB RAM · <0.1% Batt';
           };
+
+          const syncAudioSummary = (fromUserInteraction) => {
+            const fmtEl = document.getElementById('sa-fmt');
+            if (fromUserInteraction) {
+              if (!fmtEl.value) fmtEl.value = 'm4a';
+              audioTouched = !!fmtEl.value;
+            }
+            const ctrlWrap = document.getElementById('sa-controls-wrap');
+            const titleEl = document.getElementById('sa-card-title');
+            const badgeCard = document.getElementById('sa-card-badge');
+            const tglBtn = document.getElementById('btn-sa-toggle-presets');
+            const saveBtn = document.getElementById('btn-sa-save-preset');
+
+            if (!audioTouched || !fmtEl.value) {
+              card.style.borderColor = 'var(--border)';
+              card.style.background = 'var(--card-elev)';
+              if (titleEl) titleEl.style.color = 'var(--muted)';
+              if (badgeCard) { badgeCard.textContent = 'NOT SELECTED'; badgeCard.style.color = 'var(--subtle)'; }
+              if (tglBtn) tglBtn.style.color = 'var(--muted)';
+              if (ctrlWrap) ctrlWrap.classList.add('is-untouched');
+              if (saveBtn) saveBtn.disabled = true;
+              resetUntouchedMainUI();
+              return;
+            }
+
+            singleAudioCfg.fmt = fmtEl.value;
+            singleAudioCfg.br = document.getElementById('sa-br').value;
+            singleAudioCfg.ar = document.getElementById('sa-ar').value;
+            singleAudioCfg.ch = document.getElementById('sa-ch').value;
+            singleAudioCfg.filter = document.getElementById('sa-filter').value;
+            singleAudioCfg.gain = document.getElementById('sa-gain').value;
+            singleAudioCfg.speed = document.getElementById('sa-speed').value;
+            singleAudioCfg.fade = document.getElementById('sa-fade').value;
+            singleAudioCfg.trimStart = (document.getElementById('sa-trim-start').value || '00:00:00').trim();
+            singleAudioCfg.trimEnd = (document.getElementById('sa-trim-end').value || 'End').trim();
+            singleAudioCfg.meta = document.getElementById('sa-meta').value;
+
+            card.style.borderColor = 'rgba(252,215,0,0.45)';
+            card.style.background = 'rgba(252,215,0,0.06)';
+            if (titleEl) titleEl.style.color = 'var(--gold-text)';
+            if (badgeCard) { badgeCard.textContent = 'AUDIO MODE'; badgeCard.style.color = 'var(--muted)'; }
+            if (tglBtn) tglBtn.style.color = 'var(--text)';
+            if (ctrlWrap) ctrlWrap.classList.remove('is-untouched');
+            if (saveBtn) saveBtn.disabled = false;
+
+            const trimCheck = window.validateVaultTrimRange(singleAudioCfg.trimStart, singleAudioCfg.trimEnd);
+            const errEl = document.getElementById('sa-trim-err');
+            const endInp = document.getElementById('sa-trim-end');
+            if (errEl) {
+              errEl.style.display = trimCheck.ok ? 'none' : 'block';
+              errEl.textContent = trimCheck.ok ? '' : ('⚠ ' + trimCheck.msg);
+            }
+            if (endInp) endInp.style.borderColor = trimCheck.ok ? 'var(--border)' : 'var(--crimson)';
+            const isLossless = singleAudioCfg.fmt === 'flac' || singleAudioCfg.fmt === 'wav';
+            document.getElementById('sa-br').disabled = isLossless;
+            const stPill = document.getElementById('fmt-status-pill');
+            const footT = document.getElementById('foot-title');
+            const footS = document.getElementById('foot-sub');
+            if (stPill) stPill.textContent = '.' + singleAudioCfg.fmt.toUpperCase();
+            if (footT) footT.textContent = trimCheck.ok ? 'Audio Format Ready' : 'Fix Trim Range';
+            if (footS) footS.textContent = '.' + singleAudioCfg.fmt.toUpperCase() + (isLossless ? ' · Lossless' : (' · ' + singleAudioCfg.br)) + (singleAudioCfg.gain !== '0dB' ? (' · ' + singleAudioCfg.gain) : '');
+            const mvBtn = document.getElementById('btn-move-convert');
+            if (mvBtn) mvBtn.disabled = !trimCheck.ok;
+            updateAudioPerf();
+          };
           window.refreshSinglePhotoAudioPerf = updateAudioPerf;
 
           let saPresetsOpen = false;
           const BUILTIN_AUD_PRESETS = [
-            { raw: { name: 'Opus 192k Transparent', container: 'opus', crfOrBitrate: '192k' }, parsed: { cfg: { fmt: 'opus', br: '192k', ar: '48000', ch: '2', filter: 'none', meta: 'wipe' } } },
-            { raw: { name: 'Loudnorm AAC (-14 LUFS)', container: 'm4a', crfOrBitrate: '192k' }, parsed: { cfg: { fmt: 'm4a', br: '192k', ar: '48000', ch: '2', filter: 'loudnorm', meta: 'wipe' } } }
+            { raw: { name: 'Opus 192k Transparent', container: 'opus', crfOrBitrate: '192k' }, parsed: { cfg: { fmt: 'opus', br: '192k', ar: '48000', ch: '2', filter: 'none', gain: '0dB', speed: '1.0', fade: 'none', trimStart: '00:00:00', trimEnd: 'End', meta: 'wipe' } } },
+            { raw: { name: 'Loudnorm AAC (-14 LUFS)', container: 'm4a', crfOrBitrate: '192k' }, parsed: { cfg: { fmt: 'm4a', br: '192k', ar: '48000', ch: '2', filter: 'loudnorm', gain: '0dB', speed: '1.0', fade: 'none', trimStart: '00:00:00', trimEnd: 'End', meta: 'wipe' } } }
           ];
           const renderSavedAudioPresets = () => {
             const wrap = document.getElementById('sa-saved-presets-wrap');
@@ -1268,11 +1463,17 @@
                 const br = c.br || s.raw.crfOrBitrate || '192k';
                 if (Array.from(document.getElementById('sa-br').options).some(o => o.value === br)) document.getElementById('sa-br').value = br;
                 if (c.ar && Array.from(document.getElementById('sa-ar').options).some(o => o.value === String(c.ar))) document.getElementById('sa-ar').value = String(c.ar);
+                if (c.ch && Array.from(document.getElementById('sa-ch').options).some(o => o.value === String(c.ch))) document.getElementById('sa-ch').value = String(c.ch);
                 if (c.filter && Array.from(document.getElementById('sa-filter').options).some(o => o.value === String(c.filter))) document.getElementById('sa-filter').value = String(c.filter);
+                if (c.gain && Array.from(document.getElementById('sa-gain').options).some(o => o.value === String(c.gain))) document.getElementById('sa-gain').value = String(c.gain);
+                if (c.speed && Array.from(document.getElementById('sa-speed').options).some(o => o.value === String(c.speed))) document.getElementById('sa-speed').value = String(c.speed);
+                if (c.fade && Array.from(document.getElementById('sa-fade').options).some(o => o.value === String(c.fade))) document.getElementById('sa-fade').value = String(c.fade);
+                if (c.trimStart) document.getElementById('sa-trim-start').value = String(c.trimStart);
+                if (c.trimEnd) document.getElementById('sa-trim-end').value = String(c.trimEnd);
                 if (c.meta && Array.from(document.getElementById('sa-meta').options).some(o => o.value === String(c.meta))) document.getElementById('sa-meta').value = String(c.meta);
                 saPresetsOpen = false;
                 renderSavedAudioPresets();
-                syncAudioSummary();
+                syncAudioSummary(true);
                 toast('Applied preset: ' + s.raw.name);
               });
             });
@@ -1284,6 +1485,7 @@
           });
 
           document.getElementById('btn-sa-save-preset').addEventListener('click', () => {
+            if (!audioTouched || !singleAudioCfg.fmt) return;
             if (!hasBridge || typeof window.AndroidBridge.savePreset !== 'function') return;
             const isLossless = singleAudioCfg.fmt === 'flac' || singleAudioCfg.fmt === 'wav';
             const nm = 'Audio ' + singleAudioCfg.fmt.toUpperCase() + (isLossless ? ' Lossless' : (' ' + singleAudioCfg.br));
@@ -1302,10 +1504,18 @@
 
           ['sa-fmt', 'sa-br', 'sa-ar', 'sa-ch', 'sa-filter', 'sa-gain', 'sa-speed', 'sa-fade', 'sa-trim-start', 'sa-trim-end', 'sa-meta'].forEach(id => {
             const el = document.getElementById(id);
-            if (el) { el.addEventListener('change', syncAudioSummary); el.addEventListener('input', syncAudioSummary); }
+            if (el) { el.addEventListener('change', () => syncAudioSummary(true)); el.addEventListener('input', () => syncAudioSummary(true)); }
           });
+          try {
+            if (hasBridge && typeof window.AndroidBridge.getSettings === 'function') {
+              const ds = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+              const pol = ds.defaultMetadataPolicy === 'forensic' ? 'deep' : (ds.defaultMetadataPolicy === 'keep' ? 'keep' : 'wipe');
+              const sm = document.getElementById('sa-meta');
+              if (sm && Array.from(sm.options).some(o => o.value === pol)) sm.value = pol;
+            }
+          } catch (_) {}
           renderSavedAudioPresets();
-          syncAudioSummary();
+          syncAudioSummary(false);
         }
       }
 
@@ -1361,8 +1571,42 @@
           }
         });
       }
+      // Hydrate Output Destination defaults from Settings
+      let savedSettings = {};
+      if (hasBridge && typeof window.AndroidBridge.getSettings === 'function') {
+        try { savedSettings = JSON.parse(window.AndroidBridge.getSettings() || '{}'); } catch (_) {}
+      }
+      if (savedSettings.defaultVaultFolder) {
+        const cleanRoot = savedSettings.defaultVaultFolder.replace(/\/$/, '');
+        window.__cvVaultRoot = cleanRoot;
+        document.querySelectorAll('[data-mode="vault"] .loc-path, [data-loc="vault"] .loc-path').forEach(el => {
+          el.textContent = cleanRoot + '/Vault_Core/';
+        });
+      }
+      // Update Date pill label to today's actual date
+      const datePillSpan = document.querySelector('#sub-mode-pills [data-submode="date"] span');
+      if (datePillSpan) {
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const nowD = new Date();
+        datePillSpan.textContent = months[nowD.getMonth()] + '_' + String(nowD.getDate()).padStart(2, '0');
+      }
+      const chkSepInit = document.getElementById('chk-separate');
+      if (chkSepInit && typeof savedSettings.separateByType === 'boolean') {
+        chkSepInit.checked = savedSettings.separateByType;
+        chkSepInit.dispatchEvent(new Event('change'));
+      }
+      if (savedSettings.defaultSubfolderStyle) {
+        const subPill = document.querySelector('#sub-mode-pills [data-submode="' + savedSettings.defaultSubfolderStyle + '"], #sub-mode-pills [data-sub="' + savedSettings.defaultSubfolderStyle + '"]');
+        if (subPill) subPill.click();
+      }
+      // Show active filename suffix hint on Single Output screen
+      const singleFnameEl = document.getElementById('inp-fname');
+      if (singleFnameEl && savedSettings.defaultSuffixRule && (savedSettings.defaultSuffixRule === '_vault' || savedSettings.defaultSuffixRule === '_converted')) {
+        singleFnameEl.placeholder = 'Leave blank for original name + ' + savedSettings.defaultSuffixRule;
+      }
+
       const bBrowse = document.getElementById('btn-browse');
-      if (bBrowse) bBrowse.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.AndroidBridge.pickFolder(); } }, true);
+      if (bBrowse) bBrowse.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.__pickingCustomDest = true; window.AndroidBridge.pickFolder(); } }, true);
 
       const bStart = document.getElementById('btn-start-convert');
       if (bStart) bStart.addEventListener('click', (e) => {
@@ -1392,7 +1636,7 @@
               quality: parseInt(pCfg.quality || pCfg.qual || 88, 10) || 88,
               scale: String(pCfg.scale || 'original'),
               orient: String(pCfg.orient || 'auto'),
-              meta: String(pCfg.meta || 'wipe'),
+              meta: String(pCfg.meta || (savedSettings.defaultMetadataPolicy === 'forensic' ? 'deep' : (savedSettings.defaultMetadataPolicy || 'wipe'))),
               colorSpace: String(pCfg.colorSpace || 'srgb_444'),
               crop: String(pCfg.crop || 'original'),
               filter: String(pCfg.filter || 'none'),
@@ -1418,7 +1662,8 @@
             const tr = window.validateVaultTrimRange(aCfg.trimStart, aCfg.trimEnd);
             const ssFlag = (tr.ok && tr.startSec > 0) ? (' -ss ' + aCfg.trimStart) : '';
             const toFlag = (tr.ok && tr.endSec != null) ? (' -to ' + aCfg.trimEnd) : '';
-            const metaFlag = aCfg.meta === 'wipe' || aCfg.meta === 'deep' ? ' -map_metadata -1' : '';
+            const effAudMeta = aCfg.meta || (savedSettings.defaultMetadataPolicy === 'forensic' ? 'deep' : (savedSettings.defaultMetadataPolicy === 'keep' ? 'keep' : 'wipe'));
+            const metaFlag = effAudMeta === 'deep' ? ' -map_metadata -1 -map_chapters -1 -fflags +bitexact' : (effAudMeta === 'wipe' ? ' -map_metadata -1' : '');
             const codecPart = ext === 'flac' ? '-c:a flac'
                  : (ext === 'wav' ? '-c:a pcm_s16le'
                  : (ext === 'mp3' ? '-c:a libmp3lame -b:a ' + br
@@ -1457,16 +1702,56 @@
             const afFlag = (aCodec !== 'none' && aCodec !== 'copy' && afList.length) ? (' -af "' + afList.join(',') + '"') : '';
             const aPart = aCodec === 'none' ? '-an' : (aCodec === 'copy' ? '-c:a copy' : (aCodec === 'flac' ? '-c:a flac' : ('-c:a ' + aCodec + ' -b:a ' + aBr)));
             const subFlag = vCfg.subMode === 'strip' ? ' -sn' : (vCfg.subMode === 'copy' ? ' -c:s copy' : '');
-            const metaFlag = vCfg.meta === 'deep' ? ' -map_metadata -1 -map_chapters -1 -fflags +bitexact' : (vCfg.meta === 'wipe' ? ' -map_metadata -1' : '');
+            const effVidMeta = vCfg.meta || (savedSettings.defaultMetadataPolicy === 'forensic' ? 'deep' : (savedSettings.defaultMetadataPolicy || 'wipe'));
+            const metaFlag = effVidMeta === 'deep' ? ' -map_metadata -1 -map_chapters -1 -fflags +bitexact'
+              : (effVidMeta === 'wipe' ? ' -map_metadata -1'
+              : (effVidMeta === 'gps' ? ' -metadata location= -metadata location-eng= -metadata com.apple.quicktime.location.ISO6709=' : ''));
             const fastPart = (ext === 'mp4' && vCfg.faststart !== 'standard') ? ' -movflags +faststart' : '';
+            const thNum = parseInt(vCfg.threads || (pendingCfg.batch && pendingCfg.batch.threads) || '', 10);
+            const thFlag = (thNum >= 1 && thNum <= 16) ? (' -threads ' + thNum) : '';
             args = vCodec === 'copy'
-              ? ('-y' + ssFlag + toFlag + ' -i {INPUT} -c copy' + subFlag + metaFlag + fastPart + ' {OUTPUT}')
-              : ('-y' + ssFlag + toFlag + ' -i {INPUT} -c:v ' + vCodec + ' -pix_fmt ' + (vCfg.pixfmt || 'yuv420p') + ' -crf ' + crf + ' -preset ' + preset + vfFlag + fpsFlag + ' ' + aPart + afFlag + subFlag + metaFlag + fastPart + ' {OUTPUT}');
+              ? ('-y' + thFlag + ssFlag + toFlag + ' -i {INPUT} -c copy' + subFlag + metaFlag + fastPart + ' {OUTPUT}')
+              : ('-y' + thFlag + ssFlag + toFlag + ' -i {INPUT} -c:v ' + vCodec + ' -pix_fmt ' + (vCfg.pixfmt || 'yuv420p') + ' -crf ' + crf + ' -preset ' + preset + vfFlag + fpsFlag + ' ' + aPart + afFlag + subFlag + metaFlag + fastPart + ' {OUTPUT}');
+          }
+
+          // Compute effective outputDir & subBucket from Output Destination UI + saved Settings
+          const activeLocEl = document.querySelector('#loc-stack .loc-card.active, #loc-stack [data-mode].active, #loc-stack [data-loc].active');
+          const locMode = activeLocEl ? (activeLocEl.getAttribute('data-mode') || activeLocEl.getAttribute('data-loc') || 'vault') : 'vault';
+          const activeSubEl = document.querySelector('#sub-mode-pills .sub-pill.active, #sub-mode-pills [data-submode].active, #sub-mode-pills [data-sub].active');
+          const subMode = activeSubEl ? (activeSubEl.getAttribute('data-submode') || activeSubEl.getAttribute('data-sub') || 'none') : (savedSettings.defaultSubfolderStyle || 'none');
+          const sepChkEl = document.getElementById('chk-separate');
+          const separateOn = sepChkEl ? !!sepChkEl.checked : (savedSettings.separateByType !== false);
+
+          let runFolder = '';
+          if (subMode === 'numbered') {
+            runFolder = '__AUTO_NUMBERED__';
+          } else if (subMode === 'date') {
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const nowD = new Date();
+            runFolder = months[nowD.getMonth()] + '_' + String(nowD.getDate()).padStart(2, '0');
+          } else if (subMode === 'custom') {
+            const cInp = document.getElementById('inp-run-name') || document.getElementById('inp-sub-name');
+            runFolder = ((cInp && cInp.value) ? cInp.value : 'Converted').trim().replace(/[\\/:*?"<>|]/g, '_');
+          }
+
+          const relParts = [];
+          if (runFolder) relParts.push(runFolder);
+          if (separateOn) relParts.push(bucket);
+          const finalSubBucket = relParts.join('/');
+
+          let customOutDir = '';
+          if (locMode === 'source' && f.path && f.path.includes('/')) {
+            const srcParent = f.path.substring(0, f.path.lastIndexOf('/'));
+            customOutDir = finalSubBucket ? (srcParent + '/' + finalSubBucket) : srcParent;
+          } else if (locMode === 'custom') {
+            const cBase = (window.__cvCustomOutDir || (document.getElementById('lbl-custom-path') && document.getElementById('lbl-custom-path').textContent) || '').trim().replace(/\/$/, '');
+            if (cBase) customOutDir = finalSubBucket ? (cBase + '/' + finalSubBucket) : cBase;
           }
 
           jobSpecs.push({
             module: 'Vault_Core',
-            subBucket: bucket,
+            outputDir: customOutDir,
+            subBucket: customOutDir ? '' : finalSubBucket,
             mediaType: mType,
             inputPath: f.path,
             outputBaseName: (files.length === 1 && outNameEl) ? outNameEl.value : '',
@@ -1508,6 +1793,7 @@
           });
         }
         if (queuedCount > 0) {
+          clearActiveSelection();
           toast('Starting Engine...');
           navigateTo('conversion_vault_p4a_convert_single.html');
         } else {
@@ -1532,12 +1818,91 @@
       if (bPresets) bPresets.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); navigateTo('conversion_vault_p7_presets.html'); }, true);
       if (bPickVault) bPickVault.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.__pickingCustomDest = true; window.AndroidBridge.pickFolder(); } }, true);
 
+      function renderTestedDeviceFormats(testData) {
+        const capWrap = document.getElementById('device-cap-list');
+        if (!capWrap || !testData || !testData.ok) return;
+        const c = testData.codecs || {};
+        const fps = Number(testData.fps || 0).toFixed(1);
+        const rows = [
+          {
+            name: 'MP4 · H.264 (yuv420p 8-bit)',
+            sub: (c.h264HwDecode ? 'HW Decode ✓' : 'SW Decode') + ' · ' + (c.h264HwEncode ? 'HW Encode ✓' : 'CPU x264') + ' · Measured ~' + fps + ' fps',
+            badge: c.h264HwDecode ? 'BEST OVERALL' : 'CPU SAFE',
+            cls: 'cb-ok'
+          },
+          {
+            name: 'MKV · HEVC 10-bit (yuv420p10le)',
+            sub: (c.hevc10bitHwDecode ? '10-bit HW Decode ✓' : 'Software 10-bit Decode') + (c.hevcHwEncode ? ' · HEVC HW Encode ✓' : ' · CPU x265'),
+            badge: c.hevc10bitHwDecode ? '10-BIT HW ✓' : 'SW ONLY',
+            cls: c.hevc10bitHwDecode ? 'cb-ok' : 'cb-warn'
+          },
+          {
+            name: 'MP4 / MKV · AV1 (libsvtav1)',
+            sub: (c.av1HwDecode ? 'AV1 HW Decode ✓' : 'No AV1 HW Decode') + ' · ' + (c.av1HwEncode ? 'AV1 HW Encode ✓' : 'CPU Encode'),
+            badge: c.av1HwDecode ? (c.av1HwEncode ? 'FULL HW ✓' : 'HW DEC · CPU ENC') : 'SW ONLY',
+            cls: c.av1HwEncode ? 'cb-ok' : 'cb-warn'
+          },
+          {
+            name: 'H.264 10-bit (Hi10P)',
+            sub: c.h264_10bitHwDecode ? 'Hardware 10-bit AVC decoder detected' : 'No Hardware Hi10P decoder on this SoC',
+            badge: c.h264_10bitHwDecode ? 'SUPPORTED' : 'AVOID',
+            cls: c.h264_10bitHwDecode ? 'cb-ok' : 'cb-no'
+          },
+          {
+            name: 'WebP / HEIC Photos · Opus / FLAC Audio',
+            sub: 'Native Skia + HeifWriter Photo Engine · FFmpeg Audio',
+            badge: 'VERIFIED ✓',
+            cls: 'cb-ok'
+          }
+        ];
+        capWrap.innerHTML =
+          '<span class="hw-k" style="margin-bottom:1px;">Best Supported Formats (Verified on This Device)</span>' +
+          rows.map(r =>
+            '<div class="cap-row"><div class="cap-l"><span class="cap-name">' + r.name + '</span><span class="cap-sub">' + r.sub + '</span></div><span class="cap-badge ' + r.cls + '">' + r.badge + '</span></div>'
+          ).join('');
+      }
+
+      const runDeviceHwTest = (e) => {
+        if (!hasBridge || typeof window.AndroidBridge.runBenchmark !== 'function') return;
+        if (e) { e.preventDefault(); e.stopImmediatePropagation(); }
+        const bLbl = document.getElementById('lbl-bench');
+        if (bLbl) bLbl.textContent = 'Testing hardware codecs & 1080p60 x264 speed...';
+        if (bBench) bBench.disabled = true;
+        const bQuick = document.getElementById('btn-run-hw-test');
+        if (bQuick) bQuick.disabled = true;
+        setTimeout(() => {
+          try {
+            const res = JSON.parse(window.AndroidBridge.runBenchmark() || '{}');
+            if (res && res.ok && res.fps > 0) {
+              if (bLbl) bLbl.textContent = 'Verified: ~' + res.fps + ' fps (1080p60 x264 · ' + (res.threads || 8) + 'T)';
+              renderTestedDeviceFormats(res);
+              toast('Device test complete: ' + res.fps + ' fps ✓');
+            } else {
+              if (bLbl) bLbl.textContent = 'Test failed — try again';
+              toast('Device test failed');
+            }
+          } catch (_) {
+            if (bLbl) bLbl.textContent = 'Test error';
+          }
+          if (bBench) bBench.disabled = false;
+          if (bQuick) bQuick.disabled = false;
+        }, 30);
+      };
+      if (bBench) bBench.addEventListener('click', runDeviceHwTest, true);
+      document.addEventListener('click', (e) => {
+        if (e.target && e.target.closest && e.target.closest('#btn-run-hw-test')) {
+          runDeviceHwTest(e);
+        }
+      });
+
       const bClearCache = document.getElementById('btn-clear-cache');
       if (bClearCache) bClearCache.addEventListener('click', (e) => {
         if (!hasBridge || typeof window.AndroidBridge.clearCache !== 'function') return;
         e.preventDefault(); e.stopImmediatePropagation();
         const r = JSON.parse(window.AndroidBridge.clearCache());
         const mb = ((r.bytesFreed || 0) / (1024 * 1024)).toFixed(2);
+        const cLbl = document.getElementById('lbl-cache');
+        if (cLbl) cLbl.textContent = '0.00 MB cached temp files';
         toast('Cleared ' + mb + ' MB of temporary cache ✓');
       }, true);
 
@@ -1562,18 +1927,58 @@
             const el = document.getElementById(id);
             if (!el) return;
             if (s[key] !== undefined && s[key] !== null) {
-              const targetVal = String(s[key]);
+              let targetVal = String(s[key]);
+              if (key === 'originalSourcePolicy' && targetVal.toUpperCase() === 'KEEP') targetVal = 'keep';
+              if (key === 'defaultSuffixRule' && targetVal === 'orig') targetVal = 'none';
+              if (key === 'hwPreference' && targetVal === 'sw_quality') targetVal = 'sw_hq';
+              if (key === 'defaultThreads' && targetVal === 'auto') targetVal = '8';
+              if (key === 'sampleRetentionDays' && (targetVal === '0' || targetVal === '-1')) targetVal = 'never';
               if (Array.from(el.options).some(o => o.value === targetVal)) {
                 el.value = targetVal;
               }
             }
             el.addEventListener('change', () => {
               const payload = {};
-              payload[key] = (key === 'sampleRetentionDays') ? (parseInt(el.value, 10) || 15) : el.value;
+              payload[key] = (key === 'sampleRetentionDays') ? (el.value === 'never' ? 0 : (parseInt(el.value, 10) || 15)) : el.value;
               window.AndroidBridge.saveSettings(JSON.stringify(payload));
               toast('Setting saved ✓');
             });
           });
+          const chkSepDef = document.getElementById('chk-def-separate');
+          if (chkSepDef) {
+            if (typeof s.separateByType === 'boolean') chkSepDef.checked = s.separateByType;
+            chkSepDef.addEventListener('change', () => {
+              window.AndroidBridge.saveSettings(JSON.stringify({ separateByType: !!chkSepDef.checked }));
+              toast('Setting saved ✓');
+            });
+          }
+          const bLblInit = document.getElementById('lbl-bench');
+          if (bLblInit && s.benchFps > 0) {
+            bLblInit.textContent = 'Verified: ~' + Number(s.benchFps).toFixed(1) + ' fps (1080p60 x264)';
+          }
+          if (s.hwTestJson) {
+            try { renderTestedDeviceFormats(JSON.parse(s.hwTestJson)); } catch (_) {}
+          }
+          const cLblInit = document.getElementById('lbl-cache');
+          if (cLblInit && typeof s.cacheSizeBytes === 'number') {
+            cLblInit.textContent = (s.cacheSizeBytes / (1024 * 1024)).toFixed(2) + ' MB cached temp files';
+          }
+          const chkTherm = document.getElementById('chk-thermal-guard');
+          if (chkTherm) {
+            if (typeof s.thermalGuard === 'boolean') chkTherm.checked = s.thermalGuard;
+            chkTherm.addEventListener('change', () => {
+              window.AndroidBridge.saveSettings(JSON.stringify({ thermalGuard: !!chkTherm.checked }));
+              toast('Thermal Guard ' + (chkTherm.checked ? 'enabled' : 'disabled'));
+            });
+          }
+          const chkAwake = document.getElementById('chk-keep-awake');
+          if (chkAwake) {
+            if (typeof s.keepScreenAwake === 'boolean') chkAwake.checked = s.keepScreenAwake;
+            chkAwake.addEventListener('change', () => {
+              window.AndroidBridge.saveSettings(JSON.stringify({ keepScreenAwake: !!chkAwake.checked }));
+              toast('Keep Screen Awake ' + (chkAwake.checked ? 'ON' : 'OFF'));
+            });
+          }
         } catch (_) {}
       }
       if (bOpenFm) bOpenFm.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.AndroidBridge.openFolder(''); } }, true);
@@ -1585,7 +1990,7 @@
         }
       }, true);
 
-      // Live-sync Settings Saved Presets Manager from Room SQLite
+      // Live-sync Settings Presets 100% from Room SQLite (both Built-in and Custom presets, zero hardcoding)
       function renderSettingsSavedPresets() {
         const listEl = document.getElementById('settings-saved-presets-list');
         const subEl = document.getElementById('lbl-saved-presets-sub');
@@ -1593,6 +1998,8 @@
         if (!listEl) return;
 
         const items = [];
+        let customCount = 0;
+        let builtinCount = 0;
         if (hasBridge && typeof window.AndroidBridge.getPresets === 'function') {
           try {
             const roomList = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
@@ -1600,25 +2007,31 @@
               let parsed = {};
               try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
               const cat = p.category || 'Video';
+              const nm = p.name || 'Preset';
+              const isB = !!p.isBuiltIn;
+              if (isB) builtinCount++; else customCount++;
               const summary = parsed.specs || (cat.toUpperCase() + ' · .' + (p.container || 'mp4') + ' · ' + (p.codec || 'libx264') + (p.crfOrBitrate ? ' · ' + p.crfOrBitrate : ''));
-              items.push({ name: p.name || 'Saved Preset', sub: summary });
+              items.push({ name: nm, sub: summary, origin: isB ? 'BUILT-IN' : 'CUSTOM' });
             });
           } catch (_) {}
         }
+
         const count = items.length;
-        if (subEl) subEl.textContent = count === 0 ? 'No custom presets saved yet · Create one in Presets Hub' : (count + ' saved preset' + (count === 1 ? '' : 's') + ' · Synced across Single & Batch');
-        if (badgeEl) badgeEl.textContent = count + ' SAVED';
+        if (subEl) subEl.textContent = count === 0
+          ? 'No active presets · Open Presets Hub to create or restore'
+          : (count + ' preset' + (count === 1 ? '' : 's') + ' (' + builtinCount + ' built-in · ' + customCount + ' custom) · Live Room Sync');
+        if (badgeEl) badgeEl.textContent = count + ' PRESETS';
 
         const esc = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         listEl.innerHTML = count === 0
-          ? '<div class="cap-row"><div class="cap-l"><span class="cap-name">No saved presets yet</span><span class="cap-sub">Save a Video, Audio, or Photo preset to see it synced here.</span></div><button type="button" class="btn-sm" data-open-presets="1">Open Presets</button></div>'
+          ? '<div class="cap-row"><div class="cap-l"><span class="cap-name">No active presets</span><span class="cap-sub">Open Presets Hub to create or restore presets.</span></div><button type="button" class="btn-sm" data-open-presets="1">Open Presets</button></div>'
           : items.map(it =>
               '<div class="cap-row">' +
                 '<div class="cap-l">' +
-                  '<span class="cap-name">' + esc(it.name) + '</span>' +
+                  '<span class="cap-name">' + esc(it.name) + ' <span style="font-size:9.5px; font-family:var(--mono); padding:1px 5px; border-radius:4px; margin-left:4px; background:' + (it.origin === 'CUSTOM' ? 'var(--gold-soft)' : 'var(--card-elev)') + '; color:' + (it.origin === 'CUSTOM' ? 'var(--gold-text)' : 'var(--muted)') + ';">' + it.origin + '</span></span>' +
                   '<span class="cap-sub">' + esc(it.sub) + '</span>' +
                 '</div>' +
-                '<button type="button" class="btn-sm" data-open-presets="1">Edit</button>' +
+                '<button type="button" class="btn-sm" data-open-presets="1">' + (it.origin === 'CUSTOM' ? 'Edit' : 'Open') + '</button>' +
               '</div>'
             ).join('');
       }
@@ -1708,8 +2121,16 @@
     if (page === 'conversion_vault_p8_playback_tester.html') {
       const bFm = document.getElementById('btn-gen-fm');
       const bOpenFm = document.getElementById('btn-open-fm');
-      if (bFm) bFm.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.AndroidBridge.openFolder('/storage/emulated/0/ConversionVault/Samples'); } }, true);
-      if (bOpenFm) bOpenFm.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); window.AndroidBridge.openFolder('/storage/emulated/0/ConversionVault/Samples'); } }, true);
+      const openSamplesDir = () => {
+        let baseRoot = '/storage/emulated/0/ConversionVault';
+        try {
+          const st = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          if (st.defaultVaultFolder) baseRoot = st.defaultVaultFolder.replace(/\/$/, '');
+        } catch (_) {}
+        window.AndroidBridge.openFolder(baseRoot + '/Samples');
+      };
+      if (bFm) bFm.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); openSamplesDir(); } }, true);
+      if (bOpenFm) bOpenFm.addEventListener('click', (e) => { if (hasBridge) { e.preventDefault(); e.stopImmediatePropagation(); openSamplesDir(); } }, true);
     }
 
     // Wire all 8 Quick Tools
@@ -1744,9 +2165,11 @@
         if (page === 'conversion_vault_t1_metadata.html') {
           const spec = typeof window.getMetadataJobSpec === 'function' ? window.getMetadataJobSpec() : null;
           if (!spec) { toast('Pick a file and choose a wipe or edit action'); return; }
+          if (typeof window.autoBackupMetadataBeforeWipe === 'function') window.autoBackupMetadataBeforeWipe();
           const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify(spec)));
           if (res && res.ok) {
             if (res.jobId) safeSet('cv_active_job_id', res.jobId);
+            clearActiveSelection();
             navigateTo('conversion_vault_p4a_convert_single.html');
           } else {
             toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));

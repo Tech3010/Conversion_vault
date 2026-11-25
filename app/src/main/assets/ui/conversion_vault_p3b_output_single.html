@@ -386,7 +386,7 @@
     }
 
     function getBasePath() {
-      if (state.mode === 'vault') return '/storage/emulated/0/ConversionVault/Vault_Core/';
+      if (state.mode === 'vault') return (window.__cvVaultRoot || '/storage/emulated/0/ConversionVault') + '/Vault_Core/';
       if (state.mode === 'source') return '/Movies/AlightMotion/Converted/';
       return state.customPath;
     }

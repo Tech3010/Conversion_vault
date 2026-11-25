@@ -8,6 +8,8 @@ import androidx.exifinterface.media.ExifInterface
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.DocumentsContract
 import android.webkit.JavascriptInterface
 import android.webkit.MimeTypeMap
 import androidx.core.content.ContextCompat
@@ -76,6 +78,38 @@ class AndroidBridge(
     @JavascriptInterface
     fun getDeviceTelemetry(): String {
         return HardwareProfiler.collectTelemetry(context).toString()
+    }
+
+    @JavascriptInterface
+    fun runBenchmark(): String {
+        return try {
+            val threads = prefs.getString("default_threads", "8")?.toIntOrNull() ?: 8
+            val startNs = System.nanoTime()
+            val session = FFmpegKit.execute("-loglevel error -threads $threads -f lavfi -i testsrc2=size=1920x1080:rate=60 -t 1 -c:v libx264 -preset fast -pix_fmt yuv420p -f null -")
+            val elapsedMs = ((System.nanoTime() - startNs) / 1_000_000L).coerceAtLeast(1L)
+            val ok = ReturnCode.isSuccess(session.returnCode)
+            val fps = if (ok) (60.0 / (elapsedMs / 1000.0)) else 0.0
+            val telemetry = HardwareProfiler.collectTelemetry(context)
+            val codecs = telemetry.optJSONObject("codecs") ?: JSONObject()
+            val measuredFps = String.format(Locale.US, "%.1f", fps).toDouble()
+            val testResult = JSONObject().apply {
+                put("ok", ok)
+                put("fps", measuredFps)
+                put("elapsedMs", elapsedMs)
+                put("threads", threads)
+                put("testedAt", System.currentTimeMillis())
+                put("codecs", codecs)
+            }
+            if (ok && fps > 0.0) {
+                prefs.edit()
+                    .putFloat("bench_fps", fps.toFloat())
+                    .putString("hw_test_json", testResult.toString())
+                    .apply()
+            }
+            testResult.toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Benchmark failed").toString()
+        }
     }
 
     @JavascriptInterface
@@ -455,6 +489,8 @@ class AndroidBridge(
                 var finalH = vObj?.optInt("height", 0) ?: 0
                 var cameraModel = ""
                 var exifOrient = ""
+                var gpsCoords = ""
+                var dateTaken = ""
                 if (NativePhotoEngine.isImageExtension(file.extension)) {
                     try {
                         if (finalW <= 0 || finalH <= 0) {
@@ -469,8 +505,20 @@ class AndroidBridge(
                         val mk = ex.getAttribute(ExifInterface.TAG_MAKE) ?: ""
                         val md = ex.getAttribute(ExifInterface.TAG_MODEL) ?: ""
                         cameraModel = listOf(mk, md).filter { it.isNotBlank() }.joinToString(" ").trim()
-                        val lat = ex.getAttribute(ExifInterface.TAG_GPS_LATITUDE)
-                        if (!lat.isNullOrBlank()) hasGps = true
+                        val dtOrig = ex.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL) ?: ex.getAttribute(ExifInterface.TAG_DATETIME) ?: ""
+                        dateTaken = dtOrig.trim()
+                        val ll = ex.latLong
+                        if (ll != null) {
+                            hasGps = true
+                            gpsCoords = String.format(Locale.US, "%.5f, %.5f", ll[0], ll[1])
+                        } else {
+                            val lat = ex.getAttribute(ExifInterface.TAG_GPS_LATITUDE)
+                            if (!lat.isNullOrBlank()) {
+                                hasGps = true
+                                val lon = ex.getAttribute(ExifInterface.TAG_GPS_LONGITUDE) ?: ""
+                                gpsCoords = "$lat $lon".trim()
+                            }
+                        }
                         val orientInt = ex.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
                         exifOrient = when (orientInt) {
                             ExifInterface.ORIENTATION_ROTATE_90 -> "90° CW"
@@ -478,11 +526,52 @@ class AndroidBridge(
                             ExifInterface.ORIENTATION_ROTATE_270 -> "270° CW"
                             else -> "Normal (0°)"
                         }
+                        val lens = ex.getAttribute(ExifInterface.TAG_LENS_MODEL) ?: ""
+                        val ap = ex.getAttribute(ExifInterface.TAG_F_NUMBER)?.let { "f/$it" } ?: ""
+                        val exp = ex.getAttribute(ExifInterface.TAG_EXPOSURE_TIME)?.toDoubleOrNull()?.let { s ->
+                            if (s > 0 && s < 1.0) "1/${Math.round(1.0 / s)}s" else "${s}s"
+                        } ?: ""
+                        val isoVal = ex.getAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY) ?: ex.getAttribute(ExifInterface.TAG_ISO_SPEED) ?: ""
+                        val fl = ex.getAttribute(ExifInterface.TAG_FOCAL_LENGTH)?.let { rawFl ->
+                            val pts = rawFl.split("/")
+                            if (pts.size == 2 && (pts[1].toDoubleOrNull() ?: 0.0) > 0.0) {
+                                String.format(Locale.US, "%.1f mm", (pts[0].toDoubleOrNull() ?: 0.0) / pts[1].toDouble())
+                            } else rawFl
+                        } ?: ""
+                        val sw = ex.getAttribute(ExifInterface.TAG_SOFTWARE) ?: ""
+                        val art = ex.getAttribute(ExifInterface.TAG_ARTIST) ?: ""
+                        val cpy = ex.getAttribute(ExifInterface.TAG_COPYRIGHT) ?: ""
+                        val flashRaw = ex.getAttribute(ExifInterface.TAG_FLASH) ?: ""
+                        val wbRaw = ex.getAttribute(ExifInterface.TAG_WHITE_BALANCE) ?: ""
+                        if (cameraModel.isNotBlank()) allTags.put("CameraModel", cameraModel)
+                        if (lens.isNotBlank()) allTags.put("LensModel", lens)
+                        if (ap.isNotBlank()) allTags.put("Aperture", ap)
+                        if (exp.isNotBlank()) allTags.put("ShutterSpeed", exp)
+                        if (isoVal.isNotBlank()) allTags.put("ISO", isoVal)
+                        if (fl.isNotBlank()) allTags.put("FocalLength", fl)
+                        if (sw.isNotBlank()) allTags.put("Software", sw)
+                        if (art.isNotBlank()) allTags.put("Artist", art)
+                        if (cpy.isNotBlank()) allTags.put("Copyright", cpy)
+                        if (flashRaw.isNotBlank()) allTags.put("Flash", flashRaw)
+                        if (wbRaw.isNotBlank()) allTags.put("WhiteBalance", wbRaw)
+                        if (dateTaken.isNotBlank()) allTags.put("DateTimeOriginal", dateTaken)
+                        if (gpsCoords.isNotBlank()) allTags.put("GPSCoordinates", gpsCoords)
+                        put("lensModel", lens)
+                        put("aperture", ap)
+                        put("shutter", exp)
+                        put("iso", isoVal)
+                        put("focalLength", fl)
+                        put("software", sw)
+                        put("exifOrientation", exifOrient)
                         if (cameraModel.isNotBlank() && tagKeys.none { it.startsWith("Camera:", true) }) {
                             tagKeys.add(0, "Camera: $cameraModel")
                         }
                     } catch (_: Throwable) {}
                 }
+                put("allTags", allTags)
+                put("tagsCount", allTags.length())
+                put("gpsCoords", gpsCoords)
+                put("dateTaken", dateTaken)
                 put("width", finalW)
                 put("height", finalH)
                 put("cameraModel", cameraModel)
@@ -520,19 +609,33 @@ class AndroidBridge(
         val inputPath = VaultStorageManager.resolveInputPath(context, req.getString("inputPath"))
         val inFile = File(inputPath)
 
-        val customSubBucket = req.optString("subBucket", "")
-        val customOutDir = req.optString("outputDir", "")
+        var customSubBucket = req.optString("subBucket", "")
+        var customOutDir = req.optString("outputDir", "")
+        if (customSubBucket.contains("__AUTO_NUMBERED__")) {
+            val nextNum = VaultStorageManager.resolveNextNumberedSubfolder(VaultStorageManager.getModuleDir(context, module, null))
+            customSubBucket = customSubBucket.replace("__AUTO_NUMBERED__", nextNum)
+        }
+        if (customOutDir.contains("__AUTO_NUMBERED__")) {
+            val baseParent = File(customOutDir.substringBefore("__AUTO_NUMBERED__").trimEnd('/'))
+            val nextNum = VaultStorageManager.resolveNextNumberedSubfolder(baseParent)
+            customOutDir = customOutDir.replace("__AUTO_NUMBERED__", nextNum)
+        }
         val outDir = if (customOutDir.isNotBlank()) File(customOutDir).apply { mkdirs() }
         else VaultStorageManager.getModuleDir(context, module, customSubBucket.ifBlank { null })
 
-        val baseName = req.optString("outputBaseName", inFile.nameWithoutExtension).ifBlank { inFile.nameWithoutExtension }
+        val defSuffix = prefs.getString("default_suffix_rule", "none") ?: "none"
+        val suffixStr = if (defSuffix == "_vault" || defSuffix == "_converted") defSuffix else ""
+        val rawBase = req.optString("outputBaseName", "").trim()
+        val baseName = if (rawBase.isNotBlank()) rawBase else (inFile.nameWithoutExtension + suffixStr)
         val ext = req.optString("outputExt", inFile.extension).ifBlank { "mp4" }
         val outFile = VaultStorageManager.resolveNonConflictingFile(outDir, baseName, ext)
 
         val templateArgs = req.optString("commandArgs", "-y -i {INPUT} -c copy {OUTPUT}")
         val isNativePhotoCmd = templateArgs.trim().startsWith("NATIVE_PHOTO:")
-        val defThreads = prefs.getString("default_threads", "auto") ?: "auto"
-        val threadsPrefix = if (!isNativePhotoCmd && defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else ""
+        val defThreads = prefs.getString("default_threads", "8") ?: "8"
+        val logLvl = prefs.getString("log_level", "info") ?: "info"
+        val logPrefix = if (!isNativePhotoCmd && !templateArgs.contains("-loglevel")) "-loglevel $logLvl -stats " else ""
+        val threadsPrefix = logPrefix + (if (!isNativePhotoCmd && defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else "")
         val resolvedArgs = if (isNativePhotoCmd) {
             templateArgs.trim()
         } else {
@@ -541,7 +644,7 @@ class AndroidBridge(
                 .replace("{OUTPUT}", "\"${outFile.absolutePath}\"")
         }
 
-        val policy = req.optString("originalPolicy", prefs.getString("original_source_policy", "KEEP") ?: "KEEP")
+        val policy = req.optString("originalPolicy", prefs.getString("original_source_policy", "keep") ?: "keep")
         val durationMs = req.optLong("durationMs", 0L)
 
         val entity = JobEntity(
@@ -584,9 +687,11 @@ class AndroidBridge(
     fun enqueueBatchJobs(jobsJsonArrayStr: String): String {
         return try {
             val arr = JSONArray(jobsJsonArrayStr)
-            val defThreads = prefs.getString("default_threads", "auto") ?: "auto"
-            val defPolicy = prefs.getString("original_source_policy", "KEEP") ?: "KEEP"
+            val defThreads = prefs.getString("default_threads", "8") ?: "8"
+            val logLvl = prefs.getString("log_level", "info") ?: "info"
+            val defPolicy = prefs.getString("original_source_policy", "keep") ?: "keep"
             val reservedPaths = mutableSetOf<String>()
+            val numberedCache = mutableMapOf<String, String>()
             val entities = mutableListOf<JobEntity>()
             var firstJobId = ""
 
@@ -598,12 +703,25 @@ class AndroidBridge(
                 val inputPath = VaultStorageManager.resolveInputPath(context, req.getString("inputPath"))
                 val inFile = File(inputPath)
 
-                val customSubBucket = req.optString("subBucket", "")
-                val customOutDir = req.optString("outputDir", "")
+                var customSubBucket = req.optString("subBucket", "")
+                var customOutDir = req.optString("outputDir", "")
+                if (customSubBucket.contains("__AUTO_NUMBERED__")) {
+                    val modBase = VaultStorageManager.getModuleDir(context, module, null)
+                    val nextNum = numberedCache.getOrPut(modBase.absolutePath) { VaultStorageManager.resolveNextNumberedSubfolder(modBase) }
+                    customSubBucket = customSubBucket.replace("__AUTO_NUMBERED__", nextNum)
+                }
+                if (customOutDir.contains("__AUTO_NUMBERED__")) {
+                    val baseParent = File(customOutDir.substringBefore("__AUTO_NUMBERED__").trimEnd('/'))
+                    val nextNum = numberedCache.getOrPut(baseParent.absolutePath) { VaultStorageManager.resolveNextNumberedSubfolder(baseParent) }
+                    customOutDir = customOutDir.replace("__AUTO_NUMBERED__", nextNum)
+                }
                 val outDir = if (customOutDir.isNotBlank()) File(customOutDir).apply { mkdirs() }
                 else VaultStorageManager.getModuleDir(context, module, customSubBucket.ifBlank { null })
 
-                val baseName = req.optString("outputBaseName", inFile.nameWithoutExtension).ifBlank { inFile.nameWithoutExtension }
+                val defSuffix = prefs.getString("default_suffix_rule", "none") ?: "none"
+                val suffixStr = if (defSuffix == "_vault" || defSuffix == "_converted") defSuffix else ""
+                val rawBase = req.optString("outputBaseName", "").trim()
+                val baseName = if (rawBase.isNotBlank()) rawBase else (inFile.nameWithoutExtension + suffixStr)
                 val ext = req.optString("outputExt", inFile.extension).ifBlank { "mp4" }
 
                 // Prevent two jobs in the same batch from colliding on the same outputPath before files exist
@@ -617,7 +735,8 @@ class AndroidBridge(
 
                 val templateArgs = req.optString("commandArgs", "-y -i {INPUT} -c copy {OUTPUT}")
                 val isNativePhotoCmd = templateArgs.trim().startsWith("NATIVE_PHOTO:")
-                val threadsPrefix = if (!isNativePhotoCmd && defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else ""
+                val logPrefix = if (!isNativePhotoCmd && !templateArgs.contains("-loglevel")) "-loglevel $logLvl -stats " else ""
+                val threadsPrefix = logPrefix + (if (!isNativePhotoCmd && defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else "")
                 val resolvedArgs = if (isNativePhotoCmd) {
                     templateArgs.trim()
                 } else {
@@ -924,8 +1043,97 @@ class AndroidBridge(
         return JSONObject().put("ok", true).toString()
     }
 
+    private fun ensureBuiltInPresetsSeeded() {
+        if (prefs.getBoolean("builtins_seeded_v1", false)) return
+        try {
+            val now = System.currentTimeMillis()
+            val defaults = listOf(
+                PresetEntity(
+                    id = "builtin_h264_alli",
+                    name = "H.264 All-I Edit",
+                    category = "Video",
+                    codec = "libx264",
+                    container = "mp4",
+                    crfOrBitrate = "15",
+                    extraFlags = "{\"desc\":\"Intra-frame editing master for zero-lag timeline scrubbing.\",\"specs\":\".mp4 · libx264 · Intra-Frame (-g 1) · CRF 15 · AAC 256k\",\"cfg\":{\"presetName\":\"H.264 All-I Edit\",\"container\":\"mp4\",\"codec\":\"libx264\",\"rcMode\":\"crf_only\",\"crf\":15,\"maxrate\":45,\"preset\":\"fast\",\"gop\":\"1\",\"bframes\":0,\"fps\":\"original\",\"scale\":\"original\",\"orient\":\"keep\",\"pixfmt\":\"yuv420p\",\"audioCodec\":\"aac\",\"audioBr\":\"256k\",\"meta\":\"wipe\"}}",
+                    isBuiltIn = true,
+                    isDeleted = false,
+                    updatedAt = now + 6
+                ),
+                PresetEntity(
+                    id = "builtin_reels_60fps",
+                    name = "60fps Reels HQ",
+                    category = "Video",
+                    codec = "libx264",
+                    container = "mp4",
+                    crfOrBitrate = "18",
+                    extraFlags = "{\"desc\":\"Instagram Reels compliant bitrate cap with +faststart & EXIF wipe.\",\"specs\":\".mp4 · libx264 · 60fps · CRF 18 · 12M cap · AAC 192k\",\"cfg\":{\"presetName\":\"60fps Reels HQ\",\"container\":\"mp4\",\"codec\":\"libx264\",\"rcMode\":\"crf_cap\",\"crf\":18,\"maxrate\":12,\"preset\":\"slower\",\"gop\":\"auto\",\"bframes\":2,\"fps\":\"60\",\"scale\":\"original\",\"orient\":\"keep\",\"pixfmt\":\"yuv420p\",\"audioCodec\":\"aac\",\"audioBr\":\"192k\",\"meta\":\"wipe\"}}",
+                    isBuiltIn = true,
+                    isDeleted = false,
+                    updatedAt = now + 5
+                ),
+                PresetEntity(
+                    id = "builtin_hevc_10bit",
+                    name = "HEVC 10-Bit Archive",
+                    category = "Video",
+                    codec = "libx265",
+                    container = "mkv",
+                    crfOrBitrate = "19",
+                    extraFlags = "{\"desc\":\"High-efficiency 10-bit archive with Opus audio.\",\"specs\":\".mkv · libx265 · 10-bit · CRF 19 · Opus 192k\",\"cfg\":{\"presetName\":\"HEVC 10-Bit Archive\",\"container\":\"mkv\",\"codec\":\"libx265\",\"rcMode\":\"crf_only\",\"crf\":19,\"maxrate\":20,\"preset\":\"slow\",\"gop\":\"auto\",\"bframes\":3,\"fps\":\"original\",\"scale\":\"original\",\"orient\":\"keep\",\"pixfmt\":\"yuv420p10le\",\"audioCodec\":\"libopus\",\"audioBr\":\"192k\",\"meta\":\"wipe\"}}",
+                    isBuiltIn = true,
+                    isDeleted = false,
+                    updatedAt = now + 4
+                ),
+                PresetEntity(
+                    id = "builtin_opus_192",
+                    name = "Opus 192k Transparent",
+                    category = "Audio",
+                    codec = "opus",
+                    container = "opus",
+                    crfOrBitrate = "192k",
+                    extraFlags = "{\"desc\":\"Transparent high-efficiency Opus audio at 48 kHz stereo.\",\"specs\":\".opus · 192 kbps · 48 kHz · Stereo\",\"cfg\":{\"presetName\":\"Opus 192k Transparent\",\"fmt\":\"opus\",\"br\":\"192k\",\"ar\":\"48000\",\"ch\":\"2\",\"channels\":\"2\",\"filter\":\"none\",\"gain\":\"0dB\",\"speed\":\"1.0\",\"fade\":\"none\",\"trimStart\":\"00:00:00\",\"trimEnd\":\"End\",\"meta\":\"wipe\"}}",
+                    isBuiltIn = true,
+                    isDeleted = false,
+                    updatedAt = now + 3
+                ),
+                PresetEntity(
+                    id = "builtin_aac_loudnorm",
+                    name = "Loudnorm AAC (-14 LUFS)",
+                    category = "Audio",
+                    codec = "m4a",
+                    container = "m4a",
+                    crfOrBitrate = "192k",
+                    extraFlags = "{\"desc\":\"Broadcast-leveled AAC audio normalized to -14 LUFS.\",\"specs\":\".m4a · 192 kbps · EBU R128 Loudnorm\",\"cfg\":{\"presetName\":\"Loudnorm AAC (-14 LUFS)\",\"fmt\":\"m4a\",\"br\":\"192k\",\"ar\":\"48000\",\"ch\":\"2\",\"channels\":\"2\",\"filter\":\"loudnorm\",\"af\":\"loudnorm\",\"gain\":\"0dB\",\"speed\":\"1.0\",\"fade\":\"none\",\"trimStart\":\"00:00:00\",\"trimEnd\":\"End\",\"meta\":\"wipe\"}}",
+                    isBuiltIn = true,
+                    isDeleted = false,
+                    updatedAt = now + 2
+                ),
+                PresetEntity(
+                    id = "builtin_webp_85",
+                    name = "WebP Crisp 85%",
+                    category = "Image",
+                    codec = "webp",
+                    container = "webp",
+                    crfOrBitrate = "85",
+                    extraFlags = "{\"desc\":\"Tiny web-ready photos with EXIF & GPS stripped.\",\"specs\":\".webp · Q85 · Auto-Orient · 4:4:4 · Wipe EXIF\",\"cfg\":{\"presetName\":\"WebP Crisp 85%\",\"fmt\":\"webp\",\"qual\":85,\"scale\":\"original\",\"orient\":\"auto\",\"colorSpace\":\"srgb_444\",\"crop\":\"original\",\"filter\":\"none\",\"brightness\":0,\"meta\":\"wipe\"}}",
+                    isBuiltIn = true,
+                    isDeleted = false,
+                    updatedAt = now + 1
+                )
+            )
+            runBlocking {
+                val existingIds = (db.presetDao().getActivePresets() + db.presetDao().getDeletedPresets()).map { it.id }.toSet()
+                defaults.forEach { d ->
+                    if (d.id !in existingIds) db.presetDao().upsertPreset(d)
+                }
+            }
+            prefs.edit().putBoolean("builtins_seeded_v1", true).apply()
+        } catch (_: Throwable) {}
+    }
+
     @JavascriptInterface
     fun getPresets(includeDeleted: Boolean): String {
+        ensureBuiltInPresetsSeeded()
         return try {
             val list = runBlocking {
                 if (includeDeleted) db.presetDao().getDeletedPresets() else db.presetDao().getActivePresets()
@@ -1008,12 +1216,22 @@ class AndroidBridge(
         return JSONObject().apply {
             put("theme", prefs.getString("theme", "dark"))
             put("defaultVaultFolder", prefs.getString("default_vault_folder", VaultStorageManager.getRootDir(context).absolutePath))
-            put("originalSourcePolicy", prefs.getString("original_source_policy", "KEEP"))
-            put("defaultSubfolderStyle", prefs.getString("default_subfolder_style", "none"))
-            put("defaultSuffixRule", prefs.getString("default_suffix_rule", "orig"))
-            put("defaultThreads", prefs.getString("default_threads", "auto"))
-            put("hwPreference", prefs.getString("hw_preference", "sw_quality"))
+            put("originalSourcePolicy", prefs.getString("original_source_policy", "keep"))
+            put("defaultSubfolderStyle", prefs.getString("default_subfolder_style", "numbered"))
+            put("defaultSuffixRule", prefs.getString("default_suffix_rule", "none"))
+            put("separateByType", prefs.getBoolean("separate_by_type", true))
+            put("defaultThreads", prefs.getString("default_threads", "8"))
+            put("hwPreference", prefs.getString("hw_preference", "sw_hq"))
             put("logLevel", prefs.getString("log_level", "info"))
+            put("thermalGuard", prefs.getBoolean("thermal_guard", true))
+            put("keepScreenAwake", prefs.getBoolean("keep_screen_awake", true))
+            put("benchFps", prefs.getFloat("bench_fps", 0f).toDouble())
+            put("hwTestJson", prefs.getString("hw_test_json", "") ?: "")
+            val stagedDir = File(context.cacheDir, "staged_inputs")
+            val stagedBytes = stagedDir.listFiles()?.filter { it.isFile }?.sumOf { it.length() } ?: 0L
+            val rootTmpBytes = context.cacheDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".tmp") || it.name.startsWith("photo_stage_") || it.name.startsWith("heic_stage_")) }?.sumOf { it.length() } ?: 0L
+            val cacheBytes = stagedBytes + rootTmpBytes
+            put("cacheSizeBytes", cacheBytes)
             put("defaultMetadataPolicy", prefs.getString("default_metadata_policy", "forensic"))
             put("autoSuffixCollision", true)
             put("sampleRetentionDays", prefs.getInt("sample_retention_days", 15))
@@ -1033,13 +1251,36 @@ class AndroidBridge(
             if (o.has("originalSourcePolicy")) putString("original_source_policy", o.getString("originalSourcePolicy"))
             if (o.has("defaultSubfolderStyle")) putString("default_subfolder_style", o.getString("defaultSubfolderStyle"))
             if (o.has("defaultSuffixRule")) putString("default_suffix_rule", o.getString("defaultSuffixRule"))
+            if (o.has("separateByType")) putBoolean("separate_by_type", o.optBoolean("separateByType", true))
             if (o.has("defaultThreads")) putString("default_threads", o.getString("defaultThreads"))
             if (o.has("hwPreference")) putString("hw_preference", o.getString("hwPreference"))
             if (o.has("logLevel")) putString("log_level", o.getString("logLevel"))
             if (o.has("defaultMetadataPolicy")) putString("default_metadata_policy", o.getString("defaultMetadataPolicy"))
-            if (o.has("sampleRetentionDays")) putInt("sample_retention_days", o.getInt("sampleRetentionDays"))
+            if (o.has("sampleRetentionDays")) {
+                val d = o.getInt("sampleRetentionDays")
+                putInt("sample_retention_days", d)
+                if (d > 0) {
+                    try { VaultStorageManager.cleanupExpiredSamples(context, d) } catch (_: Throwable) {}
+                }
+            }
         }.apply()
         return JSONObject().put("ok", true).toString()
+    }
+
+    @JavascriptInterface
+    fun deleteSourceFile(path: String): String {
+        return try {
+            val f = File(path)
+            val deleted = if (f.exists() && f.isFile) f.delete() else false
+            if (deleted) {
+                try {
+                    MediaScannerConnection.scanFile(context, arrayOf(f.absolutePath), null, null)
+                } catch (_: Throwable) {}
+            }
+            JSONObject().put("ok", true).put("deleted", deleted).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("deleted", false).put("error", t.message ?: "Delete failed").toString()
+        }
     }
 
     @JavascriptInterface
@@ -1049,6 +1290,12 @@ class AndroidBridge(
             val staged = File(context.cacheDir, "staged_inputs")
             staged.listFiles()?.forEach { f ->
                 if (f.isFile) {
+                    bytesFreed += f.length()
+                    f.delete()
+                }
+            }
+            context.cacheDir.listFiles()?.forEach { f ->
+                if (f.isFile && (f.name.endsWith(".tmp") || f.name.startsWith("photo_stage_") || f.name.startsWith("heic_stage_"))) {
                     bytesFreed += f.length()
                     f.delete()
                 }
@@ -1140,6 +1387,8 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun listSamples(): String {
+        val retDays = prefs.getInt("sample_retention_days", 15)
+        if (retDays > 0) { try { VaultStorageManager.cleanupExpiredSamples(context, retDays) } catch (_: Throwable) {} }
         val dir = VaultStorageManager.getModuleDir(context, "Samples")
         val arr = JSONArray()
         dir.listFiles()
@@ -1221,53 +1470,142 @@ class AndroidBridge(
         }
     }
 
+    private fun resolveMimeType(ext: String): String {
+        return when (ext.lowercase(Locale.US)) {
+            "mp4", "m4v" -> "video/mp4"
+            "mkv" -> "video/x-matroska"
+            "webm" -> "video/webm"
+            "mov" -> "video/quicktime"
+            "avi" -> "video/x-msvideo"
+            "mp3" -> "audio/mpeg"
+            "m4a", "aac" -> "audio/mp4"
+            "opus", "ogg" -> "audio/ogg"
+            "flac" -> "audio/flac"
+            "wav" -> "audio/wav"
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "heic", "heif" -> "image/heic"
+            "avif" -> "image/avif"
+            "gif" -> "image/gif"
+            else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase(Locale.US)) ?: "*/*"
+        }
+    }
+
     @JavascriptInterface
     fun openFile(path: String) {
-        val file = File(path)
-        if (!file.exists()) return
-        val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "*/*"
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mime)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(Intent.createChooser(intent, "Open with").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        try {
+            val file = File(path)
+            if (!file.exists()) return
+            val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val mime = resolveMimeType(file.extension)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mime)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(Intent.createChooser(intent, "Open with").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Throwable) {}
     }
 
     @JavascriptInterface
     fun shareFile(path: String) {
-        val file = File(path)
-        if (!file.exists()) return
-        val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "*/*"
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = mime
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(Intent.createChooser(intent, "Share file").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        try {
+            val file = File(path)
+            if (!file.exists()) return
+            val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val mime = resolveMimeType(file.extension)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = mime
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share file").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Throwable) {}
     }
 
     @JavascriptInterface
     fun openFolder(folderPath: String) {
         try {
-            val target = if (folderPath.isBlank()) VaultStorageManager.getRootDir(context) else File(folderPath)
-            if (!target.exists()) target.mkdirs()
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(
-                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", target),
-                    "resource/folder"
-                )
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            val rawTarget = if (folderPath.isBlank()) VaultStorageManager.getRootDir(context) else File(folderPath)
+            val targetDir = if (rawTarget.isFile) (rawTarget.parentFile ?: VaultStorageManager.getRootDir(context)) else rawTarget
+            if (!targetDir.exists()) targetDir.mkdirs()
+
+            val primaryRoot = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')
+            val absPath = targetDir.absolutePath.trimEnd('/')
+            val docId = when {
+                absPath.equals(primaryRoot, ignoreCase = true) -> "primary:"
+                absPath.startsWith("$primaryRoot/") -> "primary:" + absPath.removePrefix("$primaryRoot/")
+                absPath.startsWith("/storage/") -> {
+                    val rest = absPath.removePrefix("/storage/")
+                    val slash = rest.indexOf('/')
+                    if (slash > 0) rest.substring(0, slash) + ":" + rest.substring(slash + 1) else "$rest:"
+                }
+                else -> "primary:ConversionVault"
             }
-            context.startActivity(Intent.createChooser(intent, "Open folder").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (_: Exception) {
+            val docUri = DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", docId)
+
+            // 1. Standard Android DocumentsUI / default system Files app (opens the exact directory cleanly)
+            val systemDirs = listOf(
+                "com.google.android.documentsui",
+                "com.android.documentsui",
+                "com.google.android.apps.nbu.files"
+            )
+            for (pkg in systemDirs) {
+                try {
+                    val dirIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(docUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                        setPackage(pkg)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    if (dirIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(dirIntent)
+                        return
+                    }
+                } catch (_: Throwable) {}
+            }
+
+            // 2. Generic system directory viewer (vnd.android.document/directory) — never uses broken resource/folder
+            val genericDir = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(docUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            if (genericDir.resolveActivity(context.packageManager) != null) {
+                context.startActivity(genericDir)
+                return
+            }
+
+            // 3. Fallback: launch Google Files / MIUI File Manager / system Files directly
+            val fallbackPkgs = listOf(
+                "com.google.android.apps.nbu.files",
+                "com.mi.android.globalFileexplorer",
+                "com.google.android.documentsui",
+                "com.android.documentsui"
+            )
+            for (pkg in fallbackPkgs) {
+                val launch = context.packageManager.getLaunchIntentForPackage(pkg)
+                if (launch != null) {
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(launch)
+                    return
+                }
+            }
+        } catch (_: Throwable) {}
+    }
+
+    @JavascriptInterface
+    fun exportMetadataBackup(baseName: String, content: String, ext: String): String {
+        return try {
+            val cleanExt = ext.trim().trimStart('.').lowercase(Locale.US).ifBlank { "json" }
+            val dir = VaultStorageManager.getModuleDir(context, "Metadata_Modifier", "Extracted_Metadata")
+            val safeBase = File(baseName).nameWithoutExtension.ifBlank { "media" } + "_metadata"
+            val target = VaultStorageManager.resolveNonConflictingFile(dir, safeBase, cleanExt)
+            target.writeText(content)
             try {
-                val pmIntent = context.packageManager.getLaunchIntentForPackage("com.google.android.documentsui")
-                    ?: Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-                pmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(pmIntent)
-            } catch (_: Exception) {}
+                MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), null, null)
+            } catch (_: Throwable) {}
+            JSONObject().put("ok", true).put("path", target.absolutePath).put("filename", target.name).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Export failed").toString()
         }
     }
 

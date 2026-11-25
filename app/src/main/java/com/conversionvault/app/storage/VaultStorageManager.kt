@@ -73,6 +73,14 @@ object VaultStorageManager {
     /**
      * Enforces universal _1, _2, _3 auto-suffixing across all modules so no existing file is ever overwritten.
      */
+    fun resolveNextNumberedSubfolder(baseDir: File): String {
+        var idx = 1
+        while (File(baseDir, String.format("Conversion_%02d", idx)).exists() && idx < 999) {
+            idx++
+        }
+        return String.format("Conversion_%02d", idx)
+    }
+
     fun resolveNonConflictingFile(dir: File, baseName: String, extension: String): File {
         if (!dir.exists()) dir.mkdirs()
         val cleanExt = extension.trimStart('.')
@@ -85,6 +93,25 @@ object VaultStorageManager {
             counter++
         }
         return candidate
+    }
+
+    fun resolveTreeDirPath(uri: Uri): String? {
+        return try {
+            val treeId = DocumentsContract.getTreeDocumentId(uri) ?: return null
+            if ("com.android.externalstorage.documents" == uri.authority) {
+                val split = treeId.split(":")
+                if (split.size >= 2) {
+                    val sub = split[1].trimStart('/')
+                    if ("primary".equals(split[0], ignoreCase = true)) {
+                        val root = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')
+                        return if (sub.isEmpty()) root else "$root/$sub"
+                    } else {
+                        return if (sub.isEmpty()) "/storage/${split[0]}" else "/storage/${split[0]}/$sub"
+                    }
+                }
+            }
+            null
+        } catch (_: Throwable) { null }
     }
 
     fun resolveInputPath(context: Context, uriOrPath: String): String {
@@ -155,6 +182,7 @@ object VaultStorageManager {
     }
 
     fun cleanupExpiredSamples(context: Context, retentionDays: Int = 15): Int {
+        if (retentionDays <= 0) return 0
         val samplesDir = getModuleDir(context, "Samples")
         val cutoffMs = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(retentionDays.toLong())
         var deletedCount = 0

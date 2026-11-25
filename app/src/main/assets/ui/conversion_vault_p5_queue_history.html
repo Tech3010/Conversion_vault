@@ -246,6 +246,15 @@
         </button>
       </div>
 
+      <!-- Search Bar for Active Queue & History -->
+      <div style="position:relative; display:flex; align-items:center;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:11px; pointer-events:none;">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="search" id="inp-qh-search" placeholder="Search files, formats, or status..." autocomplete="off" style="width:100%; padding:9px 34px 9px 34px; border-radius:9px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:12.5px; outline:none;">
+        <button type="button" id="btn-qh-search-clear" class="hidden" aria-label="Clear search" style="position:absolute; right:8px; border:none; background:var(--card-elev); color:var(--muted); width:22px; height:22px; border-radius:50%; font-size:13px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">×</button>
+      </div>
+
       <!-- Sort & File-Manager Multi-Select Toolbar -->
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <button type="button" id="btn-toggle-select" class="btn-sm" style="padding:6px 12px;">☑ Select</button>
@@ -354,6 +363,7 @@
       filter: 'all',
       subFilter: 'all',
       sortBy: 'date_desc',
+      query: '',
       bundleOpen: false,
       selectMode: false,
       selectedIds: new Set(),
@@ -483,8 +493,20 @@
       render();
     }
 
+    function matchesQuery(item) {
+      const q = String(state.query || '').trim().toLowerCase();
+      if (!q) return true;
+      const hay = [item.title, item.sub, item.preset, item.dest, item.status, item.modLabel, item.cat].join(' ').toLowerCase();
+      return hay.includes(q);
+    }
+
+    function getVisibleQueueItems() {
+      return sortItems(state.queue.filter(matchesQuery));
+    }
+
     function getVisibleHistoryItems() {
       const filteredHist = state.history.filter(h => {
+        if (!matchesQuery(h)) return false;
         if (state.filter === 'all') return true;
         if (state.filter === 'cancelled') return h.status === 'cancelled';
         if (state.filter === 'vault_core') {
@@ -530,17 +552,21 @@
 
       // Render Active Queue (Bundled Batch Queue when >1 files; Cancel ONLY, no Remove!)
       const qWrap = document.getElementById('view-queue');
+      const visibleQueue = getVisibleQueueItems();
+      const hasSearch = !!String(state.query || '').trim();
       if (state.queue.length === 0) {
         qWrap.innerHTML = '<div class="empty-box">No active conversions running right now.' + (state.history.length ? ' Tap <strong>History</strong> above to see your finished or cancelled files.' : '') + '</div>';
+      } else if (visibleQueue.length === 0) {
+        qWrap.innerHTML = '<div class="empty-box">No queued files match <strong>&ldquo;' + esc(state.query.trim()) + '&rdquo;</strong>.</div>';
       } else if (state.queue.length > 1) {
         const runningItem = state.queue.find(x => x.status === 'running') || null;
         const pausedCnt = state.queue.filter(x => x.status === 'paused').length;
         const queuedCnt = state.queue.filter(x => x.status === 'queued').length;
         const isBatchPaused = !runningItem && pausedCnt > 0;
-        const sortedQueue = sortItems(state.queue);
+        const sortedQueue = visibleQueue;
         const targetOpenId = (runningItem && runningItem.id) || sortedQueue[0].id;
         const activePct = runningItem ? Math.max(4, runningItem.pct || 0) : 0;
-        const showFiles = state.bundleOpen || state.selectMode;
+        const showFiles = state.bundleOpen || state.selectMode || hasSearch;
 
         qWrap.innerHTML = `
           <div class="job-card ${isBatchPaused ? '' : 'is-run'}">
@@ -589,7 +615,7 @@
           </div>
         `;
       } else {
-        const sortedQueue = sortItems(state.queue);
+        const sortedQueue = visibleQueue;
         qWrap.innerHTML = sortedQueue.map(q => {
           const isRun = q.status === 'running';
           const isPaused = q.status === 'paused';
@@ -770,7 +796,7 @@
       render();
     });
     document.getElementById('btn-sel-all')?.addEventListener('click', () => {
-      const list = state.view === 'queue' ? state.queue : getVisibleHistoryItems();
+      const list = state.view === 'queue' ? getVisibleQueueItems() : getVisibleHistoryItems();
       list.forEach(it => state.selectedIds.add(it.id));
       render();
     });
@@ -779,7 +805,7 @@
       render();
     });
     document.getElementById('btn-sel-invert')?.addEventListener('click', () => {
-      const list = state.view === 'queue' ? state.queue : getVisibleHistoryItems();
+      const list = state.view === 'queue' ? getVisibleQueueItems() : getVisibleHistoryItems();
       list.forEach(it => {
         if (state.selectedIds.has(it.id)) state.selectedIds.delete(it.id);
         else state.selectedIds.add(it.id);
@@ -789,7 +815,7 @@
     document.getElementById('btn-sel-failed')?.addEventListener('click', () => {
       state.selectedIds.clear();
       if (state.view === 'queue') {
-        state.queue.filter(it => it.status === 'paused').forEach(it => state.selectedIds.add(it.id));
+        getVisibleQueueItems().filter(it => it.status === 'paused').forEach(it => state.selectedIds.add(it.id));
       } else {
         getVisibleHistoryItems().filter(it => it.status === 'failed' || it.status === 'cancelled').forEach(it => state.selectedIds.add(it.id));
       }
@@ -842,6 +868,25 @@
       selSort.addEventListener('change', () => {
         state.sortBy = selSort.value || 'date_desc';
         render();
+      });
+    }
+
+    const inpSearch = document.getElementById('inp-qh-search');
+    const btnSearchClear = document.getElementById('btn-qh-search-clear');
+    if (inpSearch) {
+      inpSearch.addEventListener('input', () => {
+        state.query = inpSearch.value || '';
+        if (btnSearchClear) btnSearchClear.classList.toggle('hidden', !state.query.trim());
+        render();
+      });
+    }
+    if (btnSearchClear && inpSearch) {
+      btnSearchClear.addEventListener('click', () => {
+        inpSearch.value = '';
+        state.query = '';
+        btnSearchClear.classList.add('hidden');
+        render();
+        inpSearch.focus();
       });
     }
 

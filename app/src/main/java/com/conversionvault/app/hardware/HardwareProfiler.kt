@@ -92,6 +92,8 @@ object HardwareProfiler {
             put("internalFree", intFreeGb)
             put("externalSdOtg", extSummary)
             put("removableVolumes", removableVolumes)
+            put("abi", Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a")
+            put("androidVersion", Build.VERSION.RELEASE ?: "")
             put("codecs", codecCaps)
         }
     }
@@ -118,6 +120,8 @@ object HardwareProfiler {
     private fun detectMediaCodecs(): JSONObject {
         val list = MediaCodecList(MediaCodecList.ALL_CODECS)
         var h264HwDec = false
+        var h264HwEnc = false
+        var av1HwEnc = false
         var h264_10bitHwDec = false
         var hevc10bitHwDec = false
         var hevcHwEnc = false
@@ -129,6 +133,7 @@ object HardwareProfiler {
 
             for (type in info.supportedTypes) {
                 val caps = try { info.getCapabilitiesForType(type) } catch (_: Exception) { continue }
+                if (type.equals("video/avc", true) && info.isEncoder) { h264HwEnc = true }
                 if (!info.isEncoder && type.equals("video/avc", true)) {
                     h264HwDec = true
                     if (caps.profileLevels.any {
@@ -146,8 +151,8 @@ object HardwareProfiler {
                         hevc10bitHwDec = true
                     }
                 }
-                if (!info.isEncoder && type.equals("video/av01", true)) {
-                    av1HwDec = true
+                if (type.equals("video/av01", true)) {
+                    if (info.isEncoder) av1HwEnc = true else av1HwDec = true
                 }
             }
         }
@@ -157,7 +162,9 @@ object HardwareProfiler {
             put("h264_10bitHwDecode", h264_10bitHwDec)
             put("hevc10bitHwDecode", hevc10bitHwDec)
             put("hevcHwEncode", hevcHwEnc)
+            put("h264HwEncode", h264HwEnc)
             put("av1HwDecode", av1HwDec)
+            put("av1HwEncode", av1HwEnc)
         }
     }
 }

@@ -271,6 +271,38 @@
       border-bottom: 1px solid var(--border);
     }
     .adv-sec-lbl:first-child { margin-top: 0; }
+    .meta-privacy-card {
+      grid-column: 1 / -1;
+      margin-top: 10px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px dashed rgba(16, 185, 129, 0.55);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.09) 0%, rgba(15, 23, 42, 0.35) 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .meta-privacy-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--emerald);
+    }
+    .meta-privacy-pill {
+      font-size: 9.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.16);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
     .adv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
     /* Sticky Bottom Action Bar */
@@ -456,9 +488,9 @@
             <label for="sel-cores">Core Affinity (CPU Pinning · Best-Effort)</label>
             <select id="sel-cores">
               <option value="auto" selected>All 8 Cores (OS Scheduler Default)</option>
-              <option value="4-7">Perf + Prime (Cores 4–7 · 3.0–3.25 GHz)</option>
+              <option value="4-7">Perf + Prime (High-Freq Cores 4–7)</option>
               <option value="0-3">Efficiency Only (Cores 0–3 · 2.1 GHz)</option>
-              <option value="7">Prime Core Only (Core 7 · 3.25 GHz)</option>
+              <option value="7">Prime Core Only (Core 7)</option>
             </select>
             <span class="field-help" id="core-warn-note" style="color:var(--gold-text); margin-top:2px;">Note: Non-rooted Android / HyperOS cpuset policies may override manual core pinning under thermal load.</span>
           </div>
@@ -682,6 +714,7 @@
     }
 
     function renderMain() {
+      if (window.__cvSingleMediaMode === 'i' || window.__cvSingleMediaMode === 'a') return;
       const box = document.getElementById('main-preset-box');
       const perfSec = document.getElementById('sec-perf');
 
@@ -984,7 +1017,7 @@
           </select>
         </div>
 
-        <div class="adv-sec-lbl">Trim Range, Subtitles &amp; Metadata</div>
+        <div class="adv-sec-lbl">Trim Range &amp; Subtitles</div>
         <div class="field"><label class="lbl-row"><span>Trim Start (-ss)</span><button type="button" class="i-btn" data-info="Trim Start (-ss)" aria-label="Info about Trim Start (-ss)">i</button></label>
           <input type="text" value="${draft.trimStart || '00:00:00'}" data-mf="trimStart" placeholder="00:00:00">
         </div>
@@ -1000,7 +1033,15 @@
             <option value="extract" ${draft.subMode === 'extract' ? 'selected' : ''}>Extract Subtitles (.srt)</option>
           </select>
         </div>
-        <div class="field"><label class="lbl-row"><span>Metadata Privacy</span><button type="button" class="i-btn" data-info="Metadata Privacy" aria-label="Info about Metadata Privacy">i</button></label>
+        <div class="field full"><label class="lbl-row"><span>Moov Faststart (-movflags)</span><button type="button" class="i-btn" data-info="Moov Faststart" aria-label="Info about Moov Faststart">i</button></label>
+          <select data-mf="faststart">
+            <option value="faststart" ${draft.faststart === 'faststart' ? 'selected' : ''}>+faststart (Instant Web / Reels Playback)</option>
+            <option value="standard" ${draft.faststart === 'standard' ? 'selected' : ''}>Standard Container Layout</option>
+          </select>
+        </div>
+          <div class="meta-privacy-card">
+            <div class="meta-privacy-head"><span>Metadata Remover & Privacy</span><span class="meta-privacy-pill">PRIVACY SHIELD</span></div>
+            <div class="field"><label class="lbl-row"><span>Metadata Privacy</span><button type="button" class="i-btn" data-info="Metadata Privacy" aria-label="Info about Metadata Privacy">i</button></label>
           <select data-mf="meta">
             <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All (-map_metadata -1)</option>
             <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, Chapters &amp; Encoder)</option>
@@ -1008,12 +1049,7 @@
             <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep Metadata</option>
           </select>
         </div>
-        <div class="field full"><label class="lbl-row"><span>Moov Faststart (-movflags)</span><button type="button" class="i-btn" data-info="Moov Faststart" aria-label="Info about Moov Faststart">i</button></label>
-          <select data-mf="faststart">
-            <option value="faststart" ${draft.faststart === 'faststart' ? 'selected' : ''}>+faststart (Instant Web / Reels Playback)</option>
-            <option value="standard" ${draft.faststart === 'standard' ? 'selected' : ''}>Standard Container Layout</option>
-          </select>
-        </div>
+          </div>
       `;
     }
 
@@ -1027,12 +1063,26 @@
         : 'Hide Deep FFprobe Info';
       document.getElementById('ico-more-probe').textContent = isHidden ? '▾' : '▴';
     });
+    function getSavedDefaultMetaPolicy(forCat) {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getSettings === 'function') {
+          const s = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          const raw = String(s.defaultMetadataPolicy || 'wipe').toLowerCase();
+          if (raw === 'forensic' || raw === 'deep') return 'deep';
+          if (raw === 'keep') return 'keep';
+          if (raw === 'gps') return (forCat === 'audio' ? 'wipe' : 'gps');
+          return 'wipe';
+        }
+      } catch (_) {}
+      return 'wipe';
+    }
+
     document.getElementById('btn-open-format').addEventListener('click', () => {
       state.modal.open = true;
       state.modal.presetsOpen = false;
       state.modal.touched = state.hasPreset;
       state.modal.draft = Object.assign({}, state.cfg);
-      if (!state.hasPreset) state.modal.draft.presetName = '';
+      if (!state.hasPreset) { state.modal.draft.presetName = ''; state.modal.draft.meta = getSavedDefaultMetaPolicy('video'); }
       syncSavedPresetsFromRoom();
       document.getElementById('preset-modal').classList.remove('hidden');
       renderModal();
@@ -1077,6 +1127,16 @@
       state.threads = parseInt(this.value, 10) || 8;
       renderMain();
     });
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.getSettings === 'function') {
+        const dt = String(JSON.parse(window.AndroidBridge.getSettings() || '{}').defaultThreads || '8');
+        const stEl = document.getElementById('sel-threads');
+        if (stEl && Array.from(stEl.options).some(o => o.value === dt)) {
+          stEl.value = dt;
+          state.threads = parseInt(dt, 10) || 8;
+        }
+      }
+    } catch (_) {}
     document.getElementById('sel-cores').addEventListener('change', function() {
       state.cores = this.value;
       renderMain();

@@ -322,7 +322,7 @@
             <span class="toggle-title">Separate Videos / Audios / Images</span>
             <span class="toggle-sub">Auto-sort exports by media type</span>
           </div>
-          <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+          <label class="switch"><input type="checkbox" id="chk-def-separate" checked><span class="slider"></span></label>
         </div>
         <div class="field border-top">
           <label for="sel-src-policy">Original Source File Policy</label>
@@ -341,50 +341,22 @@
       </div>
       <section class="set-card" aria-label="Device Hardware Profile">
         <div class="hw-grid">
-          <div class="hw-cell"><span class="hw-k">Device Model</span><span class="hw-v">This Device</span></div>
+          <div class="hw-cell"><span class="hw-k">Device Model</span><span class="hw-v">Detecting...</span></div>
           <div class="hw-cell"><span class="hw-k">SoC &amp; Cores</span><span class="hw-v">Detecting SoC...</span></div>
-          <div class="hw-cell"><span class="hw-k">CPU Clusters</span><span class="hw-v">1×3.25 + 3×3.0 + 4×2.1G</span></div>
-          <div class="hw-cell"><span class="hw-k">RAM &amp; Storage</span><span class="hw-v">System RAM · Storage</span></div>
-          <div class="hw-cell"><span class="hw-k">ABI &amp; Page Size</span><span class="hw-v c-emerald">arm64-v8a · 16KB ✓</span></div>
-          <div class="hw-cell"><span class="hw-k">Max HW Decode</span><span class="hw-v">4K 60fps · 1080p 120fps</span></div>
+          <div class="hw-cell"><span class="hw-k">CPU Clusters</span><span class="hw-v">Detecting...</span></div>
+          <div class="hw-cell"><span class="hw-k">RAM &amp; Storage</span><span class="hw-v">Detecting...</span></div>
+          <div class="hw-cell"><span class="hw-k">ABI &amp; OS</span><span class="hw-v c-emerald">Detecting...</span></div>
+          <div class="hw-cell"><span class="hw-k">HW Decode Codecs</span><span class="hw-v">Detecting...</span></div>
         </div>
 
-        <div class="cap-list">
+        <div class="cap-list" id="device-cap-list">
           <span class="hw-k" style="margin-bottom:1px;">Best Supported Formats for This Device</span>
           <div class="cap-row">
             <div class="cap-l">
-              <span class="cap-name">MP4 · H.264 (yuv420p 8-bit)</span>
-              <span class="cap-sub">Best compatibility · Reels &amp; Alight Motion</span>
+              <span class="cap-name">Not tested on this device yet</span>
+              <span class="cap-sub">Run the hardware codec &amp; FFmpeg speed test below to verify supported formats.</span>
             </div>
-            <span class="cap-badge cb-ok">BEST OVERALL</span>
-          </div>
-          <div class="cap-row">
-            <div class="cap-l">
-              <span class="cap-name">MKV · HEVC 10-bit (yuv420p10le)</span>
-              <span class="cap-sub">HDR / Archive · Full HW Decode</span>
-            </div>
-            <span class="cap-badge cb-ok">10-BIT SAFE</span>
-          </div>
-          <div class="cap-row">
-            <div class="cap-l">
-              <span class="cap-name">MP4 / MKV · AV1 (libsvtav1)</span>
-              <span class="cap-sub">Smallest size · HW Decode ✓ · CPU Encode</span>
-            </div>
-            <span class="cap-badge cb-warn">SLOWER CPU</span>
-          </div>
-          <div class="cap-row">
-            <div class="cap-l">
-              <span class="cap-name">H.264 10-bit (Hi10P)</span>
-              <span class="cap-sub">Checked dynamically via MediaCodecList</span>
-            </div>
-            <span class="cap-badge cb-no">AVOID</span>
-          </div>
-          <div class="cap-row">
-            <div class="cap-l">
-              <span class="cap-name">Opus 192k · FLAC 24-bit</span>
-              <span class="cap-sub">Best audio efficiency &amp; lossless</span>
-            </div>
-            <span class="cap-badge cb-ok">~130x RT</span>
+            <button type="button" id="btn-run-hw-test" class="btn-sm" style="border-color:var(--gold); color:var(--gold-text);">Run Test</button>
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
@@ -395,7 +367,7 @@
           <button type="button" id="btn-open-tester" class="btn-sm" style="border-color:var(--crimson); color:var(--crimson);">Open Tester ↗</button>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-          <span class="toggle-sub" id="lbl-bench">Calibrated: ~44 fps (1080p60 x264)</span>
+          <span class="toggle-sub" id="lbl-bench">Not calibrated yet — tap Re-benchmark</span>
           <button type="button" id="btn-rebench" class="btn-sm">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             <span>Re-benchmark</span>
@@ -429,39 +401,31 @@
             <span class="toggle-title">Thermal Guard (&gt;45°C Throttle)</span>
             <span class="toggle-sub">Auto-step down threads if battery heats up</span>
           </div>
-          <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+          <label class="switch"><input type="checkbox" id="chk-thermal-guard" checked><span class="slider"></span></label>
         </div>
         <div class="toggle-row border-top">
           <div>
             <span class="toggle-title">Keep Screen Awake During Run</span>
             <span class="toggle-sub">Prevents HyperOS from sleeping FFmpeg</span>
           </div>
-          <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+          <label class="switch"><input type="checkbox" id="chk-keep-awake" checked><span class="slider"></span></label>
         </div>
       </section>
 
       <!-- 4. SAVED PRESETS MANAGER -->
       <div class="sec-lbl">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-        <span>4. Saved Presets</span>
+        <span>4. Presets</span>
       </div>
-      <section class="set-card" aria-label="Saved Presets Manager">
+      <section class="set-card" aria-label="Presets">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
           <div>
-            <span class="toggle-title">Custom Preset Library</span>
-            <span class="toggle-sub" id="lbl-saved-presets-sub">1 saved preset · Synced across Single &amp; Batch</span>
+            <span class="toggle-title">Preset Library</span>
+            <span class="toggle-sub" id="lbl-saved-presets-sub">Loading built-in &amp; custom presets...</span>
           </div>
-          <span class="cap-badge cb-warn" id="badge-saved-presets">1 SAVED</span>
+          <span class="cap-badge cb-warn" id="badge-saved-presets">PRESETS</span>
         </div>
-        <div id="settings-saved-presets-list" style="display:flex; flex-direction:column; gap:8px;">
-          <div class="cap-row">
-            <div class="cap-l">
-              <span class="cap-name">My Daily Car Edit</span>
-              <span class="cap-sub">MP4 · 1080×1920 60fps · CRF 17 · AAC 256k · Forensic</span>
-            </div>
-            <button type="button" id="btn-manage-presets" class="btn-sm" data-open-presets="1">Edit</button>
-          </div>
-        </div>
+        <div id="settings-saved-presets-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         <div style="display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
           <input type="file" id="inp-import-presets-file" accept=".json,application/json" style="display:none;">
           <button type="button" id="btn-import-presets" class="btn-sm" style="flex:1; justify-content:center;">Import JSON</button>
@@ -487,7 +451,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
           <div>
             <span class="toggle-title">Probe &amp; Temp Cache</span>
-            <span class="toggle-sub" id="lbl-cache">12.4 MB cached FFprobe thumbnails</span>
+            <span class="toggle-sub" id="lbl-cache">0.00 MB cached temp files</span>
           </div>
           <button type="button" id="btn-clear-cache" class="btn-sm">Clear Cache</button>
         </div>
@@ -517,7 +481,7 @@
       </section>
 
       <div class="about-foot">
-        Conversion Vault v1.0 · FFmpeg 6.1 Full-GPL (16KB) · 100% Offline
+        Conversion Vault v1.3.2 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
       </div>
     </main>
 

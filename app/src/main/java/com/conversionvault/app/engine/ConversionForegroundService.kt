@@ -7,6 +7,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.content.pm.ServiceInfo
 import android.media.MediaMetadataRetriever
 import android.media.MediaScannerConnection
@@ -229,11 +231,15 @@ class ConversionForegroundService : Service() {
                             }
                             emitEvent(if (verifiedOk) "job_done" else "job_failed", job.id, if (verifiedOk) 100 else finished.progressPct, 0f, errText)
 
-                            if (verifiedOk && job.originalPolicy == "DELETE_AFTER_VERIFY") {
+                            if (verifiedOk && (job.originalPolicy.equals("DELETE_AFTER_VERIFY", true) || job.originalPolicy.equals("trash", true))) {
                                 try {
                                     val inFile = File(job.inputPath)
                                     if (inFile.exists() && inFile.absolutePath != outFile.absolutePath) {
-                                        inFile.delete()
+                                        if (inFile.delete()) {
+                                            try {
+                                                MediaScannerConnection.scanFile(applicationContext, arrayOf(inFile.absolutePath), null, null)
+                                            } catch (_: Throwable) {}
+                                        }
                                     }
                                 } catch (_: Throwable) {}
                             }
@@ -315,6 +321,39 @@ class ConversionForegroundService : Service() {
                 }
             }
         }
+        val settingsPrefs = applicationContext.getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+        // Thermal Guard (>45°C Throttle): step down threads to 4 when battery temperature >= 45.0°C
+        if (settingsPrefs.getBoolean("thermal_guard", true)) {
+            try {
+                val battIntent = applicationContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                val tempTenths = battIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
+                if (tempTenths >= 450) {
+                    val safeThreads = if (tempTenths >= 480) 2 else 4
+                    ffmpegArgs = if (ffmpegArgs.contains("-threads ")) {
+                        ffmpegArgs.replace(Regex("-threads\\s+\\d+"), "-threads $safeThreads")
+                    } else {
+                        "-threads $safeThreads $ffmpegArgs"
+                    }
+                    emitEvent("job_progress", job.id, 1, 0f, "Thermal Guard (${tempTenths / 10.0}°C) · $safeThreads threads")
+                }
+            } catch (_: Throwable) {}
+        }
+
+        // MediaCodec Hardware Encoder Preference with automatic software fallback
+        val hwPref = settingsPrefs.getString("hw_preference", "sw_hq") ?: "sw_hq"
+        if (hwPref == "hw_fast" && (ffmpegArgs.contains("-c:v libx264") || ffmpegArgs.contains("-c:v libx265"))) {
+            val hwCodec = if (ffmpegArgs.contains("-c:v libx265")) "hevc_mediacodec" else "h264_mediacodec"
+            var hwArgs = ffmpegArgs
+                .replace("-c:v libx264", "-c:v $hwCodec")
+                .replace("-c:v libx265", "-c:v $hwCodec")
+                .replace(Regex("-crf\\s+\\d+"), "-b:v 10M")
+                .replace(Regex("-preset\\s+\\S+"), "").replace(Regex("-tune\\s+\\S+"), "")
+            val hwRes = executeFfmpegBlocking(job, hwArgs)
+            if (hwRes.first) return hwRes
+            // Automatic fallback to software encoder if MediaCodec rejects pixel format/profile
+            try { File(job.outputPath).delete() } catch (_: Throwable) {}
+        }
+
         return executeFfmpegBlocking(job, ffmpegArgs)
     }
 

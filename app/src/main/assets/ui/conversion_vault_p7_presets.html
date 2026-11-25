@@ -199,6 +199,38 @@
       border-bottom: 1px solid var(--border);
     }
     .adv-sec-lbl:first-child { margin-top: 0; }
+    .meta-privacy-card {
+      grid-column: 1 / -1;
+      margin-top: 10px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px dashed rgba(16, 185, 129, 0.55);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.09) 0%, rgba(15, 23, 42, 0.35) 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .meta-privacy-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--emerald);
+    }
+    .meta-privacy-pill {
+      font-size: 9.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.16);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
     .field.full { grid-column: 1 / -1; }
     .field label { display: flex; justify-content: space-between; }
     .field-val-pill { color: var(--gold-text); }
@@ -833,7 +865,7 @@
             </select>
           </div>
 
-          <div class="adv-sec-lbl">Trim Range, Subtitles &amp; Metadata</div>
+          <div class="adv-sec-lbl">Trim Range &amp; Subtitles</div>
           <div class="field"><label class="lbl-row"><span>Trim Start (-ss)</span><button type="button" class="i-btn" data-info="Trim Start (-ss)" aria-label="Info about Trim Start (-ss)">i</button></label>
             <input type="text" value="${draft.trimStart || '00:00:00'}" data-mc="trimStart" placeholder="00:00:00">
           </div>
@@ -849,7 +881,15 @@
               <option value="extract" ${draft.subMode === 'extract' ? 'selected' : ''}>Extract Subtitles (.srt)</option>
             </select>
           </div>
-          <div class="field"><label class="lbl-row"><span>Metadata Privacy</span><button type="button" class="i-btn" data-info="Metadata Privacy" aria-label="Info about Metadata Privacy">i</button></label>
+          <div class="field full"><label class="lbl-row"><span>Moov Faststart (-movflags)</span><button type="button" class="i-btn" data-info="Moov Faststart" aria-label="Info about Moov Faststart">i</button></label>
+            <select data-mc="faststart">
+              <option value="faststart" ${draft.faststart === 'faststart' ? 'selected' : ''}>+faststart (Instant Web / Reels Playback)</option>
+              <option value="standard" ${draft.faststart === 'standard' ? 'selected' : ''}>Standard Container Layout</option>
+            </select>
+          </div>
+          <div class="meta-privacy-card">
+            <div class="meta-privacy-head"><span>Metadata Remover & Privacy</span><span class="meta-privacy-pill">PRIVACY SHIELD</span></div>
+            <div class="field"><label class="lbl-row"><span>Metadata Privacy</span><button type="button" class="i-btn" data-info="Metadata Privacy" aria-label="Info about Metadata Privacy">i</button></label>
             <select data-mc="meta">
               <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, Chapters &amp; Encoder)</option>
               <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All (-map_metadata -1)</option>
@@ -857,11 +897,6 @@
               <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep Metadata</option>
             </select>
           </div>
-          <div class="field full"><label class="lbl-row"><span>Moov Faststart (-movflags)</span><button type="button" class="i-btn" data-info="Moov Faststart" aria-label="Info about Moov Faststart">i</button></label>
-            <select data-mc="faststart">
-              <option value="faststart" ${draft.faststart === 'faststart' ? 'selected' : ''}>+faststart (Instant Web / Reels Playback)</option>
-              <option value="standard" ${draft.faststart === 'standard' ? 'selected' : ''}>Standard Container Layout</option>
-            </select>
           </div>
         `;
       } else if (cat === 'audio') {
@@ -919,16 +954,8 @@
               <option value="silenceremove" ${draft.af === 'silenceremove' ? 'selected' : ''}>Trim Leading/Trailing Silence</option>
             </select>
           </div>
-          <div class="field full"><label class="lbl-row"><span>ID3 &amp; Cover Art Metadata</span><button type="button" class="i-btn" data-info="ID3 & Cover Art" aria-label="Info about ID3 & Cover Art">i</button></label>
-            <select data-mc="meta">
-              <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, Chapters &amp; Encoder)</option>
-              <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All Tags (-map_metadata -1)</option>
-              <option value="cover" ${draft.meta === 'cover' ? 'selected' : ''}>Keep Cover Art Only</option>
-              <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep All ID3 / Tags</option>
-            </select>
-          </div>
           <div class="field"><label class="lbl-row"><span>Volume Gain</span></label>
-            <select data-mf="gain">
+            <select data-mc="gain">
               <option value="-12dB" ${draft.gain === '-12dB' ? 'selected' : ''}>-12 dB</option>
               <option value="-6dB" ${draft.gain === '-6dB' ? 'selected' : ''}>-6 dB</option>
               <option value="-3dB" ${draft.gain === '-3dB' ? 'selected' : ''}>-3 dB</option>
@@ -940,7 +967,7 @@
             </select>
           </div>
           <div class="field"><label class="lbl-row"><span>Playback Speed</span></label>
-            <select data-mf="speed">
+            <select data-mc="speed">
               <option value="0.5" ${draft.speed === '0.5' ? 'selected' : ''}>0.5x</option>
               <option value="0.75" ${draft.speed === '0.75' ? 'selected' : ''}>0.75x</option>
               <option value="1.0" ${(!draft.speed || draft.speed === '1.0') ? 'selected' : ''}>1.0x (Normal)</option>
@@ -950,18 +977,29 @@
             </select>
           </div>
           <div class="field"><label class="lbl-row"><span>Trim Start</span></label>
-            <input type="text" data-mf="trimStart" value="${draft.trimStart || '00:00:00'}" placeholder="00:00:00">
+            <input type="text" data-mc="trimStart" value="${draft.trimStart || '00:00:00'}" placeholder="00:00:00">
           </div>
           <div class="field"><label class="lbl-row"><span>Trim End</span></label>
-            <input type="text" data-mf="trimEnd" value="${draft.trimEnd || 'End'}" placeholder="End">
+            <input type="text" data-mc="trimEnd" value="${draft.trimEnd || 'End'}" placeholder="End">
           </div>
           <div class="field full"><label class="lbl-row"><span>Fade In / Out</span></label>
-            <select data-mf="fade">
+            <select data-mc="fade">
               <option value="none" ${(!draft.fade || draft.fade === 'none') ? 'selected' : ''}>None</option>
               <option value="in2" ${draft.fade === 'in2' ? 'selected' : ''}>Fade In (2s)</option>
               <option value="out2" ${draft.fade === 'out2' ? 'selected' : ''}>Fade Out (2s)</option>
               <option value="both2" ${draft.fade === 'both2' ? 'selected' : ''}>Fade In &amp; Out (2s)</option>
             </select>
+          </div>
+          <div class="meta-privacy-card">
+            <div class="meta-privacy-head"><span>Metadata Remover & ID3 Privacy</span><span class="meta-privacy-pill">PRIVACY SHIELD</span></div>
+            <div class="field full"><label class="lbl-row"><span>ID3 &amp; Cover Art Metadata</span><button type="button" class="i-btn" data-info="ID3 & Cover Art" aria-label="Info about ID3 & Cover Art">i</button></label>
+            <select data-mc="meta">
+              <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, Chapters &amp; Encoder)</option>
+              <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All Tags (-map_metadata -1)</option>
+              <option value="cover" ${draft.meta === 'cover' ? 'selected' : ''}>Keep Cover Art Only</option>
+              <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep All ID3 / Tags</option>
+            </select>
+          </div>
           </div>
         `;
       } else {
@@ -1005,16 +1043,8 @@
             <label class="lbl-row"><span>Image Quality</span><span class="lbl-right"><span class="field-val-pill">${draft.qual}%</span><button type="button" class="i-btn" data-info="Image Quality">i</button></span></label>
             <input type="range" min="15" max="100" value="${draft.qual}" data-mc="qual">
           </div>
-          <div class="field full"><label class="lbl-row"><span>EXIF &amp; GPS Privacy</span><button type="button" class="i-btn" data-info="EXIF & GPS Privacy" aria-label="Info about EXIF & GPS Privacy">i</button></label>
-            <select data-mc="meta">
-              <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, XMP, ICC &amp; Thumb)</option>
-              <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All EXIF &amp; GPS</option>
-              <option value="gps" ${draft.meta === 'gps' ? 'selected' : ''}>Strip GPS Only</option>
-              <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep EXIF</option>
-            </select>
-          </div>
           <div class="field"><label class="lbl-row"><span>Aspect Crop</span></label>
-            <select data-mf="crop">
+            <select data-mc="crop">
               <option value="original" ${(!draft.crop || draft.crop === 'original') ? 'selected' : ''}>Original (No Crop)</option>
               <option value="1:1" ${draft.crop === '1:1' ? 'selected' : ''}>1:1 Square</option>
               <option value="4:5" ${draft.crop === '4:5' ? 'selected' : ''}>4:5 Portrait</option>
@@ -1024,7 +1054,7 @@
             </select>
           </div>
           <div class="field"><label class="lbl-row"><span>Color Filter</span></label>
-            <select data-mf="filter">
+            <select data-mc="filter">
               <option value="none" ${(!draft.filter || draft.filter === 'none') ? 'selected' : ''}>Original</option>
               <option value="vivid" ${draft.filter === 'vivid' ? 'selected' : ''}>Vivid (+25% Sat)</option>
               <option value="contrast" ${draft.filter === 'contrast' ? 'selected' : ''}>Auto Contrast</option>
@@ -1036,10 +1066,35 @@
           </div>
           <div class="field full">
             <label class="lbl-row"><span>Brightness</span><span class="lbl-right"><span class="field-val-pill">${draft.brightness || 0}</span></span></label>
-            <input type="range" min="-20" max="20" step="2" value="${draft.brightness || 0}" data-mf="brightness">
+            <input type="range" min="-20" max="20" step="2" value="${draft.brightness || 0}" data-mc="brightness">
+          </div>
+          <div class="meta-privacy-card">
+            <div class="meta-privacy-head"><span>Metadata Remover & EXIF/GPS Privacy</span><span class="meta-privacy-pill">PRIVACY SHIELD</span></div>
+            <div class="field full"><label class="lbl-row"><span>EXIF &amp; GPS Privacy</span><button type="button" class="i-btn" data-info="EXIF & GPS Privacy" aria-label="Info about EXIF & GPS Privacy">i</button></label>
+            <select data-mc="meta">
+              <option value="deep" ${draft.meta === 'deep' ? 'selected' : ''}>Forensic Scrub (+bitexact, XMP, ICC &amp; Thumb)</option>
+              <option value="wipe" ${draft.meta === 'wipe' ? 'selected' : ''}>Wipe All EXIF &amp; GPS</option>
+              <option value="gps" ${draft.meta === 'gps' ? 'selected' : ''}>Strip GPS Only</option>
+              <option value="keep" ${draft.meta === 'keep' ? 'selected' : ''}>Keep EXIF</option>
+            </select>
+          </div>
           </div>
         `;
       }
+    }
+
+    function getSavedDefaultMetaPolicy(forCat) {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getSettings === 'function') {
+          const s = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          const raw = String(s.defaultMetadataPolicy || 'wipe').toLowerCase();
+          if (raw === 'forensic' || raw === 'deep') return 'deep';
+          if (raw === 'keep') return 'keep';
+          if (raw === 'gps') return (forCat === 'audio' ? 'wipe' : 'gps');
+          return 'wipe';
+        }
+      } catch (_) {}
+      return 'wipe';
     }
 
     document.getElementById('btn-new-preset').addEventListener('click', () => {
@@ -1049,13 +1104,13 @@
       document.getElementById('m-desc').value = '';
       modalCfg.cat = 'video';
       document.getElementById('m-cat').value = 'video';
-      modalCfg.draft = Object.assign({}, DEF_CFG.video);
+      modalCfg.draft = Object.assign({}, DEF_CFG.video, { meta: getSavedDefaultMetaPolicy('video') });
       renderModalFields();
       document.getElementById('tpl-modal').classList.remove('hidden');
     });
     document.getElementById('m-cat').addEventListener('change', function() {
       modalCfg.cat = this.value;
-      modalCfg.draft = Object.assign({}, DEF_CFG[modalCfg.cat]);
+      modalCfg.draft = Object.assign({}, DEF_CFG[modalCfg.cat], { meta: getSavedDefaultMetaPolicy(modalCfg.cat) });
       renderModalFields();
     });
     document.getElementById('m-dynamic-fields').addEventListener('input', (e) => {
@@ -1136,11 +1191,12 @@
         } else if (act === 'restore') {
           state.deleted = state.deleted.filter(x => x.id !== id);
           state.templates.unshift(t);
+          if (t.roomId && window.AndroidBridge && typeof window.AndroidBridge.restorePreset === 'function') {
+            try { window.AndroidBridge.restorePreset(String(t.roomId)); } catch (_) {}
+          }
           if (t.origin === 'builtin') {
             writeBuiltinStateList('cv_deleted_builtins', readBuiltinStateList('cv_deleted_builtins').filter(n => n !== t.name));
             writeBuiltinStateList('cv_perm_deleted_builtins', readBuiltinStateList('cv_perm_deleted_builtins').filter(n => n !== t.name));
-          } else if (t.roomId && window.AndroidBridge && typeof window.AndroidBridge.restorePreset === 'function') {
-            try { window.AndroidBridge.restorePreset(String(t.roomId)); } catch (_) {}
           }
           render();
           showToast('Restored "' + t.name + '"');
@@ -1194,12 +1250,13 @@
         if (item) {
           state.templates = state.templates.filter(x => x.id !== p.id);
           state.deleted.unshift(item);
+          if (item.roomId && window.AndroidBridge && typeof window.AndroidBridge.softDeletePreset === 'function') {
+            try { window.AndroidBridge.softDeletePreset(String(item.roomId)); } catch (_) {}
+          }
           if (item.origin === 'builtin') {
             const delB = readBuiltinStateList('cv_deleted_builtins');
             delB.push(item.name);
             writeBuiltinStateList('cv_deleted_builtins', delB);
-          } else if (item.roomId && window.AndroidBridge && typeof window.AndroidBridge.softDeletePreset === 'function') {
-            try { window.AndroidBridge.softDeletePreset(String(item.roomId)); } catch (_) {}
           }
           showToast('Moved "' + p.name + '" to Deleted Presets');
         }
@@ -1222,34 +1279,28 @@
         (function loadNativePresetsIntoHub() {
       if (!window.AndroidBridge || typeof window.AndroidBridge.getPresets !== 'function') return;
       try {
-        // Keep only non-deleted Built-In presets; move soft-deleted Built-Ins into state.deleted
-        const delBuiltins = new Set(readBuiltinStateList('cv_deleted_builtins'));
-        const permBuiltins = new Set(readBuiltinStateList('cv_perm_deleted_builtins'));
-        const allBuiltins = state.templates.filter(t => t.origin === 'builtin');
-        state.templates = allBuiltins.filter(t => !delBuiltins.has(t.name) && !permBuiltins.has(t.name));
-        const softDeletedBuiltins = allBuiltins.filter(t => delBuiltins.has(t.name) && !permBuiltins.has(t.name));
         const mapRoomPreset = (p, idx) => {
           let parsed = {};
           try { parsed = JSON.parse(p.extraFlags || '{}'); } catch (_) {}
-          const cat = String(p.category || 'Video').toLowerCase().includes('aud') ? 'audio'
-                    : (String(p.category || 'Video').toLowerCase().includes('ima') ? 'image' : 'video');
-          const bars = parsed.bars || { qual: 88, comp: 75, speed: 70, compat: 90, edit: 72, batt: 80 };
+          const catLow = String(p.category || 'Video').toLowerCase();
+          const catKey = catLow.includes('aud') ? 'audio' : (catLow.includes('ima') ? 'image' : 'video');
+          const bars = parsed.cfg ? calcBars(catKey, parsed.cfg) : { qual: 88, comp: 68, speed: 64, compat: 95, edit: 72, batt: 74 };
           return {
-            id: 90000 + idx,
+            id: 1000 + idx,
             roomId: p.id,
-            cat: cat,
-            origin: 'saved',
-            name: p.name,
-            desc: parsed.desc || 'Saved custom preset (synced across Single, Batch & Settings).',
+            cat: catKey,
+            origin: p.isBuiltIn ? 'builtin' : 'saved',
+            name: p.name || 'Preset',
+            desc: parsed.desc || (p.isBuiltIn ? 'Built-in preset (synced across Single, Batch & Settings).' : 'Saved custom preset (synced across Single, Batch & Settings).'),
             specs: parsed.specs || ('.' + (p.container || 'mp4') + ' · ' + (p.codec || 'libx264') + ' · ' + (p.crfOrBitrate || '18')),
             qual: bars.qual, comp: bars.comp, speed: bars.speed, compat: bars.compat, edit: bars.edit, batt: bars.batt,
             cfg: parsed.cfg || null
           };
         };
         const activeList = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
-        activeList.forEach((p, idx) => state.templates.unshift(mapRoomPreset(p, idx)));
         const delList = JSON.parse(window.AndroidBridge.getPresets(true) || '[]');
-        state.deleted = softDeletedBuiltins.concat(delList.map((p, idx) => mapRoomPreset(p, 5000 + idx)));
+        state.templates = activeList.map((p, idx) => mapRoomPreset(p, idx));
+        state.deleted = delList.map((p, idx) => mapRoomPreset(p, 5000 + idx));
       } catch (_) {}
     })();
     render();

@@ -76,7 +76,7 @@
       flex-direction: column;
       background: var(--bg);
       position: relative;
-      padding-bottom: 88px;
+      padding-bottom: 112px;
     }
 
     @media (min-width: 600px) {
@@ -530,7 +530,12 @@
       <section class="picked-summary hidden" id="picked-box" aria-label="Selected Media Summary">
         <div class="picked-head">
           <span class="picked-badge" id="picked-badge">Ready</span>
-          <button type="button" id="btn-clear-pick" class="ghost-link" style="font-size:11px;">Clear</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" id="btn-pick-search-toggle" aria-label="Search queued files" title="Search queued files" style="width:28px; height:28px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text); display:inline-flex; align-items:center; justify-content:center; cursor:pointer;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+            <button type="button" id="btn-clear-pick" class="ghost-link" style="font-size:11px;">Clear</button>
+          </div>
         </div>
         <div class="picked-name" id="picked-name">—</div>
         <div class="picked-meta" id="picked-meta">—</div>
@@ -549,7 +554,12 @@
             <option value="size_asc">Size (Smallest)</option>
           </select>
         </div>
-        <div id="picked-files-list" style="display:flex; flex-direction:column; gap:5px; margin-top:8px; max-height:220px; overflow-y:auto;"></div>
+                <div id="picked-search-wrap" class="hidden" style="position:relative; display:flex; align-items:center; margin-top:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:10px; pointer-events:none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" id="inp-pick-search" placeholder="Search queued files..." autocomplete="off" style="width:100%; padding:7px 30px 7px 30px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:12px; outline:none;">
+          <button type="button" id="btn-pick-search-clear" class="hidden" aria-label="Clear search" style="position:absolute; right:7px; border:none; background:var(--card); color:var(--muted); width:20px; height:20px; border-radius:50%; font-size:12px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">×</button>
+        </div>
+        <div id="picked-files-list" style="display:flex; flex-direction:column; gap:6px; margin-top:8px;"></div>
       </section>
     </main>
 

@@ -75,6 +75,39 @@
     .hidden{display:none !important;}
     .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;}
     .toast.show{opacity:1;}
+
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    .info-cell {
+      background: var(--card); border: 1px solid var(--border); border-radius: 7px;
+      padding: 7px 9px; display: flex; flex-direction: column; gap: 2px; min-width: 0;
+    }
+    .info-k { font-family: var(--mono); font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .info-v { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--text); word-break: break-word; line-height: 1.35; }
+    .info-v.c-gold { color: var(--gold-text); }
+    .info-v.c-emerald { color: var(--emerald); }
+    .info-v.c-crimson { color: var(--crimson); }
+    .btn-more-meta {
+      width: 100%; display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .raw-meta-pill {
+      background: var(--input); border: 1px solid var(--border); border-radius: 7px;
+      padding: 8px 10px; font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+      line-height: 1.55; word-break: break-word; max-height: 220px; overflow-y: auto;
+    }
+    .raw-meta-pill strong { color: var(--gold-text); }
+    .backup-card {
+      padding: 10px 11px; border-radius: 9px; border: 1px dashed rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.07); display: flex; flex-direction: column; gap: 8px;
+    }
+    .backup-head {
+      display: flex; justify-content: space-between; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800; color: var(--emerald);
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .backup-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   </style>
   <script>
     (function(){
@@ -111,10 +144,36 @@
           <button type="button" id="btn-pick" class="btn-sm">Change File</button>
           <input type="file" id="inp-file" class="hidden" accept="video/*,audio/*,image/*">
         </div>
-        <div style="display:flex; flex-direction:column; gap:5px;">
-          <div class="tag-row"><span class="tag-k">GPS Location</span><span class="tag-v" id="tag-gps">—</span></div>
-          <div class="tag-row"><span class="tag-k">Device Model</span><span class="tag-v" id="tag-model">—</span></div>
-          <div class="tag-row"><span class="tag-k">Creation Time</span><span class="tag-v" id="tag-time">—</span></div>
+        <div class="info-grid" id="meta-top-grid">
+          <div class="info-cell"><span class="info-k">GPS Location</span><span class="info-v c-gold" id="tag-gps">—</span></div>
+          <div class="info-cell"><span class="info-k">Device / Camera</span><span class="info-v" id="tag-model">—</span></div>
+          <div class="info-cell"><span class="info-k">Creation Time</span><span class="info-v" id="tag-time">—</span></div>
+          <div class="info-cell"><span class="info-k">Detected Tags</span><span class="info-v c-emerald" id="tag-count">—</span></div>
+        </div>
+        <button type="button" id="btn-toggle-20meta" class="btn-more-meta">
+          <span id="lbl-toggle-20meta">Full Metadata &amp; Stream Info (20+ Fields)</span>
+          <span id="arr-toggle-20meta">▾</span>
+        </button>
+        <div id="meta-extended-wrap" class="hidden" style="display:flex; flex-direction:column; gap:8px;">
+          <div class="info-grid" id="meta-20-grid"></div>
+          <div class="raw-meta-pill" id="meta-raw-tags">Select a file to inspect all extracted metadata tags.</div>
+        </div>
+
+        <div class="backup-card">
+          <div class="backup-head">
+            <span>Extract &amp; Backup Metadata Before Wiping</span>
+            <span style="font-size:9.5px; opacity:0.85;">SAFE EXPORT</span>
+          </div>
+          <div style="font-size:11px; color:var(--muted); line-height:1.4;">Save all detected metadata to <strong>/Metadata_Modifier/Extracted_Metadata/</strong> before scrubbing:</div>
+          <div class="backup-btns">
+            <button type="button" class="btn-sm" id="btn-dl-json" disabled>.json (Full)</button>
+            <button type="button" class="btn-sm" id="btn-dl-xmp" disabled>.xmp (Sidecar)</button>
+            <button type="button" class="btn-sm" id="btn-dl-txt" disabled>.txt (FFMeta)</button>
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--text); cursor:pointer; padding-top:2px;">
+            <input type="checkbox" id="chk-auto-backup" checked style="width:15px; height:15px; accent-color:var(--emerald);">
+            <span>Auto-extract &amp; save backup (.json) before wiping</span>
+          </label>
         </div>
       </section>
 
@@ -211,7 +270,16 @@
       destMode: 'vault',
       customDir: ''
     };
-    const VAULT_MOD_DIR = '/storage/emulated/0/ConversionVault/Metadata_Modifier';
+    function getVaultModDir() {
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getSettings === 'function') {
+          const s = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          if (s.defaultVaultFolder) return s.defaultVaultFolder.replace(/\/$/, '') + '/Metadata_Modifier';
+        }
+      } catch (_) {}
+      return '/storage/emulated/0/ConversionVault/Metadata_Modifier';
+    }
+    const VAULT_MOD_DIR = getVaultModDir();
 
     function showToast(m) {
       const t = document.getElementById('toast');
@@ -228,7 +296,7 @@
       } else if (state.wipeMode === 'wipe') {
         wipeFlags = '-map_metadata -1';
       } else if (state.wipeMode === 'gps') {
-        wipeFlags = '-metadata location="" -metadata com.apple.quicktime.location.ISO6709=""';
+        wipeFlags = '-metadata location="" -metadata location-eng="" -metadata com.apple.quicktime.location.ISO6709=""';
       }
 
       let editFlags = '';
@@ -292,16 +360,245 @@
       state.baseName = dot > 0 ? state.fname.substring(0, dot) : state.fname;
       state.ext = dot > 0 ? state.fname.substring(dot + 1).toLowerCase() : 'mp4';
 
-      const tags = (probeInfo && probeInfo.raw && probeInfo.raw.format && probeInfo.raw.format.tags) || {};
-      const gpsVal = tags.location || tags['location-eng'] || tags['com.apple.quicktime.location.ISO6709'] || (probeInfo && probeInfo.hasGps ? 'GPS Present' : 'None detected');
-      const modelVal = tags.model || tags['com.android.model'] || tags['com.apple.quicktime.model'] || tags.make || 'None detected';
-      const timeVal = tags.creation_time || tags.date || 'None detected';
+      const rawTags = Object.assign(
+        {},
+        (probeInfo && probeInfo.raw && probeInfo.raw.format && probeInfo.raw.format.tags) || {},
+        (probeInfo && probeInfo.allTags && typeof probeInfo.allTags === 'object') ? probeInfo.allTags : {}
+      );
+      const lowerMap = {};
+      Object.keys(rawTags).forEach(k => {
+        const val = String(rawTags[k] == null ? '' : rawTags[k]).trim();
+        if (val && val !== '—') lowerMap[k.toLowerCase()] = val;
+      });
+      const pickTag = (keys) => {
+        for (let i = 0; i < keys.length; i++) {
+          const hit = lowerMap[keys[i].toLowerCase()];
+          if (hit) return hit;
+        }
+        return '';
+      };
+
+      const gpsDirect = (probeInfo && probeInfo.gpsCoords && probeInfo.gpsCoords !== '—') ? String(probeInfo.gpsCoords).trim() : '';
+      const gpsFromTags = pickTag(['gpscoordinates', 'location', 'location-eng', 'com.apple.quicktime.location.iso6709', 'gps', 'xyz']);
+      const latLonPair = (lowerMap['gpslatitude'] && lowerMap['gpslongitude']) ? (lowerMap['gpslatitude'] + ', ' + lowerMap['gpslongitude']) : '';
+      const gpsVal = gpsDirect || gpsFromTags || latLonPair || (probeInfo && probeInfo.hasGps ? 'GPS Present' : 'None detected');
+
+      const camDirect = (probeInfo && probeInfo.cameraModel && probeInfo.cameraModel !== '—') ? String(probeInfo.cameraModel).trim() : '';
+      const mkTag = pickTag(['com.android.manufacturer', 'make', 'com.apple.quicktime.make']);
+      const mdTag = pickTag(['com.android.model', 'model', 'com.apple.quicktime.model', 'cameramodel', 'device', 'camera']);
+      const combinedModel = [mkTag, mdTag].filter(Boolean).join(' ').trim();
+      const modelVal = camDirect || combinedModel || pickTag(['software', 'encoder', 'handler_name']) || 'None detected';
+
+      const dtDirect = (probeInfo && probeInfo.dateTaken && probeInfo.dateTaken !== '—') ? String(probeInfo.dateTaken).trim() : '';
+      const timeVal = dtDirect || pickTag(['creation_time', 'datetimeoriginal', 'datetime', 'com.apple.quicktime.creationdate', 'date', 'media_create_date', 'year']) || 'None detected';
 
       const gEl = document.getElementById('tag-gps'); if (gEl) gEl.textContent = gpsVal;
       const mEl = document.getElementById('tag-model'); if (mEl) mEl.textContent = modelVal;
       const tEl = document.getElementById('tag-time'); if (tEl) tEl.textContent = timeVal;
 
+      state.lastProbe = probeInfo || {};
+      state.lastTags = rawTags;
+      state.lastLowerTags = lowerMap;
+      state.lastResolved = { gps: gpsVal, model: modelVal, time: timeVal };
+
+      const tagKeys = Object.keys(rawTags);
+      const cntEl = document.getElementById('tag-count');
+      if (cntEl) cntEl.textContent = tagKeys.length + ' tags' + (gpsVal !== 'None detected' ? ' · GPS' : '');
+
+      const esc = (v) => String(v == null || v === '' ? '—' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cell = (k, v, cls) => '<div class="info-cell"><span class="info-k">' + esc(k) + '</span><span class="info-v ' + (cls || '') + '">' + esc(v || '—') + '</span></div>';
+      const p = probeInfo || {};
+      const sizeBytes = p.sizeBytes || (fileObj && fileObj.sizeBytes) || 0;
+      const sizeStr = sizeBytes > 0 ? ((sizeBytes / (1024 * 1024)).toFixed(2) + ' MB (' + sizeBytes.toLocaleString() + ' B)') : '—';
+      const durSec = p.durationSec || 0;
+      const durStr = durSec > 0 ? (Math.floor(durSec / 60) + ':' + String(Math.round(durSec % 60)).padStart(2, '0') + ' (' + durSec.toFixed(1) + 's)') : '—';
+      const isImg = ['jpg','jpeg','png','webp','avif','heic','heif','bmp','tiff','gif'].includes(state.ext);
+      const isAud = ['mp3','flac','opus','m4a','wav','ogg','aac','ac3','wma'].includes(state.ext);
+
+      let fields20 = [];
+      if (isImg) {
+        const w = p.width || 0, h = p.height || 0;
+        const mp = (w > 0 && h > 0) ? ((w * h) / 1000000).toFixed(2) + ' MP' : (p.megapixels || '—');
+        const aspect = (w > 0 && h > 0) ? ((w / h).toFixed(2) + ':1') : '—';
+        fields20 = [
+          ['GPS Coordinates', gpsVal, gpsVal !== 'None detected' ? 'c-gold' : ''],
+          ['Camera Make & Model', modelVal, ''],
+          ['Date / Time Taken', timeVal, ''],
+          ['Lens Model', p.lensModel || pickTag(['lensmodel', 'lens']), ''],
+          ['Aperture (f-stop)', p.aperture || pickTag(['aperture', 'fnumber']), ''],
+          ['Shutter Speed', p.shutter || pickTag(['shutterspeed', 'exposuretime']), ''],
+          ['ISO Speed', (p.iso || pickTag(['iso', 'photographicsensitivity'])) ? ('ISO ' + (p.iso || pickTag(['iso', 'photographicsensitivity']))) : '—', ''],
+          ['Focal Length', p.focalLength || pickTag(['focallength']), ''],
+          ['EXIF Orientation', p.exifOrientation || pickTag(['orientation']) || 'Normal (0°)', ''],
+          ['Software / App', p.software || pickTag(['software', 'encoder']), ''],
+          ['Dimensions', (w && h) ? (w + '×' + h) : '—', 'c-emerald'],
+          ['Megapixels', mp, ''],
+          ['Aspect Ratio', aspect, ''],
+          ['Format & MIME', (p.format || state.ext.toUpperCase()) + (p.mimeType ? (' · ' + p.mimeType) : ''), ''],
+          ['File Size', sizeStr, ''],
+          ['Pixel Format', p.pixFmt || '—', ''],
+          ['Chroma Subsampling', p.chromaSubsampling || '—', ''],
+          ['Bit Depth', p.bitDepth || '—', ''],
+          ['Color Space / Range', [p.colorSpace, p.colorRange].filter(x => x && x !== '—').join(' · ') || '—', ''],
+          ['Flash / White Balance', [pickTag(['flash']), pickTag(['whitebalance'])].filter(Boolean).join(' · ') || '—', ''],
+          ['Artist / Copyright', [pickTag(['artist', 'author']), pickTag(['copyright'])].filter(Boolean).join(' · ') || '—', ''],
+          ['Total Extracted Tags', tagKeys.length + ' EXIF / Container Tags', 'c-gold']
+        ];
+      } else if (isAud) {
+        const aBr = p.audioBitrate > 0 ? Math.round(p.audioBitrate / 1000) + ' kbps' : (p.bitrate > 0 ? Math.round(p.bitrate / 1000) + ' kbps' : '—');
+        const bps = p.audioBitsPerSample > 0 ? (p.audioBitsPerSample + '-bit') : 'Variable / Float';
+        const chLay = (p.channelLayout && p.channelLayout !== '—') ? p.channelLayout : (p.channels ? p.channels + ' ch' : '—');
+        fields20 = [
+          ['Title', pickTag(['title']) || '—', ''],
+          ['Artist / Author', pickTag(['artist', 'album_artist', 'author']) || '—', ''],
+          ['Album', pickTag(['album']) || '—', ''],
+          ['Composer / Album Artist', pickTag(['composer', 'album_artist']) || '—', ''],
+          ['Track / Disc', [pickTag(['track']), pickTag(['disc'])].filter(Boolean).join(' / ') || '—', ''],
+          ['Genre', pickTag(['genre']) || '—', ''],
+          ['Creation Date / Year', timeVal, ''],
+          ['Comment / Description', pickTag(['comment', 'description']) || '—', ''],
+          ['Encoder / Writing App', pickTag(['encoder', 'encoded_by', 'software']) || '—', ''],
+          ['Copyright / Publisher', [pickTag(['copyright']), pickTag(['publisher', 'label'])].filter(Boolean).join(' · ') || '—', ''],
+          ['Duration', durStr, 'c-emerald'],
+          ['Audio Codec (Full)', p.audioCodecLong && p.audioCodecLong !== '—' ? p.audioCodecLong : (p.audioCodec || state.ext.toUpperCase()), ''],
+          ['Audio Profile', p.audioProfile || '—', ''],
+          ['Sample Format (PCM)', p.audioSampleFmt || '—', ''],
+          ['Bits Per Sample', bps, ''],
+          ['Sample Rate', p.sampleRate && p.sampleRate !== '—' ? (p.sampleRate + ' Hz') : '—', ''],
+          ['Channels & Layout', chLay, ''],
+          ['Audio Bitrate', aBr, ''],
+          ['Container Format', p.formatLongName && p.formatLongName !== '—' ? p.formatLongName : (p.format || state.ext.toUpperCase()), ''],
+          ['File Size', sizeStr, ''],
+          ['Total Streams', String(p.streamCount || 1), ''],
+          ['Total Extracted Tags', tagKeys.length + ' ID3 / Container Tags', 'c-gold']
+        ];
+      } else {
+        const w = p.width || 0, h = p.height || 0;
+        const vBr = p.videoBitrate > 0 ? (p.videoBitrate / 1000000).toFixed(2) + ' Mbps' : (p.bitrate > 0 ? (p.bitrate / 1000000).toFixed(2) + ' Mbps' : '—');
+        const aBr = p.audioBitrate > 0 ? Math.round(p.audioBitrate / 1000) + ' kbps' : '—';
+        const profLvl = [p.videoProfile, p.videoLevel && p.videoLevel !== '—' ? ('L' + p.videoLevel) : ''].filter(x => x && x !== '—').join(' · ') || '—';
+        const bRef = (typeof p.hasBFrames === 'number' ? p.hasBFrames + ' B-Frames' : '—') + (typeof p.refs === 'number' && p.refs > 0 ? (' · ' + p.refs + ' Refs') : '');
+        const colDetail = [p.colorSpace, p.colorPrimaries, p.colorTransfer].filter(x => x && x !== '—').join(' · ') || '—';
+        fields20 = [
+          ['GPS Location', gpsVal, gpsVal !== 'None detected' ? 'c-gold' : ''],
+          ['Device / Camera Model', modelVal, ''],
+          ['Creation Time', timeVal, ''],
+          ['Title / Artist', [pickTag(['title']), pickTag(['artist', 'author'])].filter(Boolean).join(' · ') || '—', ''],
+          ['Encoder / App Tag', pickTag(['encoder', 'handler_name', 'software', 'major_brand']) || '—', ''],
+          ['Resolution', (w && h) ? (w + '×' + h) : '—', 'c-emerald'],
+          ['Frame Rate (FPS)', p.fps > 0 ? (Math.round(p.fps * 100) / 100) + ' fps' : '—', ''],
+          ['Duration', durStr, ''],
+          ['File Size', sizeStr, ''],
+          ['Video Codec (Full)', p.videoCodecLong && p.videoCodecLong !== '—' ? p.videoCodecLong : (p.videoCodec || '—'), ''],
+          ['Profile & Level', profLvl, ''],
+          ['Frame / Intra-Frame', p.frameStructure || '—', ''],
+          ['B-Frames & Refs', bRef, ''],
+          ['Pixel Format', p.pixFmt || '—', ''],
+          ['Chroma Subsampling', p.chromaSubsampling || '—', ''],
+          ['Bit Depth', p.bitDepth || '—', ''],
+          ['Color Space / Transfer', colDetail, ''],
+          ['Color Range & Field', [p.colorRange, p.fieldOrder].filter(x => x && x !== '—').join(' · ') || '—', ''],
+          ['SAR / DAR', [p.sar, p.dar].filter(x => x && x !== '—').join(' / ') || '—', ''],
+          ['Video Bitrate', vBr, ''],
+          ['Audio Track', (p.audioCodec && p.audioCodec !== 'None') ? (p.audioCodec.toUpperCase() + (p.sampleRate && p.sampleRate !== '—' ? ' · ' + p.sampleRate + ' Hz' : '') + (p.channels ? ' · ' + p.channels + 'ch' : '') + (aBr !== '—' ? ' · ' + aBr : '')) : 'None', ''],
+          ['Container & Streams', (p.format || state.ext.toUpperCase()) + ' · ' + (p.streamCount || 1) + ' Streams · ' + (p.subtitleCount || 0) + ' Subs · ' + (p.chapterCount || 0) + ' Ch', '']
+        ];
+      }
+
+      const grid20 = document.getElementById('meta-20-grid');
+      if (grid20) grid20.innerHTML = fields20.map(([k, v, cls]) => cell(k, v, cls)).join('');
+      const lbl20 = document.getElementById('lbl-toggle-20meta');
+      if (lbl20) lbl20.textContent = 'Full Metadata & Stream Info (' + fields20.length + ' Fields · ' + tagKeys.length + ' Raw Tags)';
+
+      const rawBox = document.getElementById('meta-raw-tags');
+      if (rawBox) {
+        rawBox.innerHTML = tagKeys.length > 0
+          ? '<strong>All Extracted Metadata Tags (' + tagKeys.length + '):</strong><br>' + tagKeys.map(k => '<strong>' + esc(k) + ':</strong> ' + esc(rawTags[k])).join('<br>')
+          : '<strong>All Extracted Metadata Tags (0):</strong><br>No embedded metadata tags detected in this file.';
+      }
+
+      ['btn-dl-json', 'btn-dl-xmp', 'btn-dl-txt'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.disabled = false;
+      });
+
       render();
+    };
+
+    function buildMetadataExportContent(fmt) {
+      const p = state.lastProbe || {};
+      const tags = state.lastTags || {};
+      const res = state.lastResolved || {};
+      if (fmt === 'json') {
+        return JSON.stringify({
+          exportedAt: new Date().toISOString(),
+          sourceFile: state.fname,
+          sourcePath: state.inputPath,
+          summary: { gps: res.gps, deviceModel: res.model, creationTime: res.time },
+          technical: {
+            format: p.format, formatLongName: p.formatLongName, sizeBytes: p.sizeBytes, durationSec: p.durationSec,
+            width: p.width, height: p.height, fps: p.fps, videoCodec: p.videoCodec, videoProfile: p.videoProfile,
+            pixFmt: p.pixFmt, chromaSubsampling: p.chromaSubsampling, bitDepth: p.bitDepth, colorSpace: p.colorSpace,
+            audioCodec: p.audioCodec, sampleRate: p.sampleRate, channels: p.channels, bitrate: p.bitrate
+          },
+          allTags: tags
+        }, null, 2);
+      }
+      if (fmt === 'xmp') {
+        const xmlEsc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const customLines = Object.keys(tags).map(k => {
+          const safeKey = k.replace(/[^a-zA-Z0-9_.-]/g, '_');
+          return '      <cv:' + safeKey + '>' + xmlEsc(tags[k]) + '</cv:' + safeKey + '>';
+        }).join('\n');
+        return [
+          '<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>',
+          '<x:xmpmeta xmlns:x="adobe:ns:meta/">',
+          '  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">',
+          '    <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:exif="http://ns.adobe.com/exif/1.0/" xmlns:cv="http://conversionvault.app/ns/metadata/1.0/">',
+          '      <dc:title>' + xmlEsc(state.fname) + '</dc:title>',
+          '      <xmp:CreateDate>' + xmlEsc(res.time || '') + '</xmp:CreateDate>',
+          '      <cv:DeviceModel>' + xmlEsc(res.model || '') + '</cv:DeviceModel>',
+          '      <cv:GPSLocation>' + xmlEsc(res.gps || '') + '</cv:GPSLocation>',
+          customLines,
+          '    </rdf:Description>',
+          '  </rdf:RDF>',
+          '</x:xmpmeta>',
+          '<?xpacket end="w"?>'
+        ].join('\n') + '\n';
+      }
+      const ffEsc = (s) => String(s == null ? '' : s).replace(/([=;#\\\n])/g, '\\$1');
+      const lines = [';FFMETADATA1', ';Exported by Conversion Vault on ' + new Date().toISOString(), ';Source: ' + state.fname];
+      Object.keys(tags).forEach(k => lines.push(ffEsc(k) + '=' + ffEsc(tags[k])));
+      return lines.join('\n') + '\n';
+    }
+
+    function exportCurrentMetadata(fmt, silentToast) {
+      if (!state.fname) { showToast('Pick a file first'); return false; }
+      const content = buildMetadataExportContent(fmt);
+      if (window.AndroidBridge && typeof window.AndroidBridge.exportMetadataBackup === 'function') {
+        try {
+          const r = JSON.parse(window.AndroidBridge.exportMetadataBackup(state.fname, content, fmt) || '{}');
+          if (r && r.ok) {
+            if (!silentToast) showToast('Saved ' + (r.filename || ('.' + fmt)) + ' in Extracted_Metadata ✓');
+            return true;
+          }
+        } catch (_) {}
+      }
+      try {
+        const blob = new Blob([content], { type: fmt === 'json' ? 'application/json' : (fmt === 'xmp' ? 'application/rdf+xml' : 'text/plain') });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (state.baseName || 'media') + '_metadata.' + fmt;
+        a.click();
+        if (!silentToast) showToast('Downloaded metadata .' + fmt + ' ✓');
+        return true;
+      } catch (_) { return false; }
+    }
+    window.autoBackupMetadataBeforeWipe = function() {
+      const chk = document.getElementById('chk-auto-backup');
+      if (chk && chk.checked && state.wipeMode !== 'none' && state.fname) {
+        exportCurrentMetadata('json', false);
+      }
     };
 
     window.setCustomDestFromNative = function(folderPath) {
@@ -316,14 +613,21 @@
     window.getMetadataJobSpec = function() {
       const flags = buildFlags();
       if (!state.inputPath || !flags) return null;
+      const isImg = ['jpg','jpeg','png','webp','avif','heic','heif','bmp'].includes(state.ext);
+      const isAud = ['mp3','flac','opus','m4a','wav','ogg','aac'].includes(state.ext);
+      let cmdArgs = `-y -i {INPUT} -c copy ${flags} {OUTPUT}`;
+      if (isImg && !state.editOn) {
+        const photoMeta = state.wipeMode === 'forensic' ? 'deep' : (state.wipeMode === 'gps' ? 'gps' : 'wipe');
+        cmdArgs = 'NATIVE_PHOTO:' + JSON.stringify({ format: state.ext === 'jpeg' ? 'jpg' : state.ext, quality: 96, scale: 'original', orient: 'auto', meta: photoMeta, colorSpace: 'srgb_444' });
+      }
       return {
         module: 'Metadata_Modifier',
-        mediaType: ['mp3','flac','opus','m4a','wav','ogg'].includes(state.ext) ? 'Audio' : (['jpg','jpeg','png','webp','avif'].includes(state.ext) ? 'Image' : 'Video'),
+        mediaType: isAud ? 'Audio' : (isImg ? 'Image' : 'Video'),
         inputPath: state.inputPath,
         outputDir: state.destMode === 'vault' ? '' : getOutputDir(),
         outputBaseName: state.baseName,
         outputExt: state.ext,
-        commandArgs: `-y -i {INPUT} -c copy ${flags} {OUTPUT}`
+        commandArgs: cmdArgs
       };
     };
 
@@ -356,6 +660,16 @@
         showToast('Copied FFmpeg metadata command');
       }
     });
+    document.getElementById('btn-toggle-20meta')?.addEventListener('click', () => {
+      const wrap = document.getElementById('meta-extended-wrap');
+      const arr = document.getElementById('arr-toggle-20meta');
+      if (!wrap) return;
+      const nowHidden = wrap.classList.toggle('hidden');
+      if (arr) arr.textContent = nowHidden ? '▾' : '▴';
+    });
+    document.getElementById('btn-dl-json')?.addEventListener('click', () => exportCurrentMetadata('json', false));
+    document.getElementById('btn-dl-xmp')?.addEventListener('click', () => exportCurrentMetadata('xmp', false));
+    document.getElementById('btn-dl-txt')?.addEventListener('click', () => exportCurrentMetadata('txt', false));
     render();
   </script>
   <script src="vault-bridge.js"></script>

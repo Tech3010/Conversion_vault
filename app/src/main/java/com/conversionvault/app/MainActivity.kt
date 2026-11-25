@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.net.Uri
 import android.os.Build
@@ -91,6 +92,8 @@ class MainActivity : AppCompatActivity() {
                     put("mode", "folder")
                     put("treeUri", uri.toString())
                     put("folderName", tree?.name ?: "Selected Folder")
+                    val resolvedDir = VaultStorageManager.resolveTreeDirPath(uri)
+                    if (!resolvedDir.isNullOrBlank()) put("folderPath", resolvedDir)
                     put("files", arr)
                 }.toString()
                 evalJs("window.onVaultFilesPicked && window.onVaultFilesPicked($payload);")
@@ -107,6 +110,15 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             val json = intent?.getStringExtra(ConversionForegroundService.EXTRA_EVENT_JSON) ?: return
+            try {
+                val evType = JSONObject(json).optString("type", "")
+                val keepAwakePref = getSharedPreferences("vault_settings", Context.MODE_PRIVATE).getBoolean("keep_screen_awake", true)
+                if (evType == "job_started" || evType == "job_progress") {
+                    applyKeepScreenAwake(keepAwakePref)
+                } else if (evType == "job_done" || evType == "job_failed" || evType == "job_paused" || evType == "job_cancelled") {
+                    applyKeepScreenAwake(false)
+                }
+            } catch (_: Throwable) {}
             evalJs("window.onVaultEvent && window.onVaultEvent($json);")
         }
     }
@@ -115,8 +127,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        getSharedPreferences("vault_app_state", Context.MODE_PRIVATE).edit()
+            .remove("cv_active_files")
+            .remove("cv_active_mode")
+            .remove("cv_last_probe")
+            .remove("cv_pending_convert_cfg")
+            .apply()
         VaultStorageManager.ensureVaultFolders(this)
-        VaultStorageManager.cleanupExpiredSamples(this, 15)
+        val sampleRetDays = getSharedPreferences("vault_settings", Context.MODE_PRIVATE).getInt("sample_retention_days", 15)
+        VaultStorageManager.cleanupExpiredSamples(this, sampleRetDays)
         VaultStorageManager.scheduleSampleCleanup(this)
 
         requestRequiredPermissions()
@@ -268,6 +287,14 @@ class MainActivity : AppCompatActivity() {
             }.toString()
             evalJs("window.onVaultFilesPicked && window.onVaultFilesPicked($payload);")
         }.start()
+    }
+
+    fun applyKeepScreenAwake(enabled: Boolean) {
+        if (enabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     fun applySystemBarTheme(theme: String) {
