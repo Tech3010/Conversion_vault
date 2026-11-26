@@ -311,6 +311,7 @@
 
   function hydrateHardwareStrip() {
     if (!hasBridge || typeof window.AndroidBridge.getDeviceTelemetry !== 'function') return;
+    if (!document.querySelector('.hw-strip, .hw-grid, .hw-chip, #home-storage-box')) return;
     try {
       const t = JSON.parse(window.AndroidBridge.getDeviceTelemetry());
       const hwTag = document.querySelector('.status-strip .hw-tag');
@@ -718,7 +719,10 @@
       safeSet('cv_batch_job_ids', '[]');
       if (res.jobId) safeSet('cv_active_job_id', res.jobId);
       clearActiveSelection();
-      navigateTo('conversion_vault_p4a_convert_single.html');
+      const targetUrl = moduleName === 'Integrity_Repair'
+        ? 'conversion_vault_p4a_convert_single.html?mode=recover'
+        : 'conversion_vault_p4a_convert_single.html';
+      navigateTo(targetUrl);
     } else {
       toast('Engine error: ' + ((res && res.error) || 'Failed to queue'));
     }
@@ -1963,7 +1967,7 @@
         }
         if (queuedCount > 0) {
           clearActiveSelection();
-          toast('Starting Batch Engine...');
+          toast('Starting Conversion Engine...');
           navigateTo('conversion_vault_p4_convert_batch.html');
         } else {
           toast('Engine error: ' + lastErr);
@@ -2260,15 +2264,23 @@
         if (hasBridge && window.AndroidBridge.openFolder) window.AndroidBridge.openFolder(dir);
       }, true);
 
+      function fmtCacheBytes(b) {
+        const n = Math.max(0, Number(b) || 0);
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / (1024 * 1024)).toFixed(2) + ' MB';
+      }
+
       const bClearCache = document.getElementById('btn-clear-cache');
       if (bClearCache) bClearCache.addEventListener('click', (e) => {
         if (!hasBridge || typeof window.AndroidBridge.clearCache !== 'function') return;
         e.preventDefault(); e.stopImmediatePropagation();
-        const r = JSON.parse(window.AndroidBridge.clearCache());
-        const mb = ((r.bytesFreed || 0) / (1024 * 1024)).toFixed(2);
+        const r = JSON.parse(window.AndroidBridge.clearCache() || '{}');
+        const freedStr = fmtCacheBytes(r.bytesFreed || 0);
+        const remStr = fmtCacheBytes(r.remainingBytes || 0);
         const cLbl = document.getElementById('lbl-cache');
-        if (cLbl) cLbl.textContent = '0.00 MB cached temp files';
-        toast('Cleared ' + mb + ' MB of temporary cache ✓');
+        if (cLbl) cLbl.textContent = (r.remainingBytes > 0) ? (remStr + ' cached temp files') : '0 B cached (Clean)';
+        toast((r.bytesFreed > 0) ? ('Cleared ' + freedStr + ' of cache ✓') : 'Cache is already clean ✓');
       }, true);
 
       // Hydrate all saved Settings dropdowns & Vault Folder path from SharedPreferences
@@ -2328,7 +2340,7 @@
           }
           const cLblInit = document.getElementById('lbl-cache');
           if (cLblInit && typeof s.cacheSizeBytes === 'number') {
-            cLblInit.textContent = (s.cacheSizeBytes / (1024 * 1024)).toFixed(2) + ' MB cached temp files';
+            cLblInit.textContent = (s.cacheSizeBytes > 0) ? (fmtCacheBytes(s.cacheSizeBytes) + ' cached temp files') : '0 B cached (Clean)';
           }
           const chkTherm = document.getElementById('chk-thermal-guard');
           if (chkTherm) {
@@ -2709,7 +2721,7 @@
           const isAud = A_EXT.has(rawExt);
           const outExt = isAud ? (['mp3','flac','opus','m4a','wav','ogg'].includes(rawExt) ? rawExt : 'm4a') : (['mkv','mov','webm','mp4'].includes(rawExt) ? rawExt : 'mp4');
           const faststart = (outExt === 'mp4' || outExt === 'mov' || outExt === 'm4a') ? ' -movflags +faststart' : '';
-          enqueueSimpleToolJob('Vault_Core', isAud ? 'Audio' : 'Video', outExt, '-y -err_detect ignore_err -i {INPUT} -c copy' + faststart + ' {OUTPUT}', 'repaired_output');
+          enqueueSimpleToolJob('Integrity_Repair', isAud ? 'Audio' : 'Video', outExt, '-y -err_detect ignore_err -i {INPUT} -c copy' + faststart + ' {OUTPUT}', 'repaired_output');
         }, true);
       }
     }

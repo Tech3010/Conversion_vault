@@ -213,6 +213,7 @@ class ConversionForegroundService : Service() {
                             if (!verifiedOk) {
                                 // Remove incomplete/corrupt partial output so unplayable files are never left behind
                                 try { if (outFile.exists() && outFile.absolutePath != File(job.inputPath).absolutePath) outFile.delete() } catch (_: Throwable) {}
+                                try { getSharedPreferences("vault_settings", Context.MODE_PRIVATE).edit().putBoolean("engine_health_dirty", true).apply() } catch (_: Throwable) {}
                             }
                             val finalStatus = if (verifiedOk) "DONE" else "FAILED"
                             val errText = if (verifiedOk) "" else (result.second.ifBlank { "Output file empty or incomplete" })
@@ -255,6 +256,7 @@ class ConversionForegroundService : Service() {
                             dao.getJobById(job.id)?.let { j ->
                                 dao.upsertJob(j.copy(status = "FAILED", errorLog = "${jobErr.javaClass.simpleName}: ${jobErr.message}", updatedAt = System.currentTimeMillis()))
                             }
+                            try { getSharedPreferences("vault_settings", Context.MODE_PRIVATE).edit().putBoolean("engine_health_dirty", true).apply() } catch (_: Throwable) {}
                             emitEvent("job_failed", job.id, 0, 0f, jobErr.message ?: "Job error")
                         } catch (_: Throwable) {}
                     } finally {

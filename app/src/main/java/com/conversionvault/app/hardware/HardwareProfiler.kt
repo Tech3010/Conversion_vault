@@ -16,6 +16,41 @@ object HardwareProfiler {
 
     data class CpuCluster(val maxFreqKHz: Long, val coreIndices: List<Int>)
 
+    @Volatile
+    private var cachedTelemetryJson: String? = null
+
+    fun hasSavedTelemetry(context: Context): Boolean {
+        if (!cachedTelemetryJson.isNullOrBlank()) return true
+        val saved = context.applicationContext
+            .getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+            .getString("cached_hw_telemetry_json", "") ?: ""
+        return saved.isNotBlank()
+    }
+
+    fun getTelemetry(context: Context, forceRefresh: Boolean = false): JSONObject {
+        val appCtx = context.applicationContext
+        val prefs = appCtx.getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+        if (!forceRefresh) {
+            val mem = cachedTelemetryJson
+            if (!mem.isNullOrBlank()) {
+                try { return JSONObject(mem) } catch (_: Throwable) {}
+            }
+            val saved = prefs.getString("cached_hw_telemetry_json", "") ?: ""
+            if (saved.isNotBlank()) {
+                try {
+                    val obj = JSONObject(saved)
+                    cachedTelemetryJson = saved
+                    return obj
+                } catch (_: Throwable) {}
+            }
+        }
+        val fresh = collectTelemetry(appCtx)
+        val raw = fresh.toString()
+        cachedTelemetryJson = raw
+        prefs.edit().putString("cached_hw_telemetry_json", raw).apply()
+        return fresh
+    }
+
     fun collectTelemetry(context: Context): JSONObject {
         val model = "${Build.MANUFACTURER.uppercase(Locale.ROOT)} ${Build.MODEL}".trim()
         val soc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

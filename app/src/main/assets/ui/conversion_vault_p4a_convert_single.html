@@ -240,7 +240,7 @@
         <button type="button" id="btn-go-home" class="back-btn" aria-label="Go to Home"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>
         <div>
           <div class="page-title">Conversion Engine</div>
-          <div class="page-sub" id="engine-sub">LIVE CONVERSION TELEMETRY</div>
+          <div class="page-sub" id="engine-sub">SINGLE FILE PROCESSING</div>
         </div>
       </div>
       <span class="engine-state-pill state-running" id="engine-pill">
@@ -419,6 +419,17 @@
       if (fpPreset) fpPreset.textContent = (j.commandArgs && j.commandArgs.startsWith('NATIVE_PHOTO:'))
         ? ('Native Photo Engine · .' + (outExtUp || 'IMG'))
         : ('Conversion Engine · .' + (outExtUp || 'OUT'));
+      const engSub = document.getElementById('engine-sub');
+      if (engSub) {
+        const mod = String(j.module || '');
+        if (mod === 'Target_Compressor' || window.location.search.includes('mode=compress')) {
+          engSub.textContent = 'FILE COMPRESSION';
+        } else if (mod === 'Integrity_Repair' || window.location.search.includes('mode=recover')) {
+          engSub.textContent = 'FILE RECOVERY';
+        } else {
+          engSub.textContent = 'SINGLE FILE PROCESSING';
+        }
+      }
       const pitLbl = document.getElementById('pit-lbl');
       if (pitLbl) pitLbl.textContent = 'Conversion Engine · ' + (j.mediaType || 'Media');
 
@@ -635,6 +646,13 @@
       }
     });
 
+    if (window.location.search.includes('mode=compress')) {
+      const engSubInit = document.getElementById('engine-sub');
+      if (engSubInit) engSubInit.textContent = 'FILE COMPRESSION';
+    } else if (window.location.search.includes('mode=recover')) {
+      const engSubInit = document.getElementById('engine-sub');
+      if (engSubInit) engSubInit.textContent = 'FILE RECOVERY';
+    }
     activeJobId = resolveActiveJobId();
     pollJob();
     pollTimer = setInterval(pollJob, 500);

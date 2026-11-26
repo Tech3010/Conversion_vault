@@ -673,7 +673,7 @@
             try { localStorage.setItem('cv_active_job_id', res.jobId || ''); } catch (_) {}
             try { if (window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', res.jobId || ''); } catch (_) {}
             try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_batch_job_ids', '[]'); } catch (_) {}
-            window.location.href = 'conversion_vault_p4a_convert_single.html';
+            window.location.href = 'conversion_vault_p4a_convert_single.html?mode=compress';
           } else {
             showToast('Compression failed: ' + ((res && res.error) || 'Could not queue job'));
           }

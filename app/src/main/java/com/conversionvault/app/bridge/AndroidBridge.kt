@@ -45,6 +45,16 @@ class AndroidBridge(
     @JavascriptInterface
     fun checkEngineHealth(): String {
         return try {
+            val today = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date())
+            val savedDay = prefs.getString("engine_health_day", "") ?: ""
+            val dirty = prefs.getBoolean("engine_health_dirty", false)
+            val savedJson = prefs.getString("engine_health_json", "") ?: ""
+            if (!dirty && savedDay == today && savedJson.isNotBlank()) {
+                try {
+                    val cached = JSONObject(savedJson)
+                    if (cached.optBoolean("ok", false)) return savedJson
+                } catch (_: Throwable) {}
+            }
             val ff = FFmpegKit.execute("-version")
             val fp = FFprobeKit.execute("-version")
             val photo = NativePhotoEngine.checkHealth()
@@ -57,7 +67,7 @@ class AndroidBridge(
             if (!ffOk) errParts.add("FFmpeg: ${(ff.allLogsAsString ?: "init failed").take(120)}")
             if (!fpOk) errParts.add("FFprobe: ${(fp.allLogsAsString ?: "init failed").take(120)}")
             if (!photoOk) errParts.add("Photo Engine: ${photo.optString("error", "init failed")}")
-            JSONObject().apply {
+            val resStr = JSONObject().apply {
                 put("ok", allOk)
                 put("ffmpegOk", ffOk)
                 put("ffprobeOk", fpOk)
@@ -65,7 +75,14 @@ class AndroidBridge(
                 put("photoEngineVersion", photo.optString("version", "Skia + Exif + Heif"))
                 put("version", firstLine.take(60))
                 put("error", errParts.joinToString(" | ").take(260))
+                put("checkedDay", today)
             }.toString()
+            prefs.edit()
+                .putString("engine_health_json", resStr)
+                .putString("engine_health_day", today)
+                .putBoolean("engine_health_dirty", !allOk)
+                .apply()
+            resStr
         } catch (t: Throwable) {
             JSONObject().apply {
                 put("ok", false)
@@ -108,7 +125,7 @@ class AndroidBridge(
                     val elapsedMs = ((System.nanoTime() - startNs) / 1_000_000L).coerceAtLeast(1L)
                     val ok = ReturnCode.isSuccess(session.returnCode)
                     val fps = if (ok) (60.0 / (elapsedMs / 1000.0)) else 0.0
-                    val telemetry = HardwareProfiler.collectTelemetry(appCtx)
+                    val telemetry = HardwareProfiler.getTelemetry(appCtx, forceRefresh = true)
                     val codecs = telemetry.optJSONObject("codecs") ?: JSONObject()
                     val ffmpegEncoders = try { probeFfmpegEncodersJson() } catch (_: Throwable) { JSONObject() }
                     val measuredFps = String.format(Locale.US, "%.1f", fps).toDouble()
@@ -148,7 +165,7 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun getDeviceTelemetry(): String {
-        return HardwareProfiler.collectTelemetry(context).toString()
+        return HardwareProfiler.getTelemetry(context, forceRefresh = false).toString()
     }
 
     @JavascriptInterface
@@ -1561,11 +1578,7 @@ class AndroidBridge(
             put("keepScreenAwake", prefs.getBoolean("keep_screen_awake", true))
             put("benchFps", prefs.getFloat("bench_fps", 0f).toDouble())
             put("hwTestJson", prefs.getString("hw_test_json", "") ?: "")
-            val stagedDir = File(context.cacheDir, "staged_inputs")
-            val stagedBytes = stagedDir.listFiles()?.filter { it.isFile }?.sumOf { it.length() } ?: 0L
-            val rootTmpBytes = context.cacheDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".tmp") || it.name.startsWith("photo_stage_") || it.name.startsWith("heic_stage_")) }?.sumOf { it.length() } ?: 0L
-            val cacheBytes = stagedBytes + rootTmpBytes
-            put("cacheSizeBytes", cacheBytes)
+            put("cacheSizeBytes", computeCacheBytes())
             put("defaultMetadataPolicy", prefs.getString("default_metadata_policy", "forensic"))
             put("autoSuffixCollision", true)
             put("sampleRetentionDays", prefs.getInt("sample_retention_days", 15))
@@ -1633,25 +1646,62 @@ class AndroidBridge(
         }
     }
 
+    private fun dirSizeBytes(dir: File?): Long {
+        if (dir == null || !dir.exists()) return 0L
+        var total = 0L
+        try {
+            dir.listFiles()?.forEach { f ->
+                total += if (f.isDirectory) dirSizeBytes(f) else f.length()
+            }
+        } catch (_: Throwable) {}
+        return total
+    }
+
+    private fun deleteDirChildren(dir: File?): Long {
+        if (dir == null || !dir.exists()) return 0L
+        var freed = 0L
+        try {
+            dir.listFiles()?.forEach { f ->
+                if (f.isDirectory) {
+                    freed += deleteDirChildren(f)
+                    try { f.delete() } catch (_: Throwable) {}
+                } else {
+                    val sz = f.length()
+                    if (try { f.delete() } catch (_: Throwable) { false }) {
+                        freed += sz
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
+        return freed
+    }
+
+    private fun computeCacheBytes(): Long {
+        var total = dirSizeBytes(context.cacheDir)
+        val ext = context.externalCacheDir
+        if (ext != null && ext.absolutePath != context.cacheDir.absolutePath) {
+            total += dirSizeBytes(ext)
+        }
+        return total
+    }
+
     @JavascriptInterface
     fun clearCache(): String {
         var bytesFreed = 0L
         try {
-            val staged = File(context.cacheDir, "staged_inputs")
-            staged.listFiles()?.forEach { f ->
-                if (f.isFile) {
-                    bytesFreed += f.length()
-                    f.delete()
-                }
+            bytesFreed += deleteDirChildren(context.cacheDir)
+            val ext = context.externalCacheDir
+            if (ext != null && ext.absolutePath != context.cacheDir.absolutePath) {
+                bytesFreed += deleteDirChildren(ext)
             }
-            context.cacheDir.listFiles()?.forEach { f ->
-                if (f.isFile && (f.name.endsWith(".tmp") || f.name.startsWith("photo_stage_") || f.name.startsWith("heic_stage_"))) {
-                    bytesFreed += f.length()
-                    f.delete()
-                }
-            }
+            activity.clearWebViewCache()
         } catch (_: Throwable) {}
-        return JSONObject().put("ok", true).put("bytesFreed", bytesFreed).toString()
+        val remaining = computeCacheBytes()
+        return JSONObject()
+            .put("ok", true)
+            .put("bytesFreed", bytesFreed)
+            .put("remainingBytes", remaining)
+            .toString()
     }
 
     @JavascriptInterface

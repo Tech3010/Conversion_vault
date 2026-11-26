@@ -169,8 +169,7 @@ class MainActivity : AppCompatActivity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
-            settings.cacheMode = WebSettings.LOAD_NO_CACHE
-            clearCache(true)
+            settings.cacheMode = WebSettings.LOAD_DEFAULT
             webViewClient = object : WebViewClientCompat() {
                 override fun shouldInterceptRequest(
                     view: WebView,
@@ -234,13 +233,21 @@ class MainActivity : AppCompatActivity() {
 
         loadUiPage("conversion_vault_p1_home.html")
 
-        Thread {
-            try {
-                Thread.sleep(700L)
-                AndroidBridge.runBenchmarkInternal(applicationContext)
-                evalJs("window.onVaultBenchmarkUpdated && window.onVaultBenchmarkUpdated();")
-            } catch (_: Throwable) {}
-        }.start()
+        val needsInitialHwScan = !com.conversionvault.app.hardware.HardwareProfiler.hasSavedTelemetry(applicationContext) ||
+            vPrefs.getString("hw_test_json", "").isNullOrBlank()
+        if (needsInitialHwScan) {
+            Thread {
+                try {
+                    Thread.sleep(900L)
+                    com.conversionvault.app.hardware.HardwareProfiler.getTelemetry(applicationContext, forceRefresh = true)
+                    AndroidBridge.runBenchmarkInternal(applicationContext)
+                    evalJs("window.onVaultBenchmarkUpdated && window.onVaultBenchmarkUpdated();")
+                } catch (_: Throwable) {}
+            }.apply {
+                priority = Thread.MIN_PRIORITY
+                start()
+            }
+        }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -270,6 +277,12 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         try { unregisterReceiver(progressReceiver) } catch (_: Exception) {}
+    }
+
+    fun clearWebViewCache() {
+        runOnUiThread {
+            try { webView.clearCache(true) } catch (_: Throwable) {}
+        }
     }
 
     fun loadUiPage(filename: String) {

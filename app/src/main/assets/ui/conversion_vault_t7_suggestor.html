@@ -46,7 +46,37 @@
     .s-chip:hover{border-color:var(--gold);color:var(--text);}
     .s-chip.active{border-color:var(--crimson);background:var(--crimson-soft);color:var(--text);}
 
-    .rec-head-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:-4px;flex-wrap:wrap;}
+    @keyframes recDrawerDrop{
+      0%{opacity:0;transform:translateY(-14px) scaleY(0.95);}
+      100%{opacity:1;transform:translateY(0) scaleY(1);}
+    }
+    @keyframes recCardCascade{
+      0%{opacity:0;transform:translateY(-10px) scale(0.985);}
+      100%{opacity:1;transform:translateY(0) scale(1);}
+    }
+    .rec-drawer{
+      --notch-x:28px;
+      display:flex;flex-direction:column;gap:10px;
+      transform-origin:top center;position:relative;
+      padding:12px 10px 10px;border-radius:var(--radius);
+      background:rgba(15,22,36,0.78);
+      border:1px solid rgba(219,10,64,0.38);
+      border-top:2px solid var(--crimson);
+      margin-top:-4px;
+    }
+    .rec-drawer::before{
+      content:"";position:absolute;top:-6px;left:var(--notch-x);
+      width:10px;height:10px;background:var(--crimson);
+      transform:translateX(-50%) rotate(45deg);border-radius:2px;
+      transition:left 0.18s ease;
+    }
+    .rec-drawer.is-dropping{animation:recDrawerDrop 0.26s cubic-bezier(0.22,1,0.36,1) both;}
+    .rec-drawer.is-dropping .rec-card{animation:recCardCascade 0.28s cubic-bezier(0.22,1,0.36,1) both;}
+    .rec-drawer.is-dropping .rec-card:nth-child(1){animation-delay:0.02s;}
+    .rec-drawer.is-dropping .rec-card:nth-child(2){animation-delay:0.06s;}
+    .rec-drawer.is-dropping .rec-card:nth-child(3){animation-delay:0.10s;}
+    .rec-drawer.is-dropping .rec-card:nth-child(4){animation-delay:0.14s;}
+    .rec-head-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:0;flex-wrap:wrap;}
     .rec-list{display:flex;flex-direction:column;gap:10px;}
     .rec-card{
       background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius);
@@ -215,16 +245,18 @@
         </div>
       </section>
 
-      <!-- 4 RANKED RECOMMENDATIONS -->
-      <div class="rec-head-row">
-        <span class="sec-lbl">Recommended Presets (4 Options)</span>
-        <span class="sec-note" id="combo-lbl"></span>
+      <!-- 4 RANKED RECOMMENDATIONS (DROPS DIRECTLY BELOW CHOSEN OPTION GROUP) -->
+      <div class="rec-drawer" id="rec-drawer">
+        <div class="rec-head-row">
+          <span class="sec-lbl">Recommended Presets (4 Options)</span>
+          <span class="sec-note" id="combo-lbl"></span>
+        </div>
+        <div class="bench-hint" id="bench-hint" role="note">
+          <span>Run the Settings benchmark test to check which suggested codecs are supported on your device.</span>
+          <button type="button" class="bench-hint-btn" id="btn-go-bench">Settings ↗</button>
+        </div>
+        <section class="rec-list" id="rec-list" aria-label="Recommended Presets"></section>
       </div>
-      <div class="bench-hint" id="bench-hint" role="note">
-        <span>Run the Settings benchmark test to check which suggested codecs are supported on your device.</span>
-        <button type="button" class="bench-hint-btn" id="btn-go-bench">Settings ↗</button>
-      </div>
-      <section class="rec-list" id="rec-list" aria-label="Recommended Presets"></section>
     </main>
   </div>
   <div class="toast" id="toast">Ready</div>
@@ -828,7 +860,34 @@
       window.location.href = 'conversion_vault_p8_playback_tester.html?from=suggestor';
     }
 
-    function render() {
+    function placeRecDrawerBelowActive(animate) {
+      const drawer = document.getElementById('rec-drawer');
+      const activeEl = document.querySelector('.s-chip.active');
+      if (!drawer || !activeEl) return;
+      const hostCard = activeEl.closest('section.card-box');
+      if (hostCard && hostCard.nextElementSibling !== drawer) {
+        hostCard.insertAdjacentElement('afterend', drawer);
+      }
+      try {
+        const dRect = drawer.getBoundingClientRect();
+        const cRect = activeEl.getBoundingClientRect();
+        if (dRect.width > 0 && cRect.width > 0) {
+          const rawX = (cRect.left + cRect.width / 2) - dRect.left;
+          const clampedX = Math.max(20, Math.min(dRect.width - 20, Math.round(rawX)));
+          drawer.style.setProperty('--notch-x', clampedX + 'px');
+        }
+      } catch (_) {}
+      if (animate) {
+        drawer.classList.remove('is-dropping');
+        void drawer.offsetWidth;
+        drawer.classList.add('is-dropping');
+        setTimeout(() => {
+          try { drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+        }, 40);
+      }
+    }
+
+    function render(animate) {
       const activeEl = document.querySelector('.s-chip.active');
       const lbl = activeEl ? activeEl.textContent.trim() : 'This Device';
       document.getElementById('combo-lbl').textContent = 'Tailored for: ' + lbl;
@@ -858,6 +917,7 @@
           </article>
         `;
       }).join('');
+      placeRecDrawerBelowActive(Boolean(animate));
     }
 
     // Mutually exclusive single selection across ALL 3 groups (Device, Purpose, Priority)
@@ -867,7 +927,7 @@
       document.querySelectorAll('.s-chip').forEach(x => x.classList.remove('active'));
       chip.classList.add('active');
       activeChoice = chip.getAttribute('data-val') || 'this_device';
-      render();
+      render(true);
     });
 
     document.getElementById('rec-list').addEventListener('click', (e) => {
