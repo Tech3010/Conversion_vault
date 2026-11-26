@@ -78,6 +78,74 @@ class AndroidBridge(
         }
     }
 
+    companion object {
+        @Volatile
+        private var isBenchmarkRunning = false
+        private val benchLock = Any()
+
+        fun probeFfmpegEncodersJson(): JSONObject {
+            val s = FFmpegKit.execute("-hide_banner -encoders")
+            val txt = s.allLogsAsString ?: ""
+            val wanted = listOf("libx264", "libx265", "libsvtav1", "libaom-av1", "librav1e", "libvpx-vp9", "av1_mediacodec", "h264_mediacodec", "hevc_mediacodec", "libopus", "aac", "libmp3lame", "flac", "libwebp")
+            val found = JSONObject()
+            wanted.forEach { enc -> found.put(enc, txt.contains(enc)) }
+            return found
+        }
+
+        fun runBenchmarkInternal(ctx: Context): String {
+            val appCtx = ctx.applicationContext
+            val prefs = appCtx.getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+            synchronized(benchLock) {
+                if (isBenchmarkRunning) {
+                    val cached = prefs.getString("hw_test_json", "") ?: ""
+                    if (cached.isNotBlank()) return cached
+                }
+                isBenchmarkRunning = true
+                return try {
+                    val threads = prefs.getString("default_threads", "8")?.toIntOrNull() ?: 8
+                    val startNs = System.nanoTime()
+                    val session = FFmpegKit.execute("-loglevel error -threads $threads -f lavfi -i testsrc2=size=1920x1080:rate=60 -t 1 -c:v libx264 -preset fast -pix_fmt yuv420p -f null -")
+                    val elapsedMs = ((System.nanoTime() - startNs) / 1_000_000L).coerceAtLeast(1L)
+                    val ok = ReturnCode.isSuccess(session.returnCode)
+                    val fps = if (ok) (60.0 / (elapsedMs / 1000.0)) else 0.0
+                    val telemetry = HardwareProfiler.collectTelemetry(appCtx)
+                    val codecs = telemetry.optJSONObject("codecs") ?: JSONObject()
+                    val ffmpegEncoders = try { probeFfmpegEncodersJson() } catch (_: Throwable) { JSONObject() }
+                    val measuredFps = String.format(Locale.US, "%.1f", fps).toDouble()
+                    val testResult = JSONObject().apply {
+                        put("ok", ok)
+                        put("fps", measuredFps)
+                        put("elapsedMs", elapsedMs)
+                        put("threads", threads)
+                        put("testedAt", System.currentTimeMillis())
+                        put("codecs", codecs)
+                        put("ffmpegEncoders", ffmpegEncoders)
+                    }
+                    if (ok && fps > 0.0) {
+                        prefs.edit()
+                            .putFloat("bench_fps", fps.toFloat())
+                            .putString("hw_test_json", testResult.toString())
+                            .apply()
+                    }
+                    testResult.toString()
+                } catch (t: Throwable) {
+                    JSONObject().put("ok", false).put("error", t.message ?: "Benchmark failed").toString()
+                } finally {
+                    isBenchmarkRunning = false
+                }
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun getAvailableFfmpegEncoders(): String {
+        return try {
+            JSONObject().put("ok", true).put("encoders", probeFfmpegEncodersJson()).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Failed").toString()
+        }
+    }
+
     @JavascriptInterface
     fun getDeviceTelemetry(): String {
         return HardwareProfiler.collectTelemetry(context).toString()
@@ -85,34 +153,7 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun runBenchmark(): String {
-        return try {
-            val threads = prefs.getString("default_threads", "8")?.toIntOrNull() ?: 8
-            val startNs = System.nanoTime()
-            val session = FFmpegKit.execute("-loglevel error -threads $threads -f lavfi -i testsrc2=size=1920x1080:rate=60 -t 1 -c:v libx264 -preset fast -pix_fmt yuv420p -f null -")
-            val elapsedMs = ((System.nanoTime() - startNs) / 1_000_000L).coerceAtLeast(1L)
-            val ok = ReturnCode.isSuccess(session.returnCode)
-            val fps = if (ok) (60.0 / (elapsedMs / 1000.0)) else 0.0
-            val telemetry = HardwareProfiler.collectTelemetry(context)
-            val codecs = telemetry.optJSONObject("codecs") ?: JSONObject()
-            val measuredFps = String.format(Locale.US, "%.1f", fps).toDouble()
-            val testResult = JSONObject().apply {
-                put("ok", ok)
-                put("fps", measuredFps)
-                put("elapsedMs", elapsedMs)
-                put("threads", threads)
-                put("testedAt", System.currentTimeMillis())
-                put("codecs", codecs)
-            }
-            if (ok && fps > 0.0) {
-                prefs.edit()
-                    .putFloat("bench_fps", fps.toFloat())
-                    .putString("hw_test_json", testResult.toString())
-                    .apply()
-            }
-            testResult.toString()
-        } catch (t: Throwable) {
-            JSONObject().put("ok", false).put("error", t.message ?: "Benchmark failed").toString()
-        }
+        return runBenchmarkInternal(context)
     }
 
     @JavascriptInterface
@@ -1685,18 +1726,38 @@ class AndroidBridge(
                     emitUiProgress("onSampleProgress", pct, "Generating ${ext.uppercase()} sample ($pct%$fpsTxt)...", "${tMs}ms / ${targetDurMs}ms")
                 }
                 var ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
-                // Automatic fallback if libsvtav1 is unavailable or rejects a parameter -> retry with libaom-av1
+                // Automatic fallback if libsvtav1 is unavailable or rejects a parameter -> try libaom-av1, then av1_mediacodec
                 if (!ok && finalCmd.contains("libsvtav1")) {
                     if (outFile.exists()) outFile.delete()
                     emitUiProgress("onSampleProgress", 22, "Switching to libaom-av1 encoder fallback...", outFile.name)
                     val fallbackCmd = finalCmd
                         .replace("libsvtav1", "libaom-av1")
-                        .replace(Regex("-preset\\s+\\d+"), "-cpu-used 8 -row-mt 1")
+                        .replace(Regex("-preset\\s+\\S+"), "-cpu-used 8 -row-mt 1")
+                        .replace(Regex("-bf\\s+\\d+"), "")
+                        .replace(Regex("-maxrate\\s+\\S+"), "")
+                        .replace(Regex("-bufsize\\s+\\S+"), "")
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
                     session = executeFfmpegWithProgress(fallbackCmd, targetDurMs) { pct, fps, tMs ->
                         val fpsTxt = if (fps > 0f) " · ${fps.toInt()} fps" else ""
-                        emitUiProgress("onSampleProgress", pct, "Encoding AV1 fallback ($pct%$fpsTxt)...", "${tMs}ms / ${targetDurMs}ms")
+                        emitUiProgress("onSampleProgress", pct, "Encoding AV1 (libaom-av1) $pct%$fpsTxt...", "${tMs}ms / ${targetDurMs}ms")
                     }
                     ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
+                    if (!ok && !finalCmd.contains("-still-picture")) {
+                        if (outFile.exists()) outFile.delete()
+                        emitUiProgress("onSampleProgress", 30, "Trying hardware av1_mediacodec...", outFile.name)
+                        val mcCmd = finalCmd
+                            .replace("libsvtav1", "av1_mediacodec")
+                            .replace(Regex("-crf\\s+\\d+"), "-b:v 6M")
+                            .replace(Regex("-preset\\s+\\S+"), "")
+                            .replace(Regex("\\s+"), " ")
+                            .trim()
+                        session = executeFfmpegWithProgress(mcCmd, targetDurMs) { pct, fps, tMs ->
+                            val fpsTxt = if (fps > 0f) " · ${fps.toInt()} fps" else ""
+                            emitUiProgress("onSampleProgress", pct, "Encoding AV1 (HW) $pct%$fpsTxt...", "${tMs}ms / ${targetDurMs}ms")
+                        }
+                        ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
+                    }
                 }
                 // Automatic fallback if libvpx-vp9 fails with 10-bit or profile mismatch -> retry with yuv420p
                 if (!ok && finalCmd.contains("libvpx-vp9")) {

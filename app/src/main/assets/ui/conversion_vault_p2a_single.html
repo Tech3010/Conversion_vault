@@ -1213,6 +1213,11 @@
       state.cfg = merged;
       state.modal.draft = Object.assign({}, merged);
       state.hasPreset = true;
+      state.usePresetMode = true;
+      const fmtCard = document.querySelector('section.s-format');
+      if (fmtCard) fmtCard.classList.add('hidden');
+      const perfTitle = document.querySelector('#sec-perf .sec-title');
+      if (perfTitle) perfTitle.textContent = '2. Device Performance · ' + p.name;
       window.VaultPresets.clearPendingPreset();
       if (typeof showToast === 'function') showToast('✓ Pre-applied preset: ' + p.name);
     }

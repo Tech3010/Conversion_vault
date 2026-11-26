@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-  <title>Conversion Vault · Batch Engine Progress</title>
+  <title>Conversion Vault · Single File Engine</title>
   <style>
     :root {
       /* Red Bull Racing Dark Mode (shadcn/ui precision tokens) */
@@ -97,28 +97,45 @@
       border: 1px solid var(--border-strong);
       border-top: 2px solid var(--crimson);
       border-radius: var(--radius);
-      padding: 14px;
+      padding: 15px;
       display: flex; flex-direction: column; gap: 12px;
     }
+    .pit-hero.is-done {
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.14) 0%, var(--surface) 65%);
+      border-top-color: var(--emerald);
+    }
+
+    .file-pill-row {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .fp-name { font-family: var(--mono); font-size: 13.5px; font-weight: 800; word-break: break-all; }
+    .fp-preset { font-family: var(--mono); font-size: 10.5px; color: var(--gold-text); margin-top: 2px; }
+    .fp-type {
+      font-family: var(--mono); font-size: 10px; font-weight: 800; padding: 3px 7px;
+      border-radius: 5px; background: var(--crimson-soft); color: var(--crimson); white-space: nowrap;
+    }
+
     .pit-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
-    .pit-pct { font-family: var(--mono); font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
-    .pit-lbl { font-family: var(--mono); font-size: 10.5px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-bottom: 3px; }
+    .pit-pct { font-family: var(--mono); font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+    .pit-lbl { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-bottom: 3px; }
     .pit-time-block { text-align: right; }
     .pit-eta { font-family: var(--mono); font-size: 14px; font-weight: 800; color: var(--gold-text); }
     .pit-elapsed { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
 
     .master-track {
-      width: 100%; height: 9px; background: #05070b; border: 1px solid var(--border);
+      width: 100%; height: 10px; background: #05070b; border: 1px solid var(--border);
       border-radius: 999px; overflow: hidden;
     }
     .master-fill {
       height: 100%; width: 0%;
       background: linear-gradient(90deg, var(--crimson) 0%, #f97316 55%, var(--gold) 100%);
-      border-radius: 999px; transition: width 0.25s ease;
+      border-radius: 999px; transition: width 0.2s ease;
     }
     .master-fill.is-done { background: var(--emerald); }
 
-    .telemetry-4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    /* 6-Tile Sporting Telemetry Grid */
+    .telemetry-6 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     .tele-cell {
       background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
       padding: 8px 10px;
@@ -129,78 +146,23 @@
     .c-gold { color: var(--gold-text); }
     .c-emerald { color: var(--emerald); }
 
-    /* Active File "Now Encoding" Spotlight */
-    .now-card {
-      background: var(--surface); border: 1px solid var(--border-strong);
-      border-left: 3px solid var(--crimson); border-radius: var(--radius);
-      padding: 12px 14px; display: flex; flex-direction: column; gap: 9px;
+    /* Destination & Summary Card */
+    .dest-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
     }
-    .now-card.is-done { border-left-color: var(--emerald); }
-    .now-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .now-eyebrow {
-      font-family: var(--mono); font-size: 10px; font-weight: 800; text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--crimson);
+    .dest-k { font-family: var(--mono); font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+    .dest-path { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text); word-break: break-all; }
+    .dest-delta {
+      margin-top: 4px; padding: 8px 10px; border-radius: 7px;
+      background: var(--emerald-soft); border: 1px solid rgba(16, 185, 129, 0.35);
+      font-family: var(--mono); font-size: 11px; color: var(--emerald); font-weight: 700;
     }
-    .now-card.is-done .now-eyebrow { color: var(--emerald); }
-    .btn-mini {
-      padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border-strong);
-      background: var(--card); color: var(--muted); font-family: var(--mono); font-size: 10.5px; font-weight: 700; cursor: pointer;
-    }
-    .btn-mini:hover { border-color: var(--crimson); color: var(--text); }
-    .now-file-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-    .now-name { font-family: var(--mono); font-size: 13px; font-weight: 700; word-break: break-all; }
-    .now-pct { font-family: var(--mono); font-size: 13px; font-weight: 800; color: var(--gold-text); white-space: nowrap; }
-    .now-sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
-    .sub-track { width: 100%; height: 6px; background: var(--input); border-radius: 999px; overflow: hidden; }
-    .sub-fill { height: 100%; background: var(--crimson); border-radius: 999px; transition: width 0.2s ease; }
-    .now-metrics { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
-    .now-metrics strong { color: var(--text); }
 
-    /* Queue List Card */
+    /* Live FFmpeg Console Drawer */
     .sec-card {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
     }
-    .sec-head {
-      padding: 10px 14px; background: var(--card); border-bottom: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    }
-    .sec-title {
-      font-family: var(--mono); font-size: 11px; font-weight: 800; text-transform: uppercase;
-      letter-spacing: 0.05em; color: var(--text);
-    }
-    .sec-tag {
-      font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 5px;
-      background: var(--surface); border: 1px solid var(--border); color: var(--muted);
-    }
-
-    .q-list { padding: 10px; display: flex; flex-direction: column; gap: 7px; }
-    .q-row {
-      background: var(--card-elev); border: 1px solid var(--border); border-radius: var(--radius-sm);
-      padding: 9px 11px; display: flex; flex-direction: column; gap: 6px;
-      transition: border-color 0.15s ease;
-    }
-    .q-row.st-active { border-color: rgba(219, 10, 64, 0.7); box-shadow: inset 3px 0 0 var(--crimson); }
-    .q-row.st-done { border-color: rgba(16, 185, 129, 0.35); box-shadow: inset 3px 0 0 var(--emerald); }
-    .q-row.st-skip { opacity: 0.45; }
-
-    .q-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .q-left { min-width: 0; flex: 1; }
-    .q-name { font-family: var(--mono); font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-    .q-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; display: block; }
-
-    .q-badge {
-      font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 5px; white-space: nowrap;
-    }
-    .qb-done { background: var(--emerald-soft); color: var(--emerald); }
-    .qb-run { background: var(--crimson-soft); color: var(--crimson); }
-    .qb-wait { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
-    .qb-skip { background: var(--surface); color: var(--subtle); }
-
-    .q-mini-track { width: 100%; height: 3px; background: var(--input); border-radius: 999px; overflow: hidden; }
-    .q-mini-fill { height: 100%; background: var(--crimson); transition: width 0.2s ease; }
-    .q-row.st-done .q-mini-fill { background: var(--emerald); }
-
-    /* Live FFmpeg Console Drawer */
     .console-toggle {
       width: 100%; padding: 10px 14px; background: var(--card); border: none; color: var(--text);
       font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer;
@@ -209,7 +171,7 @@
     .console-body {
       background: #05070b; border-top: 1px solid var(--border); padding: 10px 12px;
       font-family: var(--mono); font-size: 10.5px; line-height: 1.55; color: #cbd5e1;
-      max-height: 170px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;
+      max-height: 185px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;
     }
     .log-line-cmd { color: var(--gold-text); }
     .log-line-ok { color: var(--emerald); }
@@ -275,14 +237,10 @@
     <!-- Top Bar -->
     <header class="app-bar">
       <div class="bar-left">
-        <button type="button" id="btn-back" class="back-btn" aria-label="Back to Performance">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-          </svg>
-        </button>
+        <button type="button" id="btn-go-home" class="back-btn" aria-label="Go to Home"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>
         <div>
-          <div class="page-title">Vault Engine · Batch Run</div>
-          <div class="page-sub">STEP 4 · LIVE FFMPEG TELEMETRY</div>
+          <div class="page-title">Batch Engine</div>
+          <div class="page-sub" id="engine-sub">BATCH QUEUE TELEMETRY</div>
         </div>
       </div>
       <span class="engine-state-pill state-running" id="engine-pill">
@@ -293,14 +251,22 @@
 
     <main class="content">
       <!-- 1. HERO PIT-WALL TELEMETRY -->
-      <section class="pit-hero" aria-label="Batch Engine Telemetry">
+      <section class="pit-hero" id="pit-hero" aria-label="Single File Telemetry">
+        <div class="file-pill-row">
+          <div style="min-width:0;">
+            <div class="fp-name">Preparing file...</div>
+            <div class="fp-preset" id="fp-preset">Conversion Engine</div>
+          </div>
+          <span class="fp-type" id="fp-type">MEDIA</span>
+        </div>
+
         <div class="pit-top">
           <div>
-            <div class="pit-lbl" id="pit-lbl">Batch Progress · 8 Files</div>
+            <div class="pit-lbl" id="pit-lbl">Conversion Engine</div>
             <div class="pit-pct" id="pit-pct">0%</div>
           </div>
           <div class="pit-time-block">
-            <div class="pit-eta" id="pit-eta">ETA ~2m 10s</div>
+            <div class="pit-eta" id="pit-eta">Calculating...</div>
             <div class="pit-elapsed" id="pit-elapsed">Elapsed 00:00</div>
           </div>
         </div>
@@ -309,51 +275,50 @@
           <div class="master-fill" id="master-fill"></div>
         </div>
 
-        <div class="telemetry-4">
+        <div class="telemetry-6">
           <div class="tele-cell">
-            <span class="tele-k">Engine Speed</span>
+            <span class="tele-k">Encode Speed</span>
             <span class="tele-v c-emerald" id="tele-speed">—</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Device CPU</span>
-            <span class="tele-v" id="tele-cpu">88% · 41°C Cool</span>
+            <span class="tele-k">Source Duration</span>
+            <span class="tele-v" id="tele-frames">—</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Size Processed</span>
-            <span class="tele-v c-gold" id="tele-size">0 → 0 MB</span>
+            <span class="tele-k">Engine</span>
+            <span class="tele-v c-gold" id="tele-br">Conversion Engine</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Write Throughput</span>
-            <span class="tele-v" id="tele-io">Storage · Active</span>
+            <span class="tele-k">Media Type</span>
+            <span class="tele-v" id="tele-q">—</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">Engine State</span>
+            <span class="tele-v" id="tele-cpu">Active</span>
+          </div>
+          <div class="tele-cell">
+            <span class="tele-k">File Size</span>
+            <span class="tele-v" id="tele-size">—</span>
           </div>
         </div>
       </section>
 
-      <!-- 2. NOW ENCODING SPOTLIGHT -->
-      <section class="now-card" id="now-card" aria-label="Current Active File">
-        <div class="now-head">
-          <span class="now-eyebrow" id="now-eyebrow">▶ NOW ENCODING</span>
-          <button type="button" id="btn-skip-current" class="btn-mini">Skip File ⏭</button>
+      <!-- 2. OUTPUT DESTINATION & RESULT -->
+      <section class="dest-card" aria-label="Output File Path">
+        <span class="dest-k">Target Output Path</span>
+        <span class="dest-path">—</span>
+        <div class="dest-delta hidden" id="done-summary"></div>
+      <div id="ask-delete-source-box" class="hidden" style="margin-top:10px; padding:11px 12px; border-radius:10px; border:1px dashed rgba(219,10,64,0.5); background:rgba(219,10,64,0.07); display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:12px; font-weight:700; color:var(--text);" id="ask-delete-title">Delete original source file?</div>
+        <div style="font-size:11px; color:var(--muted);" id="ask-delete-sub">Your converted file is saved and verified.</div>
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button type="button" id="btn-ask-keep-src" style="padding:6px 12px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:11.5px; font-weight:700; cursor:pointer;">Keep Original</button>
+          <button type="button" id="btn-ask-del-src" style="padding:6px 12px; border-radius:7px; border:1px solid var(--crimson); background:var(--crimson); color:#ffffff; font-size:11.5px; font-weight:700; cursor:pointer;">Delete Source</button>
         </div>
-        <div class="now-file-row">
-          <span class="now-name" id="now-name">—</span>
-          <span class="now-pct" id="now-pct">0%</span>
-        </div>
-        <div class="now-sub" id="now-sub">—</div>
-        <div class="sub-track"><div class="sub-fill" id="now-fill" style="width:0%;"></div></div>
-        <div class="now-metrics" id="now-metrics"></div>
+      </div>
       </section>
 
-      <!-- 3. BATCH QUEUE LIST -->
-      <section class="sec-card" aria-label="Batch Queue Status">
-        <div class="sec-head">
-          <span class="sec-title">Batch Queue (8 Files)</span>
-          <span class="sec-tag" id="queue-count-tag">0 / 8 Done</span>
-        </div>
-        <div class="q-list" id="q-list"></div>
-      </section>
-
-      <!-- 4. TOGGLEABLE FFMPEG CONSOLE LOG + TERMUX / SSH EXPORT -->
+      <!-- 3. TOGGLEABLE FFMPEG CONSOLE LOG + TERMUX / SSH EXPORT -->
       <section class="sec-card" aria-label="FFmpeg Console Stream">
         <button type="button" id="btn-toggle-console" class="console-toggle" aria-expanded="true">
           <span>&gt;_ FFmpeg Live Console &amp; Termux / SSH</span>
@@ -365,254 +330,407 @@
             <span>Include Directory Paths</span>
           </label>
           <div class="cmd-btn-group">
-            <button type="button" id="btn-copy-cmd" class="btn-cmd-act">Copy Commands</button>
+            <button type="button" id="btn-copy-cmd" class="btn-cmd-act">Copy Command</button>
             <button type="button" id="btn-export-sh" class="btn-cmd-act">Export .sh</button>
           </div>
         </div>
         <div class="console-body" id="console-body"></div>
       </section>
+
+      <!-- 4. BATCH QUEUE (STRICTLY SCOPED TO THIS BATCH) -->
+      <section class="sec-card hidden" id="batch-queue-card" aria-label="Batch Conversion Queue">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:11px 14px; border-bottom:1px solid var(--border);">
+          <span style="font-size:12.5px; font-weight:800; color:var(--text);">Batch Queue</span>
+          <span id="batch-queue-summary" style="font-family:var(--mono); font-size:11px; font-weight:700; color:var(--gold-text);">—</span>
+        </div>
+        <div id="batch-queue-list" style="display:flex; flex-direction:column; gap:6px; padding:10px 12px; max-height:340px; overflow-y:auto;"></div>
+      </section>
+
     </main>
 
     <!-- Bottom Pit-Stop Control Bar -->
     <footer class="bottom-bar" id="footer-running">
-      <button type="button" id="btn-pause" class="btn-secondary">⏸ Pause Engine</button>
-      <button type="button" id="btn-abort" class="btn-danger">■ Stop Batch</button>
+      <button type="button" id="btn-pause" class="btn-secondary">Queue &amp; History ↗</button>
+      <button type="button" id="btn-abort" class="btn-danger">■ Stop</button>
     </footer>
 
-    <footer class="bottom-bar hidden" id="footer-done">
-      <button type="button" id="btn-view-history" class="btn-secondary">Queue &amp; History</button>
-      <button type="button" id="btn-open-folder" class="btn-primary">Open in File Manager ↗</button>
+    <footer class="bottom-bar hidden" id="footer-done" style="gap:8px;">
+      <button type="button" id="btn-open-file" class="btn-primary" style="flex:1.2;">Open File ▶</button>
+      <button type="button" id="btn-open-folder" class="btn-secondary" style="flex:1.1;">File Manager</button>
+      <button type="button" id="btn-share" class="btn-secondary" style="flex:0.8;">Share</button>
     </footer>
   </div>
 
   <div class="toast" id="toast">Ready</div>
 
   <script>
-    const JOBS = [];
-
-    const state = {
-      running: true,
-      paused: false,
-      done: false,
-      aborted: false,
-      curIdx: 0,
-      elapsedSec: 0,
-      consoleOpen: true,
-      logs: [
-        { cls: 'log-line-cmd', txt: '$ ffmpeg -y -threads 8 -i No file selected -c:v libx264 -crf 18 -maxrate 12M -c:a aac -b:a 192k -map_metadata -1 -movflags +faststart ...' }
-      ]
-    };
+    let activeJobId = '';
+    let lastJob = null;
+    let pollTimer = null;
 
     function showToast(msg) {
       const t = document.getElementById('toast');
+      if (!t) return;
       t.textContent = msg;
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 1800);
     }
 
     function fmtClock(sec) {
-      const m = String(Math.floor(sec / 60)).padStart(2, '0');
-      const s = String(Math.floor(sec % 60)).padStart(2, '0');
-      return m + ':' + s;
+      const s = Math.max(0, Math.floor(sec || 0));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
     }
 
-    function pushLog(cls, txt) {
-      state.logs.push({ cls, txt });
-      if (state.logs.length > 24) state.logs.shift();
-      const box = document.getElementById('console-body');
-      box.innerHTML = state.logs.map(l => `<div class="${l.cls}">${l.txt}</div>`).join('');
-      box.scrollTop = box.scrollHeight;
+    function fmtMB(bytes) {
+      if (!bytes || bytes <= 0) return '0.0 MB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     }
 
-    function render() {
-      const total = JOBS.length;
-      const doneCount = JOBS.filter(j => j.status === 'done').length;
-      const skipCount = JOBS.filter(j => j.status === 'skip').length;
-      const finishedCount = doneCount + skipCount;
-      const overallPct = Math.min(100, Math.round(JOBS.reduce((acc, j) => acc + (j.status === 'done' || j.status === 'skip' ? 100 : j.pct), 0) / total));
+    function resolveActiveJobId() {
+      try {
+        if (window.AndroidBridge && window.AndroidBridge.getAppState) {
+          const saved = window.AndroidBridge.getAppState('cv_active_job_id');
+          if (saved) return saved;
+        }
+        if (window.AndroidBridge && window.AndroidBridge.getJobs) {
+          const all = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL') || '[]');
+          if (all.length > 0) return String(all[0].id);
+        }
+      } catch (_) {}
+      return '';
+    }
 
-      let inDone = 0, outDone = 0;
-      JOBS.forEach(j => {
-        if (j.status === 'done') { inDone += j.inMB; outDone += j.outMB; }
-        else if (j.status === 'active') { inDone += j.inMB * (j.pct / 100); outDone += j.outMB * (j.pct / 100); }
-      });
+    function renderJobTelemetry(j) {
+      if (!j || !j.id) return;
+      lastJob = j;
+
+      const inName = (j.inputPath || 'Media File').split('/').pop();
+      const outPath = j.outputPath || '';
+      const st = String(j.status || 'QUEUED').toUpperCase();
+      const pct = st === 'DONE' ? 100 : (j.progressPct || 0);
+
+      document.querySelectorAll('.fp-name').forEach(el => { el.textContent = inName; });
+      document.querySelectorAll('.dest-path').forEach(el => { el.textContent = outPath || '—'; });
 
       const pill = document.getElementById('engine-pill');
       const pillTxt = document.getElementById('engine-pill-txt');
-      pill.className = 'engine-state-pill ' + (state.done ? 'state-done' : (state.paused ? 'state-paused' : 'state-running'));
-      pillTxt.textContent = state.aborted ? 'STOPPED' : (state.done ? 'COMPLETE' : (state.paused ? 'PAUSED' : 'RUNNING'));
-
-      document.getElementById('pit-lbl').textContent = state.done
-        ? `Batch Complete · ${doneCount} Converted` + (skipCount ? `, ${skipCount} Skipped` : '')
-        : `Batch Progress · ${finishedCount} of ${total} Files`;
-      document.getElementById('pit-pct').textContent = overallPct + '%';
-
-      const remSec = Math.max(0, Math.round((100 - overallPct) * 1.1));
-      document.getElementById('pit-eta').textContent = state.done ? 'Finished ✓' : ('ETA ' + fmtClock(remSec));
-      document.getElementById('pit-elapsed').textContent = 'Elapsed ' + fmtClock(state.elapsedSec);
-
-      const mFill = document.getElementById('master-fill');
-      mFill.style.width = overallPct + '%';
-      mFill.classList.toggle('is-done', state.done);
-
-      const cur = JOBS[state.curIdx];
-      document.getElementById('tele-speed').textContent = state.done ? 'Idle · Complete' : (state.paused ? 'Paused' : (cur ? cur.speedStr : '—'));
-      document.getElementById('tele-cpu').textContent = state.done ? 'Detecting... · Standby' : (state.paused ? 'Detecting... · Halted' : 'Detecting... · 88% · 41°C');
-      document.getElementById('tele-size').textContent = inDone.toFixed(1) + ' → ' + outDone.toFixed(1) + ' MB';
-
-      // Now Encoding Card
-      const nowCard = document.getElementById('now-card');
-      nowCard.classList.toggle('is-done', state.done);
-      if (state.done) {
-        const savedPct = inDone > 0 ? Math.round(((inDone - outDone) / inDone) * 100) : 0;
-        document.getElementById('now-eyebrow').textContent = state.aborted ? '■ BATCH STOPPED' : '✓ ALL QUEUED FILES COMPLETE';
-        document.getElementById('btn-skip-current').classList.add('hidden');
-        document.getElementById('now-name').textContent = `${doneCount} files exported to /Movies/Converted/`;
-        document.getElementById('now-pct').textContent = '100%';
-        document.getElementById('now-sub').textContent = `Total saved: ${(inDone - outDone).toFixed(1)} MB (${savedPct}% smaller) · Zero errors`;
-        document.getElementById('now-fill').style.width = '100%';
-        document.getElementById('now-fill').style.background = 'var(--emerald)';
-        document.getElementById('now-metrics').innerHTML = `<span>Elapsed: <strong>${fmtClock(state.elapsedSec)}</strong></span><span>Thermals: <strong>41°C Peak</strong></span><span>Battery: <strong>-1.3%</strong></span>`;
-      } else if (cur) {
-        document.getElementById('now-eyebrow').textContent = state.paused ? '⏸ ENGINE PAUSED' : '▶ NOW ENCODING';
-        document.getElementById('btn-skip-current').classList.remove('hidden');
-        document.getElementById('now-name').textContent = cur.name;
-        document.getElementById('now-pct').textContent = Math.round(cur.pct) + '%';
-        document.getElementById('now-sub').textContent = cur.preset + ' → ' + cur.dir;
-        document.getElementById('now-fill').style.width = cur.pct + '%';
-        const curFrame = Math.round((cur.pct / 100) * cur.totalFrames);
-        document.getElementById('now-metrics').innerHTML = `
-          <span>Unit: <strong>${curFrame} / ${cur.totalFrames}</strong></span>
-          <span>Rate: <strong>${cur.speedStr}</strong></span>
-          <span>Est Out: <strong>${cur.outMB.toFixed(1)} MB</strong></span>
-        `;
+      if (pillTxt) pillTxt.textContent = st;
+      if (pill) {
+        pill.className = 'engine-state-pill ' + (st === 'DONE' ? 'state-done' : (st === 'FAILED' || st === 'CANCELLED' ? 'state-paused' : 'state-running'));
       }
 
-      document.getElementById('queue-count-tag').textContent = `${doneCount} / ${total} Done`;
+      const outExtUp = (outPath.split('.').pop() || '').toUpperCase();
+      const fpType = document.getElementById('fp-type');
+      if (fpType) fpType.textContent = (j.mediaType || 'MEDIA').toUpperCase();
+      const fpPreset = document.getElementById('fp-preset');
+      if (fpPreset) fpPreset.textContent = (j.commandArgs && j.commandArgs.startsWith('NATIVE_PHOTO:'))
+        ? ('Native Photo Engine · .' + (outExtUp || 'IMG'))
+        : ('Conversion Engine · .' + (outExtUp || 'OUT'));
+      const pitLbl = document.getElementById('pit-lbl');
+      if (pitLbl) pitLbl.textContent = 'Conversion Engine · ' + (j.mediaType || 'Media');
 
-      // Queue Rows
-      document.getElementById('q-list').innerHTML = JOBS.map(j => {
-        const cls = j.status === 'done' ? 'st-done' : (j.status === 'active' ? 'st-active' : (j.status === 'skip' ? 'st-skip' : ''));
-        const badge = j.status === 'done'
-          ? `<span class="q-badge qb-done">✓ ${j.outMB.toFixed(1)} MB</span>`
-          : (j.status === 'active'
-            ? `<span class="q-badge qb-run">▶ ${Math.round(j.pct)}%</span>`
-            : (j.status === 'skip'
-              ? `<span class="q-badge qb-skip">Skipped</span>`
-              : `<span class="q-badge qb-wait">Queued</span>`));
-        return `
-          <div class="q-row ${cls}">
-            <div class="q-top">
-              <div class="q-left">
-                <span class="q-name">[${j.cat}] ${j.name}</span>
-                <span class="q-meta">${j.preset} · ${j.inMB.toFixed(1)} MB → ${j.dir}</span>
-              </div>
-              ${badge}
-            </div>
-            ${j.status === 'active' || j.status === 'done' ? `<div class="q-mini-track"><div class="q-mini-fill" style="width:${j.status === 'done' ? 100 : j.pct}%;"></div></div>` : ''}
-          </div>
-        `;
-      }).join('');
+      const pctEl = document.getElementById('pit-pct');
+      if (pctEl) pctEl.textContent = pct + '%';
 
-      document.getElementById('footer-running').classList.toggle('hidden', state.done);
-      document.getElementById('footer-done').classList.toggle('hidden', !state.done);
-    }
+      const fillEl = document.getElementById('master-fill');
+      if (fillEl) fillEl.style.width = Math.max(st === 'RUNNING' ? 4 : 0, pct) + '%';
 
-    // Live Telemetry Simulation Loop
-    JOBS[0].status = 'active';
-    setInterval(() => {
-      if (!state.running || state.paused || state.done) return;
-      state.elapsedSec += 0.25;
-      const cur = JOBS[state.curIdx];
-      if (!cur) return;
+      const elapsedSec = j.createdAt ? Math.max(0, Math.floor(((st === 'RUNNING' || st === 'QUEUED' ? Date.now() : (j.updatedAt || Date.now())) - j.createdAt) / 1000)) : 0;
+      const elapEl = document.getElementById('pit-elapsed');
+      if (elapEl) elapEl.textContent = 'Elapsed ' + fmtClock(elapsedSec);
 
-      const step = (250 / cur.durMs) * 100;
-      cur.pct = Math.min(100, cur.pct + step);
-
-      if (Math.round(cur.pct) % 25 === 0 && cur.pct < 98) {
-        const fr = Math.round((cur.pct / 100) * cur.totalFrames);
-        function buildBatchShell(includePath, asScript) {
-      const lines = JOBS.map(j => {
-        const inp = includePath ? `"/storage/emulated/0/Movies/dist/${j.name}"` : `"${j.name}"`;
-        const out = includePath ? `"/storage/emulated/0/ConversionVault/Vault_Core/Conversion_01/${j.dir.replace('Converted/','')}${j.name}"` : `"out_${j.name}"`;
-        return `ffmpeg -y -threads 8 -i ${inp} ${out} # ${j.preset}`;
-      });
-      if (!asScript) return lines.join(' && \n');
-      return `#!/usr/bin/env bash\n# Conversion Vault · Batch Termux / SSH Script\n` + lines.join('\n') + '\n';
-    }
-
-    document.getElementById('btn-copy-cmd').addEventListener('click', () => {
-      const inc = document.getElementById('chk-inc-path').checked;
-      const txt = buildBatchShell(inc, false);
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(() => {});
-      showToast(inc ? 'Copied batch commands (with paths)' : 'Copied clean batch commands (no paths)');
-    });
-    document.getElementById('btn-export-sh').addEventListener('click', () => {
-      const inc = document.getElementById('chk-inc-path').checked;
-      const sh = buildBatchShell(inc, true);
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(sh).catch(() => {});
-      showToast('Saved to /ConversionVault/SH_Scripts/batch_conversion_01.sh' + (inc ? ' (with paths)' : ' (portable)'));
-    });
-
-    pushLog('log-line-cur', `frame=${String(fr).padStart(5, ' ')} speed=${cur.speedStr} size=${Math.round(cur.outMB * cur.pct * 10)}kB`);
-      }
-
-      if (cur.pct >= 100) {
-        cur.status = 'done';
-        pushLog('log-line-ok', `✓ [OK] ${cur.name} → ${cur.dir} (${cur.outMB.toFixed(1)} MB)`);
-        state.curIdx++;
-        if (state.curIdx < JOBS.length) {
-          JOBS[state.curIdx].status = 'active';
-          pushLog('log-line-cmd', `$ ffmpeg -y -threads 8 -i ${JOBS[state.curIdx].name} [${JOBS[state.curIdx].preset}] ...`);
+      const etaEl = document.getElementById('pit-eta');
+      if (etaEl) {
+        if (st === 'DONE') etaEl.textContent = 'Completed';
+        else if (st === 'FAILED' || st === 'CANCELLED') etaEl.textContent = st;
+        else if (pct > 2 && elapsedSec > 0) {
+          const rem = Math.round((elapsedSec / pct) * (100 - pct));
+          etaEl.textContent = 'ETA ' + fmtClock(rem);
         } else {
-          state.done = true;
-          state.running = false;
+          etaEl.textContent = 'Calculating ETA...';
         }
       }
-      render();
-    }, 250);
 
-    document.getElementById('btn-back').addEventListener('click', () => showToast('← Back to Total Performance'));
-    document.getElementById('btn-pause').addEventListener('click', function() {
-      state.paused = !state.paused;
-      this.textContent = state.paused ? '▶ Resume Engine' : '⏸ Pause Engine';
-      showToast(state.paused ? 'Engine paused' : 'Engine resumed');
-      render();
-    });
-    document.getElementById('btn-skip-current').addEventListener('click', () => {
-      const cur = JOBS[state.curIdx];
-      if (!cur) return;
-      cur.status = 'skip';
-      cur.pct = 0;
-      pushLog('log-line-cmd', `⏭ Skipped ${cur.name}`);
-      state.curIdx++;
-      if (state.curIdx < JOBS.length) {
-        JOBS[state.curIdx].status = 'active';
-      } else {
-        state.done = true;
-        state.running = false;
+      const spdEl = document.getElementById('tele-speed');
+      if (spdEl) spdEl.textContent = (j.fps ? Math.round(j.fps) + ' fps · ' : '') + (j.speed || (st === 'DONE' ? 'Complete' : st));
+
+      const frEl = document.getElementById('tele-frames');
+      if (frEl) frEl.textContent = j.durationMs ? (j.durationMs / 1000).toFixed(1) + 's source' : 'Stream copy / auto';
+
+      const brEl = document.getElementById('tele-br');
+      if (brEl) brEl.textContent = (j.commandArgs && j.commandArgs.startsWith('NATIVE_PHOTO:')) ? 'Native Photo Engine' : 'FFmpeg Engine';
+
+      const qEl = document.getElementById('tele-q');
+      if (qEl) qEl.textContent = j.mediaType || 'Media';
+
+      const cpuEl = document.getElementById('tele-cpu');
+      if (cpuEl) cpuEl.textContent = st === 'RUNNING' ? 'Active · WakeLock ON' : 'Standby';
+
+      const szEl = document.getElementById('tele-size');
+      if (szEl) szEl.textContent = fmtMB(j.inputSizeBytes) + ' → ' + fmtMB(j.outputSizeBytes);
+
+      const doneSum = document.getElementById('done-summary');
+      if (doneSum) {
+        if (st === 'DONE') {
+          doneSum.classList.remove('hidden');
+          doneSum.textContent = '✓ Saved (' + fmtMB(j.outputSizeBytes) + ') in ' + fmtClock(elapsedSec);
+          try {
+            if (!window.__cvAskedSourceIds) window.__cvAskedSourceIds = new Set();
+            const askBox = document.getElementById('ask-delete-source-box');
+            let srcPol = String(j.originalPolicy || '').toLowerCase();
+            if (!srcPol && window.AndroidBridge && window.AndroidBridge.getSettings) {
+              srcPol = String((JSON.parse(window.AndroidBridge.getSettings() || '{}').originalSourcePolicy) || 'keep').toLowerCase();
+            }
+            if (askBox && srcPol === 'ask' && j.inputPath && j.inputPath !== j.outputPath && !window.__cvAskedSourceIds.has(j.id)) {
+              askBox.classList.remove('hidden');
+              const tEl = document.getElementById('ask-delete-title');
+              if (tEl) tEl.textContent = 'Delete original "' + inName + '"?';
+              window.__cvPendingDeleteSrcJob = { id: j.id, path: j.inputPath, name: inName };
+            }
+          } catch (_) {}
+        } else if (st === 'FAILED') {
+          doneSum.classList.remove('hidden');
+          doneSum.textContent = '✗ Failed: ' + (j.errorLog || 'Check console below').slice(0, 140);
+        } else {
+          doneSum.classList.add('hidden');
+        }
       }
-      render();
-    });
-    document.getElementById('btn-abort').addEventListener('click', () => {
-      state.done = true;
-      state.aborted = true;
-      state.running = false;
-      JOBS.forEach(j => { if (j.status === 'active' || j.status === 'wait') j.status = 'skip'; });
-      pushLog('log-line-cmd', '■ Batch stopped by user.');
-      render();
-    });
-    document.getElementById('btn-toggle-console').addEventListener('click', function() {
-      state.consoleOpen = !state.consoleOpen;
-      document.getElementById('console-body').classList.toggle('hidden', !state.consoleOpen);
-      document.getElementById('console-ico').textContent = state.consoleOpen ? '▴' : '▾';
-      this.setAttribute('aria-expanded', String(state.consoleOpen));
-    });
-    document.getElementById('btn-view-history').addEventListener('click', () => showToast('Opening Queue & History tab →'));
-    document.getElementById('btn-open-folder').addEventListener('click', () => showToast('Opening /ConversionVault/Vault_Core/Conversion_01/ in File Manager →'));
 
-    pushLog('log-line-cur', 'Stream mapping: #0:0 -> #0:0 (h264), #0:1 -> #0:1 (aac)');
-    render();
+      const consoleBody = document.getElementById('console-body');
+      if (consoleBody) {
+        const lines = [
+          '$ ffmpeg ' + (j.commandArgs || ''),
+          'Status: ' + st + ' (' + pct + '%)',
+          'Input:  ' + (j.inputPath || '—'),
+          'Output: ' + (j.outputPath || '—')
+        ];
+        if (j.errorLog) lines.push('Error:  ' + j.errorLog);
+        consoleBody.innerHTML = lines.map((l, idx) =>
+          '<div class="' + (idx === 0 ? 'log-line-cmd' : (l.startsWith('Error:') ? 'log-line-err' : '')) + '" style="word-break:break-all;margin-bottom:4px;">' +
+          l.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div>'
+        ).join('');
+      }
+
+      const fRun = document.getElementById('footer-running');
+      const fDone = document.getElementById('footer-done');
+      const isActive = (st === 'RUNNING' || st === 'QUEUED');
+      if (fRun) fRun.classList.toggle('hidden', !isActive);
+      if (fDone) fDone.classList.toggle('hidden', isActive);
+
+      if (!isActive) {
+        // Check if more jobs are still RUNNING or QUEUED in a multi-file batch; if so, auto-advance to the next active job!
+        let nextActive = null;
+        try {
+          if (window.AndroidBridge && window.AndroidBridge.getJobs) {
+            const all = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL') || '[]');
+            nextActive = all.find(x => x.status === 'RUNNING') || all.find(x => x.status === 'QUEUED') || null;
+          }
+        } catch (_) {}
+        if (nextActive && nextActive.id && nextActive.id !== activeJobId) {
+          activeJobId = String(nextActive.id);
+          try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', activeJobId); } catch (_) {}
+          return;
+        }
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }
+    }
+
+    function renderBatchQueue() {
+      const card = document.getElementById('batch-queue-card');
+      const listEl = document.getElementById('batch-queue-list');
+      const sumEl = document.getElementById('batch-queue-summary');
+      const subEl = document.getElementById('engine-sub');
+      if (!card || !listEl || !window.AndroidBridge || !window.AndroidBridge.getJobs) return;
+      try {
+        const allJobs = JSON.parse(window.AndroidBridge.getJobs('ALL', 'ALL') || '[]');
+        let batchIds = [];
+        try {
+          const raw = (window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_batch_job_ids')) || '[]';
+          batchIds = JSON.parse(raw || '[]');
+        } catch (_) {}
+
+        if (!Array.isArray(batchIds) || batchIds.length === 0) {
+          card.classList.add('hidden');
+          if (subEl) subEl.textContent = 'BATCH QUEUE TELEMETRY';
+          return;
+        }
+
+        const byId = {};
+        allJobs.forEach(j => { byId[String(j.id)] = j; });
+        const batchJobs = batchIds.map(id => byId[String(id)]).filter(Boolean);
+
+        if (batchJobs.length === 0) {
+          card.classList.add('hidden');
+          if (subEl) subEl.textContent = 'BATCH QUEUE TELEMETRY';
+          return;
+        }
+
+        card.classList.remove('hidden');
+        const runningCnt = batchJobs.filter(j => j.status === 'RUNNING').length;
+        const queuedCnt = batchJobs.filter(j => j.status === 'QUEUED').length;
+        const doneCnt = batchJobs.filter(j => j.status === 'DONE').length;
+        const failCnt = batchJobs.filter(j => j.status === 'FAILED' || j.status === 'CANCELLED').length;
+        const total = batchJobs.length;
+        const curPos = Math.min(total, doneCnt + failCnt + (runningCnt > 0 ? 1 : 0));
+
+        if (subEl) subEl.textContent = 'BATCH ' + curPos + ' OF ' + total + ' · ' + queuedCnt + ' QUEUED';
+        if (sumEl) sumEl.textContent = doneCnt + '/' + total + ' Done · ' + queuedCnt + ' Queued' + (failCnt > 0 ? (' · ' + failCnt + ' Failed') : '');
+
+        const activeAndUpcoming = batchJobs.filter(j => j.status === 'RUNNING' || j.status === 'QUEUED');
+        const finished = batchJobs.filter(j => j.status === 'DONE' || j.status === 'FAILED' || j.status === 'CANCELLED');
+        const ordered = activeAndUpcoming.concat(finished);
+        const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        listEl.innerHTML = ordered.map((j, idx) => {
+          const nm = (j.inputPath || 'File').split('/').pop();
+          const outExt = ((j.outputPath || '').split('.').pop() || '').toUpperCase();
+          const st = String(j.status || 'QUEUED').toUpperCase();
+          const badgeColor = st === 'DONE' ? 'var(--emerald)' : (st === 'RUNNING' ? '#38bdf8' : (st === 'FAILED' || st === 'CANCELLED' ? 'var(--crimson)' : 'var(--gold-text)'));
+          const orderNum = st === 'RUNNING' ? '▶' : (st === 'QUEUED' ? ('#' + (idx + 1)) : (st === 'DONE' ? '✓' : '✗'));
+          return '<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface);">' +
+            '<div style="min-width:0; display:flex; align-items:center; gap:8px;">' +
+              '<span style="font-family:var(--mono); font-size:10.5px; font-weight:800; color:' + badgeColor + '; min-width:22px;">' + orderNum + '</span>' +
+              '<div style="min-width:0;">' +
+                '<div style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(nm) + '</div>' +
+                '<div style="font-size:10.5px; font-family:var(--mono); color:var(--muted);">' + esc(j.mediaType || 'Media') + (outExt ? ' → .' + esc(outExt) : '') + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<span style="font-family:var(--mono); font-size:10px; font-weight:800; color:' + badgeColor + '; flex-shrink:0;">' + st + '</span>' +
+          '</div>';
+        }).join('');
+      } catch (_) {}
+    }
+
+    function pollJob() {
+      if (!activeJobId) activeJobId = resolveActiveJobId();
+      if (!activeJobId || !window.AndroidBridge || !window.AndroidBridge.getJobById) return;
+      try {
+        const j = JSON.parse(window.AndroidBridge.getJobById(activeJobId) || '{}');
+        if (j && j.id) renderJobTelemetry(j);
+      } catch (_) {}
+      renderBatchQueue();
+    }
+
+    window.onLiveEngineEvent = function(ev) {
+      if (!ev) return;
+      if (ev.type === 'job_started' && ev.jobId) {
+        activeJobId = String(ev.jobId);
+        try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', activeJobId); } catch (_) {}
+        pollJob();
+        return;
+      }
+      if (ev.type === 'job_progress' && ev.jobId && (!activeJobId || String(ev.jobId) === String(activeJobId))) {
+        activeJobId = String(ev.jobId);
+        const pct = Math.max(0, Math.min(99, parseInt(ev.progress, 10) || 0));
+        const pctEl = document.getElementById('pit-pct');
+        const fillEl = document.getElementById('master-fill');
+        const spdEl = document.getElementById('tele-speed');
+        const szEl = document.getElementById('tele-size');
+        const frEl = document.getElementById('tele-frames');
+        const etaEl = document.getElementById('pit-eta');
+        if (pctEl) pctEl.textContent = pct + '%';
+        if (fillEl) fillEl.style.width = Math.max(3, pct) + '%';
+        if (spdEl) spdEl.textContent = (ev.fps > 0 ? (Math.round(ev.fps) + ' fps · ') : '') + (ev.speed || 'Running');
+        if (szEl && ev.outBytes > 0 && lastJob) szEl.textContent = fmtMB(lastJob.inputSizeBytes) + ' → ' + fmtMB(ev.outBytes);
+        if (frEl && ev.durationMs > 0) frEl.textContent = (ev.timeMs / 1000).toFixed(1) + 's / ' + (ev.durationMs / 1000).toFixed(1) + 's';
+        if (etaEl && pct > 0 && lastJob && lastJob.createdAt) {
+          const elap = Math.max(1, Math.floor((Date.now() - lastJob.createdAt) / 1000));
+          etaEl.textContent = 'ETA ' + fmtClock(Math.round((elap / pct) * (100 - pct)));
+        }
+        return;
+      }
+      if (ev.jobId && (!activeJobId || String(ev.jobId) === String(activeJobId))) {
+        activeJobId = String(ev.jobId);
+        pollJob();
+      }
+    };
+
+    document.getElementById('btn-go-home')?.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p1_home.html');
+    }, true);
+
+    document.getElementById('btn-toggle-console')?.addEventListener('click', () => {
+      const body = document.getElementById('console-body');
+      const ico = document.getElementById('console-ico');
+      if (body) body.classList.toggle('hidden');
+      if (ico && body) ico.textContent = body.classList.contains('hidden') ? '▾' : '▴';
+    });
+
+    document.getElementById('btn-copy-cmd')?.addEventListener('click', () => {
+      const cmd = 'ffmpeg ' + ((lastJob && lastJob.commandArgs) || '');
+      if (window.VaultBridge && window.VaultBridge.copyText) window.VaultBridge.copyText(cmd, 'Copied FFmpeg command');
+      else showToast('Copied FFmpeg command');
+    });
+
+    document.getElementById('btn-export-sh')?.addEventListener('click', () => {
+      if (!lastJob || !window.AndroidBridge || !window.AndroidBridge.exportShellScript) return;
+      const base = (lastJob.outputPath || 'vault_job').split('/').pop();
+      const res = JSON.parse(window.AndroidBridge.exportShellScript(base, '#!/data/data/com.termux/files/usr/bin/bash\nffmpeg ' + (lastJob.commandArgs || '') + '\n'));
+      showToast('Saved: ' + (res.path || 'SH_Scripts'));
+    });
+
+    document.getElementById('btn-pause')?.addEventListener('click', () => {
+      if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p5_queue_history.html');
+    });
+
+    document.getElementById('btn-abort')?.addEventListener('click', () => {
+      if (activeJobId && window.AndroidBridge && window.AndroidBridge.cancelJob) {
+        window.AndroidBridge.cancelJob(activeJobId);
+        showToast('Stopping conversion...');
+        setTimeout(pollJob, 250);
+      }
+    });
+
+    document.getElementById('btn-share')?.addEventListener('click', () => {
+      if (lastJob && lastJob.outputPath && window.AndroidBridge) window.AndroidBridge.shareFile(lastJob.outputPath);
+    });
+
+    document.getElementById('btn-open-file')?.addEventListener('click', () => {
+      if (!lastJob || !window.AndroidBridge) return;
+      if (lastJob.outputPath && window.AndroidBridge.openFile) {
+        window.AndroidBridge.openFile(lastJob.outputPath);
+      } else {
+        showToast('No output file ready yet');
+      }
+    });
+
+    document.getElementById('btn-open-folder')?.addEventListener('click', () => {
+      if (!window.AndroidBridge || !window.AndroidBridge.openFolder) return;
+      if (lastJob && lastJob.outputPath) {
+        const idx = lastJob.outputPath.lastIndexOf('/');
+        const dir = idx > 0 ? lastJob.outputPath.substring(0, idx) : '';
+        window.AndroidBridge.openFolder(dir);
+      } else {
+        window.AndroidBridge.openFolder('');
+      }
+    });
+
+    activeJobId = resolveActiveJobId();
+    pollJob();
+    pollTimer = setInterval(pollJob, 500);
+
+    document.getElementById('btn-ask-keep-src')?.addEventListener('click', () => {
+      const p = window.__cvPendingDeleteSrcJob;
+      if (p && window.__cvAskedSourceIds) window.__cvAskedSourceIds.add(p.id);
+      document.getElementById('ask-delete-source-box')?.classList.add('hidden');
+    });
+    document.getElementById('btn-ask-del-src')?.addEventListener('click', () => {
+      const p = window.__cvPendingDeleteSrcJob;
+      if (p && p.path && window.AndroidBridge && typeof window.AndroidBridge.deleteSourceFile === 'function') {
+        try {
+          const r = JSON.parse(window.AndroidBridge.deleteSourceFile(p.path) || '{}');
+          if (typeof showToast === 'function') showToast(r.deleted ? ('Deleted original: ' + p.name) : 'Original file already removed');
+        } catch (_) {}
+      }
+      if (p && window.__cvAskedSourceIds) window.__cvAskedSourceIds.add(p.id);
+      document.getElementById('ask-delete-source-box')?.classList.add('hidden');
+    });
   </script>
   <script src="vault-bridge.js"></script>
 </body>

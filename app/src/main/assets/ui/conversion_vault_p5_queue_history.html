@@ -913,6 +913,7 @@
         const id = qa.getAttribute('data-id');
         if (act === 'open') {
           if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', id);
+          try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_batch_job_ids', '[]'); } catch (_) {}
           if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p4a_convert_single.html');
           return;
         }
@@ -959,7 +960,8 @@
           state.view = 'queue';
           state.userPickedTab = true;
           setTimeout(() => {
-            if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p4a_convert_single.html');
+            try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_batch_job_ids', '[]'); } catch (_) {}
+          if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p4a_convert_single.html');
             else loadJobsFromNative();
           }, 200);
           return;

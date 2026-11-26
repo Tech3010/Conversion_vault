@@ -389,14 +389,34 @@ class ConversionForegroundService : Service() {
         val firstRes = executeFfmpegBlocking(job, safeArgs)
         if (firstRes.first) return firstRes
 
-        // Automatic fallback if libsvtav1 is missing/unsupported -> retry with libaom-av1
+        // Automatic fallback if libsvtav1 is missing/unsupported -> try libaom-av1 (clean flags), then av1_mediacodec
         if (safeArgs.contains("libsvtav1")) {
             try { File(job.outputPath).delete() } catch (_: Throwable) {}
             val aomArgs = safeArgs
                 .replace("libsvtav1", "libaom-av1")
-                .replace(Regex("-preset\\s+\\d+"), "-cpu-used 8 -row-mt 1")
+                .replace(Regex("-preset\\s+\\S+"), "-cpu-used 8 -row-mt 1")
+                .replace(Regex("-bf\\s+\\d+"), "")
+                .replace(Regex("-maxrate\\s+\\S+"), "")
+                .replace(Regex("-bufsize\\s+\\S+"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
             val aomRes = executeFfmpegBlocking(job, aomArgs)
             if (aomRes.first) return aomRes
+
+            try { File(job.outputPath).delete() } catch (_: Throwable) {}
+            val mcArgs = safeArgs
+                .replace("libsvtav1", "av1_mediacodec")
+                .replace(Regex("-crf\\s+\\d+"), "-b:v 6M")
+                .replace(Regex("-preset\\s+\\S+"), "")
+                .replace(Regex("-bf\\s+\\d+"), "")
+                .replace(Regex("-maxrate\\s+\\S+"), "")
+                .replace(Regex("-bufsize\\s+\\S+"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+            val mcRes = executeFfmpegBlocking(job, mcArgs)
+            if (mcRes.first) return mcRes
+
+            return Pair(false, "AV1 encode failed.\n• libsvtav1: ${firstRes.second.takeLast(180)}\n• libaom-av1: ${aomRes.second.takeLast(180)}\n• av1_mediacodec: ${mcRes.second.takeLast(180)}")
         }
 
         // Automatic fallback if 10-bit pixel format is rejected by encoder (e.g. 8-bit x264 or VP9 build) -> retry with 8-bit yuv420p

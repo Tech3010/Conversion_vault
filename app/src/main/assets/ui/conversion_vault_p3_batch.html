@@ -601,7 +601,7 @@
       <div class="folder-strip">
         <div>
           <div class="folder-path" id="batch-source-title">Collected Media Workspace</div>
-          <div class="folder-meta">Check files (All / None / Invert) → Apply Preset to Selected</div>
+          <div class="folder-meta" id="batch-folder-sub">Check files (All / None / Invert) → Apply Preset to Selected</div>
         </div>
       </div>
 
@@ -637,6 +637,7 @@
                 <button type="button" class="sel-tool-btn" data-sel="none" data-cat="video">None</button>
                 <button type="button" class="sel-tool-btn" data-sel="invert" data-cat="video">Invert</button>
                 <button type="button" class="sel-tool-btn warn-btn" data-sel="skip" data-cat="video">Skip</button>
+                <button type="button" class="sel-tool-btn warn-btn" data-sel="remove" data-cat="video" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);">Remove</button>
               </div>
               <button type="button" class="btn-apply-sel" id="btn-apply-video" data-act="apply-cat" data-cat="video" disabled>Choose Preset ↗</button>
             </div>
@@ -671,6 +672,7 @@
                 <button type="button" class="sel-tool-btn" data-sel="none" data-cat="audio">None</button>
                 <button type="button" class="sel-tool-btn" data-sel="invert" data-cat="audio">Invert</button>
                 <button type="button" class="sel-tool-btn warn-btn" data-sel="skip" data-cat="audio">Skip</button>
+                <button type="button" class="sel-tool-btn warn-btn" data-sel="remove" data-cat="audio" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);">Remove</button>
               </div>
               <button type="button" class="btn-apply-sel" id="btn-apply-audio" data-act="apply-cat" data-cat="audio" disabled>Choose Preset ↗</button>
             </div>
@@ -705,6 +707,7 @@
                 <button type="button" class="sel-tool-btn" data-sel="none" data-cat="image">None</button>
                 <button type="button" class="sel-tool-btn" data-sel="invert" data-cat="image">Invert</button>
                 <button type="button" class="sel-tool-btn warn-btn" data-sel="skip" data-cat="image">Skip</button>
+                <button type="button" class="sel-tool-btn warn-btn" data-sel="remove" data-cat="image" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);">Remove</button>
               </div>
               <button type="button" class="btn-apply-sel" id="btn-apply-image" data-act="apply-cat" data-cat="image" disabled>Choose Preset ↗</button>
             </div>
@@ -1199,7 +1202,7 @@
 
     function renderDrawerContent(item, est) {
       const d = item.deepInfo || {};
-      if (item.tab === 'info') {
+      if (item.tab === 'info' || (state.usePresetMode && item.tab === 'format')) {
         let topCells = '';
         let moreLbl = 'More Information';
         if (item.cat === 'video') {
@@ -1237,6 +1240,7 @@
             <span>${item.moreOpen ? '▴' : '▾'}</span>
           </button>
           ${item.moreOpen ? `<div class="deep-probe-box">${renderDeepProbeHTML(item)}</div>` : ''}
+          ${state.usePresetMode ? `<div class="drawer-actions" style="margin-top:8px;"><button type="button" class="btn-xs" data-act="toggle-skip-one" data-id="${item.id}">${item.skipped ? 'Restore File' : 'Skip File'}</button><button type="button" class="btn-xs" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);" data-act="remove-one" data-id="${item.id}">Remove File</button></div>` : ''}
         `;
       }
 
@@ -1264,6 +1268,7 @@
             <div class="info-cell"><span class="info-k">Output Estimate</span><span class="info-v">${sizeStr}</span></div>
             <div class="info-cell"><span class="info-k">Assigned Preset</span><span class="info-v">${escHtml(item.cfg.presetName || 'Custom Tuned')}</span></div>
           </div>
+          ${state.usePresetMode ? `<div class="drawer-actions" style="margin-top:8px;"><button type="button" class="btn-xs" data-act="toggle-skip-one" data-id="${item.id}">${item.skipped ? 'Restore File' : 'Skip File'}</button><button type="button" class="btn-xs" style="border-color:rgba(219,10,64,0.45); color:var(--crimson);" data-act="remove-one" data-id="${item.id}">Remove File</button></div>` : ''}
         `;
       }
 
@@ -1326,8 +1331,13 @@
         const selCount = items.filter(f => f.selected).length;
 
         const applyBtn = document.getElementById('btn-apply-' + cat);
-        applyBtn.disabled = (selCount === 0);
-        applyBtn.textContent = selCount > 0 ? 'Choose Preset (' + selCount + ') ↗' : 'Choose Preset ↗';
+        if (applyBtn) {
+          applyBtn.classList.toggle('hidden', Boolean(state.usePresetMode));
+          applyBtn.disabled = (selCount === 0);
+          applyBtn.textContent = selCount > 0 ? 'Choose Preset (' + selCount + ') ↗' : 'Choose Preset ↗';
+        }
+        const invBtn = bucketEl ? bucketEl.querySelector('[data-sel="invert"]') : null;
+        if (invBtn) invBtn.classList.toggle('hidden', Boolean(state.usePresetMode));
         const selLbl = document.getElementById('sel-lbl-' + cat);
         if (selLbl) selLbl.textContent = selCount + ' selected';
 
@@ -1382,9 +1392,9 @@
             </div>
             ${item.open ? `
               <div class="file-drawer">
-                <div class="drawer-tabs" role="tablist">
-                  <button type="button" class="dtab-btn ${item.tab === 'info' ? 'active' : ''}" data-act="set-tab" data-id="${item.id}" data-tab="info">Info</button>
-                  <button type="button" class="dtab-btn ${item.tab === 'format' ? 'active' : ''}" data-act="set-tab" data-id="${item.id}" data-tab="format">Format</button>
+                <div class="drawer-tabs" role="tablist" ${state.usePresetMode ? 'style="grid-template-columns:repeat(2,1fr);"' : ''}>
+                  <button type="button" class="dtab-btn ${(item.tab === 'info' || (state.usePresetMode && item.tab === 'format')) ? 'active' : ''}" data-act="set-tab" data-id="${item.id}" data-tab="info">Info</button>
+                  ${state.usePresetMode ? '' : `<button type="button" class="dtab-btn ${item.tab === 'format' ? 'active' : ''}" data-act="set-tab" data-id="${item.id}" data-tab="format">Format</button>`}
                   <button type="button" class="dtab-btn ${item.tab === 'time' ? 'active' : ''}" data-act="set-tab" data-id="${item.id}" data-tab="time">Est. Time</button>
                 </div>
                 <div>${renderDrawerContent(item, est)}</div>
@@ -2100,6 +2110,15 @@
             });
             showToast(allAlreadySkipped ? 'Restored ' + picked.length + ' file(s)' : 'Skipped ' + picked.length + ' file(s)');
           }
+        } else if (op === 'remove') {
+          const pickedIds = new Set(items.filter(f => f.selected).map(f => f.id));
+          if (pickedIds.size === 0) {
+            showToast('Check files first to remove them');
+          } else {
+            state.files = state.files.filter(f => !pickedIds.has(f.id));
+            syncActiveSelectionAfterRemove();
+            showToast('Removed ' + pickedIds.size + ' file(s) from batch');
+          }
         }
         renderAll();
         return;
@@ -2167,6 +2186,11 @@
         item.hasPreset = false;
         item.isCustom = false;
         renderAll();
+      } else if (act === 'remove-one') {
+        state.files = state.files.filter(f => f.id !== item.id);
+        syncActiveSelectionAfterRemove();
+        renderAll();
+        showToast('Removed "' + item.name + '"');
       }
     });
 
@@ -2330,11 +2354,27 @@
       });
     }
 
+    function syncActiveSelectionAfterRemove() {
+      try {
+        const remaining = state.files.map(f => ({ name: f.name, path: f.path, uri: f.uri, sizeBytes: f.sizeBytes }));
+        const raw = JSON.stringify(remaining);
+        try { localStorage.setItem('cv_active_files', raw); } catch (_) {}
+        if (window.AndroidBridge && typeof window.AndroidBridge.setAppState === 'function') {
+          window.AndroidBridge.setAppState('cv_active_files', raw);
+        }
+      } catch (_) {}
+    }
+
     function applyPendingPresetToBatch() {
       if (!window.VaultPresets || !Array.isArray(state.files) || state.files.length === 0) return;
       const p = window.VaultPresets.getPendingPreset();
       if (!p || !p.cat) return;
       state.lockedCat = p.cat;
+      state.usePresetMode = true;
+      const subEl = document.getElementById('batch-folder-sub');
+      if (subEl) subEl.textContent = 'Using Preset: ' + p.name + ' · Check files (All / None) to Skip or Remove';
+      const hdrSub = document.getElementById('hdr-sub');
+      if (hdrSub) hdrSub.textContent = 'STEP 2 · FILE INFO · EST. TIME · SKIP OR REMOVE';
       // Remove any other file types so only the preset's target category stays focused
       state.files = state.files.filter(f => f.cat === p.cat);
       const base = Object.assign({}, DEFAULT_BATCH_CFG[p.cat] || {}, p.cfg || {});

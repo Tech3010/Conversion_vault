@@ -715,6 +715,7 @@
       commandArgs: commandArgs
     })));
     if (res && res.ok) {
+      safeSet('cv_batch_job_ids', '[]');
       if (res.jobId) safeSet('cv_active_job_id', res.jobId);
       clearActiveSelection();
       navigateTo('conversion_vault_p4a_convert_single.html');
@@ -1355,6 +1356,13 @@
               if (q >= 15 && q <= 100 && document.getElementById('sp-qual')) document.getElementById('sp-qual').value = String(q);
               window.VaultPresets.clearPendingPreset();
               appliedPendingPhoto = true;
+              const fmtCard = document.querySelector('section.s-format');
+              if (fmtCard) fmtCard.classList.add('hidden');
+              const spPresetWrap = document.getElementById('sp-saved-presets');
+              if (spPresetWrap && spPresetWrap.parentElement) spPresetWrap.parentElement.style.display = 'none';
+              if (perfSec) perfSec.querySelectorAll('.field').forEach(el => { if (el.querySelector('#sp-fmt')) el.style.display = 'none'; });
+              const perfTitle = perfSec ? perfSec.querySelector('.sec-title') : null;
+              if (perfTitle) perfTitle.textContent = '2. Device Performance · ' + p.name;
               syncPhotoSummary(true);
               toast('✓ Pre-applied preset: ' + p.name);
             }
@@ -1658,6 +1666,13 @@
               if (c.meta && document.getElementById('sa-meta') && Array.from(document.getElementById('sa-meta').options).some(o => o.value === String(c.meta))) document.getElementById('sa-meta').value = String(c.meta);
               window.VaultPresets.clearPendingPreset();
               appliedPendingAudio = true;
+              const fmtCard = document.querySelector('section.s-format');
+              if (fmtCard) fmtCard.classList.add('hidden');
+              const saPresetWrap = document.getElementById('sa-saved-presets');
+              if (saPresetWrap && saPresetWrap.parentElement) saPresetWrap.parentElement.style.display = 'none';
+              if (perfSec) perfSec.querySelectorAll('.field').forEach(el => { if (el.querySelector('#sa-fmt')) el.style.display = 'none'; });
+              const perfTitle = perfSec ? perfSec.querySelector('.sec-title') : null;
+              if (perfTitle) perfTitle.textContent = '2. Device Performance · ' + p.name;
               syncAudioSummary(true);
               toast('✓ Pre-applied preset: ' + p.name);
             }
@@ -1933,16 +1948,23 @@
             lastErr = (res && res.error) || 'Failed to queue batch';
           }
         } else {
+          const fallbackIds = [];
           jobSpecs.forEach((spec, idx) => {
             const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify(spec)) || '{}');
-            if (res && res.ok) { queuedCount++; if (idx === 0 && res.jobId) safeSet('cv_active_job_id', res.jobId); }
-            else lastErr = (res && res.error) || 'Failed to queue job';
+            if (res && res.ok) {
+              queuedCount++;
+              if (res.jobId) fallbackIds.push(res.jobId);
+              if (idx === 0 && res.jobId) safeSet('cv_active_job_id', res.jobId);
+            } else {
+              lastErr = (res && res.error) || 'Failed to queue job';
+            }
           });
+          safeSet('cv_batch_job_ids', JSON.stringify(fallbackIds));
         }
         if (queuedCount > 0) {
           clearActiveSelection();
-          toast('Starting Engine...');
-          navigateTo('conversion_vault_p4a_convert_single.html');
+          toast('Starting Batch Engine...');
+          navigateTo('conversion_vault_p4_convert_batch.html');
         } else {
           toast('Engine error: ' + lastErr);
         }
@@ -2047,6 +2069,21 @@
       const bExpHw = document.getElementById('btn-export-hw-report');
       const selHwFmt = document.getElementById('sel-hw-report-fmt');
       const hwExpBar = document.getElementById('hw-export-bar');
+      if (hwExpBar) hwExpBar.classList.add('hidden');
+
+      window.onVaultBenchmarkUpdated = () => {
+        try {
+          if (!hasBridge || typeof window.AndroidBridge.getSettings !== 'function') return;
+          const stNow = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+          if (stNow && stNow.hwTestJson) {
+            const parsed = JSON.parse(stNow.hwTestJson);
+            if (parsed && parsed.ok && parsed.fps > 0) {
+              if (bLbl) bLbl.textContent = 'Verified: ~' + parsed.fps + ' fps (1080p60 x264 · ' + (parsed.threads || 8) + 'T)';
+              renderTestedDeviceFormats(parsed);
+            }
+          }
+        } catch (_) {}
+      };
       const hwExpLbl = document.getElementById('hw-export-lbl');
 
       function buildDeviceReportData(benchObj) {
@@ -2650,6 +2687,7 @@
             commandArgs: args
           })));
           if (res && res.ok) {
+            safeSet('cv_batch_job_ids', '[]');
             if (res.jobId) safeSet('cv_active_job_id', res.jobId);
             navigateTo('conversion_vault_p4a_convert_single.html');
           } else {

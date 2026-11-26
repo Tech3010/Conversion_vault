@@ -234,6 +234,14 @@ class MainActivity : AppCompatActivity() {
 
         loadUiPage("conversion_vault_p1_home.html")
 
+        Thread {
+            try {
+                Thread.sleep(700L)
+                AndroidBridge.runBenchmarkInternal(applicationContext)
+                evalJs("window.onVaultBenchmarkUpdated && window.onVaultBenchmarkUpdated();")
+            } catch (_: Throwable) {}
+        }.start()
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val curUrl = webView.url ?: ""
