@@ -81,6 +81,12 @@
     .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:540px;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:40;}
     .btn-primary{flex:1;background:var(--crimson);border:1px solid var(--crimson);color:#ffffff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;}
     .btn-primary:hover{background:var(--crimson-hover);}
+    .prog-card{background:var(--surface);border:1px solid rgba(252,209,22,0.45);border-radius:var(--radius);padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+    .prog-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:800;}
+    .prog-track{width:100%;height:7px;border-radius:999px;background:var(--card-elev);overflow:hidden;border:1px solid var(--border);}
+    .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--crimson),var(--gold));border-radius:999px;transition:width 0.18s ease;}
+    .prog-sub{display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;color:var(--muted);}
+
     .hidden{display:none !important;}
     .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:120;max-width:90vw;text-align:center;}
     .toast.show{opacity:1;}
@@ -140,6 +146,18 @@
         <div class="empty-title">No Scan Run Yet</div>
         <div class="empty-sub">Pick a file and tap <strong>Run Integrity Scan ▶</strong> to check magic bytes, MP4 moov/EOF atoms, null-byte truncation, bitrate/size consistency, A/V sync drift, frame/packet decode errors, and SHA-256 checksum.</div>
       </div>
+
+      <section class="prog-card hidden" id="scan-progress-box" aria-live="polite">
+        <div class="prog-top">
+          <span style="color:var(--gold-text);" id="scan-prog-stage">Starting scan...</span>
+          <span style="color:var(--text);" id="scan-prog-pct">0%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="scan-prog-fill"></div></div>
+        <div class="prog-sub">
+          <span id="scan-prog-detail">Preparing diagnostics...</span>
+          <span id="scan-prog-time">0.0s</span>
+        </div>
+      </section>
 
       <section class="verdict-box hidden" id="verdict-box" aria-label="Diagnostic Verdict">
         <div class="verdict-top">
@@ -260,7 +278,46 @@
       return `<div class="chk-row"><div class="chk-l"><span class="chk-name">${esc(name)}</span>${sub ? `<span class="chk-sub">${esc(sub)}</span>` : ''}</div><span class="chk-val ${cls}">${esc(val)}</span></div>`;
     }
 
+    let scanTimerId = null;
+    let scanStartMs = 0;
+
+    function startScanProgressUI() {
+      scanStartMs = Date.now();
+      const box = document.getElementById('scan-progress-box');
+      if (box) box.classList.remove('hidden');
+      document.getElementById('empty-state').classList.add('hidden');
+      document.getElementById('verdict-box').classList.add('hidden');
+      document.getElementById('checks-card').classList.add('hidden');
+      document.getElementById('err-card').classList.add('hidden');
+      window.onIntegrityProgress({ pct: 4, stage: state.scan === 'deep' ? 'Starting Deep Frame & Packet Scan...' : 'Starting Quick Header & Atom Check...', detail: state.fname });
+      if (scanTimerId) clearInterval(scanTimerId);
+      scanTimerId = setInterval(() => {
+        const el = document.getElementById('scan-prog-time');
+        if (el) el.textContent = ((Date.now() - scanStartMs) / 1000).toFixed(1) + 's';
+      }, 150);
+    }
+
+    function stopScanProgressUI() {
+      if (scanTimerId) { clearInterval(scanTimerId); scanTimerId = null; }
+      const box = document.getElementById('scan-progress-box');
+      if (box) box.classList.add('hidden');
+    }
+
+    window.onIntegrityProgress = function(p) {
+      if (!p) return;
+      const pct = Math.max(0, Math.min(100, Number(p.pct) || 0));
+      const fill = document.getElementById('scan-prog-fill');
+      const pctEl = document.getElementById('scan-prog-pct');
+      const stEl = document.getElementById('scan-prog-stage');
+      const dtEl = document.getElementById('scan-prog-detail');
+      if (fill) fill.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = pct + '%';
+      if (stEl && p.stage) stEl.textContent = p.stage;
+      if (dtEl && p.detail) dtEl.textContent = p.detail;
+    };
+
     window.onIntegrityResult = function(res) {
+      stopScanProgressUI();
       state.scanning = false;
       const runBtn = document.getElementById('btn-run');
       if (runBtn) { runBtn.disabled = !state.path; runBtn.textContent = 'Run Integrity Scan ▶'; }
@@ -533,6 +590,7 @@
       const runBtn = document.getElementById('btn-run');
       runBtn.disabled = true;
       runBtn.textContent = state.scan === 'deep' ? '⏳ Deep Scanning Frames...' : '⏳ Checking Header & Atoms...';
+      startScanProgressUI();
       showToast(state.scan === 'deep' ? 'Running deep frame/packet decode scan...' : 'Running quick header & atom check...');
 
       const deep = state.scan === 'deep';
@@ -580,7 +638,7 @@
 
     document.getElementById('btn-pick').addEventListener('click', () => {
       if (window.AndroidBridge && typeof window.AndroidBridge.pickFile === 'function') {
-        window.AndroidBridge.pickFile('all');
+        window.AndroidBridge.pickFile();
       } else {
         document.getElementById('inp-file').click();
       }

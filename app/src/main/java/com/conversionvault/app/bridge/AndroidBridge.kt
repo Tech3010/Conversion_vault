@@ -33,6 +33,7 @@ import java.security.MessageDigest
 import java.io.RandomAccessFile
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
 
 class AndroidBridge(
     private val activity: MainActivity
@@ -867,7 +868,7 @@ class AndroidBridge(
         val outDir = if (customOutDir.isNotBlank()) File(customOutDir).apply { mkdirs() }
         else VaultStorageManager.getModuleDir(context, module, customSubBucket.ifBlank { null })
 
-        val defSuffix = prefs.getString("default_suffix_rule", "none") ?: "none"
+        val defSuffix = prefs.getString("default_suffix_rule", "_converted") ?: "none"
         val suffixStr = if (defSuffix == "_vault" || defSuffix == "_converted") defSuffix else ""
         val rawBase = req.optString("outputBaseName", "").trim()
         val baseName = if (rawBase.isNotBlank()) rawBase else (inFile.nameWithoutExtension + suffixStr)
@@ -962,7 +963,7 @@ class AndroidBridge(
                 val outDir = if (customOutDir.isNotBlank()) File(customOutDir).apply { mkdirs() }
                 else VaultStorageManager.getModuleDir(context, module, customSubBucket.ifBlank { null })
 
-                val defSuffix = prefs.getString("default_suffix_rule", "none") ?: "none"
+                val defSuffix = prefs.getString("default_suffix_rule", "_converted") ?: "none"
                 val suffixStr = if (defSuffix == "_vault" || defSuffix == "_converted") defSuffix else ""
                 val rawBase = req.optString("outputBaseName", "").trim()
                 val baseName = if (rawBase.isNotBlank()) rawBase else (inFile.nameWithoutExtension + suffixStr)
@@ -1206,7 +1207,11 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun getJobs(filterModule: String, filterMediaType: String): String {
-        val jobs = runBlocking { db.jobDao().getAllJobs() }
+        val jobs = runBlocking {
+            val hd = prefs.getInt("history_retention_days", 30)
+            if (hd > 0) db.jobDao().purgeExpiredHistoryJobs(System.currentTimeMillis() - hd * 86_400_000L)
+            db.jobDao().getAllJobs()
+        }
         val arr = JSONArray()
         jobs.filter { job ->
             val modOk = filterModule.isBlank() || filterModule == "ALL" ||
@@ -1380,7 +1385,11 @@ class AndroidBridge(
         ensureBuiltInPresetsSeeded()
         return try {
             val list = runBlocking {
-                if (includeDeleted) db.presetDao().getDeletedPresets() else db.presetDao().getActivePresets()
+                if (includeDeleted) {
+                    val pd = prefs.getInt("preset_retention_days", 30)
+                    if (pd > 0) db.presetDao().purgeExpiredDeletedPresets(System.currentTimeMillis() - pd * 86_400_000L)
+                    db.presetDao().getDeletedPresets()
+                } else db.presetDao().getActivePresets()
             }
             val arr = JSONArray()
             list.forEach { p ->
@@ -1502,7 +1511,7 @@ class AndroidBridge(
             put("defaultVaultFolder", prefs.getString("default_vault_folder", VaultStorageManager.getRootDir(context).absolutePath))
             put("originalSourcePolicy", prefs.getString("original_source_policy", "keep"))
             put("defaultSubfolderStyle", prefs.getString("default_subfolder_style", "numbered"))
-            put("defaultSuffixRule", prefs.getString("default_suffix_rule", "none"))
+            put("defaultSuffixRule", prefs.getString("default_suffix_rule", "_converted"))
             put("separateByType", prefs.getBoolean("separate_by_type", true))
             put("defaultThreads", prefs.getString("default_threads", "8"))
             put("hwPreference", prefs.getString("hw_preference", "sw_hq"))
@@ -1519,6 +1528,8 @@ class AndroidBridge(
             put("defaultMetadataPolicy", prefs.getString("default_metadata_policy", "forensic"))
             put("autoSuffixCollision", true)
             put("sampleRetentionDays", prefs.getInt("sample_retention_days", 15))
+            put("presetRetentionDays", prefs.getInt("preset_retention_days", 30))
+            put("historyRetentionDays", prefs.getInt("history_retention_days", 30))
         }.toString()
     }
 
@@ -1545,6 +1556,20 @@ class AndroidBridge(
                 putInt("sample_retention_days", d)
                 if (d > 0) {
                     try { VaultStorageManager.cleanupExpiredSamples(context, d) } catch (_: Throwable) {}
+                }
+            }
+            if (o.has("presetRetentionDays")) {
+                val d = o.getInt("presetRetentionDays")
+                putInt("preset_retention_days", d)
+                if (d > 0) {
+                    try { runBlocking { db.presetDao().purgeExpiredDeletedPresets(System.currentTimeMillis() - d * 86_400_000L) } } catch (_: Throwable) {}
+                }
+            }
+            if (o.has("historyRetentionDays")) {
+                val d = o.getInt("historyRetentionDays")
+                putInt("history_retention_days", d)
+                if (d > 0) {
+                    try { runBlocking { db.jobDao().purgeExpiredHistoryJobs(System.currentTimeMillis() - d * 86_400_000L) } } catch (_: Throwable) {}
                 }
             }
         }.apply()
@@ -1597,6 +1622,42 @@ class AndroidBridge(
         return JSONObject().put("ok", true).put("path", target.absolutePath).toString()
     }
 
+    private fun executeFfmpegWithProgress(
+        cmd: String,
+        expectedDurationMs: Long,
+        onTick: (Int, Float, Long) -> Unit
+    ): com.arthenica.ffmpegkit.FFmpegSession {
+        val latch = CountDownLatch(1)
+        var lastTick = 0L
+        val session = FFmpegKit.executeAsync(
+            cmd,
+            { _ -> latch.countDown() },
+            { _ -> },
+            { stats ->
+                val now = System.currentTimeMillis()
+                if (now - lastTick >= 150L) {
+                    lastTick = now
+                    val tMs = stats.time.toLong().coerceAtLeast(0L)
+                    val pct = if (expectedDurationMs > 0L) ((tMs.toDouble() / expectedDurationMs.toDouble()) * 100.0).toInt().coerceIn(5, 98) else 50
+                    onTick(pct, stats.videoFps, tMs)
+                }
+            }
+        )
+        try { latch.await() } catch (_: InterruptedException) {}
+        return session
+    }
+
+    private fun emitUiProgress(fnName: String, pct: Int, stage: String, detail: String = "") {
+        val payload = JSONObject().apply {
+            put("pct", pct.coerceIn(0, 100))
+            put("stage", stage)
+            put("detail", detail)
+        }.toString().replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+        activity.runOnUiThread {
+            activity.evalJsFromBridge("window.$fnName && window.$fnName($payload);")
+        }
+    }
+
     @JavascriptInterface
     fun generateTestSample(presetJsonStr: String): String {
         val o = JSONObject(presetJsonStr)
@@ -1616,27 +1677,42 @@ class AndroidBridge(
         Thread {
             val res = try {
                 outFile.parentFile?.mkdirs()
-                var session = FFmpegKit.execute(finalCmd)
+                val durMatch = Regex("-t\\s+(\\d+(?:\\.\\d+)?)").find(finalCmd)
+                val targetDurMs = ((durMatch?.groupValues?.getOrNull(1)?.toDoubleOrNull() ?: 3.0) * 1000.0).toLong().coerceAtLeast(1000L)
+                emitUiProgress("onSampleProgress", 10, "Initializing FFmpeg lavfi generator...", outFile.name)
+                var session = executeFfmpegWithProgress(finalCmd, targetDurMs) { pct, fps, tMs ->
+                    val fpsTxt = if (fps > 0f) " · ${fps.toInt()} fps" else ""
+                    emitUiProgress("onSampleProgress", pct, "Generating ${ext.uppercase()} sample ($pct%$fpsTxt)...", "${tMs}ms / ${targetDurMs}ms")
+                }
                 var ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
                 // Automatic fallback if libsvtav1 is unavailable or rejects a parameter -> retry with libaom-av1
                 if (!ok && finalCmd.contains("libsvtav1")) {
                     if (outFile.exists()) outFile.delete()
+                    emitUiProgress("onSampleProgress", 22, "Switching to libaom-av1 encoder fallback...", outFile.name)
                     val fallbackCmd = finalCmd
                         .replace("libsvtav1", "libaom-av1")
                         .replace(Regex("-preset\\s+\\d+"), "-cpu-used 8 -row-mt 1")
-                    session = FFmpegKit.execute(fallbackCmd)
+                    session = executeFfmpegWithProgress(fallbackCmd, targetDurMs) { pct, fps, tMs ->
+                        val fpsTxt = if (fps > 0f) " · ${fps.toInt()} fps" else ""
+                        emitUiProgress("onSampleProgress", pct, "Encoding AV1 fallback ($pct%$fpsTxt)...", "${tMs}ms / ${targetDurMs}ms")
+                    }
                     ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
                 }
-                // Automatic fallback if libvpx-vp9 fails with 10-bit or profile mismatch -> retry with explicit profile 2 or yuv420p
+                // Automatic fallback if libvpx-vp9 fails with 10-bit or profile mismatch -> retry with yuv420p
                 if (!ok && finalCmd.contains("libvpx-vp9")) {
                     if (outFile.exists()) outFile.delete()
+                    emitUiProgress("onSampleProgress", 25, "Retrying VP9 with compatible 8-bit profile...", outFile.name)
                     val fallbackVp9 = finalCmd
                         .replace("-deadline realtime", "-deadline good -cpu-used 5 -row-mt 1")
                         .replace("yuv420p10le", "yuv420p")
                         .replace("yuv422p", "yuv420p")
-                    session = FFmpegKit.execute(fallbackVp9)
+                    session = executeFfmpegWithProgress(fallbackVp9, targetDurMs) { pct, fps, tMs ->
+                        val fpsTxt = if (fps > 0f) " · ${fps.toInt()} fps" else ""
+                        emitUiProgress("onSampleProgress", pct, "Encoding VP9 fallback ($pct%$fpsTxt)...", "${tMs}ms / ${targetDurMs}ms")
+                    }
                     ok = ReturnCode.isSuccess(session.returnCode) && outFile.exists() && outFile.length() > 0L
                 }
+                emitUiProgress("onSampleProgress", 98, if (ok) "Indexing saved sample..." else "Finalizing...", outFile.name)
                 if (ok) {
                     try { MediaScannerConnection.scanFile(context, arrayOf(outFile.absolutePath), null, null) } catch (_: Throwable) {}
                 }
@@ -1755,6 +1831,7 @@ class AndroidBridge(
                 }.toString()
             }
 
+            emitUiProgress("onIntegrityProgress", 8, "Reading binary magic bytes & EOF tail...", file.name)
             // 1. Read first 64 & last 64 bytes for magic signature & null-tail / EOF checks
             val headBytes = ByteArray(minOf(64L, sizeBytes).toInt())
             val tailBytes = ByteArray(minOf(64L, sizeBytes).toInt())
@@ -1806,6 +1883,7 @@ class AndroidBridge(
                 else -> false
             }
 
+            emitUiProgress("onIntegrityProgress", 18, "Inspecting container boxes & atoms...", detectedSig)
             // 2. Walk ISO-BMFF boxes (for MP4/MOV/M4A/HEIC/AVIF) to verify moov/meta atom & truncation
             var moovFound = false
             var moovBeforeMdat = false
@@ -1844,6 +1922,7 @@ class AndroidBridge(
                 } catch (_: Throwable) {}
             }
 
+            emitUiProgress("onIntegrityProgress", 28, "Probing container & stream headers (FFprobe)...", file.name)
             // 3. FFprobe container & stream inspection
             val probe = FFprobeKit.getMediaInformation(path)
             val info = probe.mediaInformation
@@ -2035,7 +2114,13 @@ class AndroidBridge(
                     if (linesH.isNotEmpty()) logBlocks.add("[CONTAINER / HEADER ERROR]\n" + linesH.take(20).joinToString("\n"))
                 } else if (deepScan) {
                     if (vCount > 0) {
-                        val sVid = FFmpegKit.execute("-v error -err_detect +crccheck+bitstream+buffer+explode -i \"$safePath\" -map 0:v:0 -an -sn -dn -f null -")
+                        val expDurMs = (durationSec * 1000.0).toLong().coerceAtLeast(1000L)
+                        emitUiProgress("onIntegrityProgress", 36, "Deep scanning Video stream (v:0)...", file.name)
+                        val sVid = executeFfmpegWithProgress("-v error -err_detect +crccheck+bitstream+buffer+explode -i \"$safePath\" -map 0:v:0 -an -sn -dn -f null -", expDurMs) { pct, fps, _ ->
+                            val scaled = 36 + ((pct * 34) / 100)
+                            val fpsTxt = if (fps > 0f) " · ${fps.toInt()} fps" else ""
+                            emitUiProgress("onIntegrityProgress", scaled, "Deep scanning Video stream (v:0) · $pct%$fpsTxt", file.name)
+                        }
                         val stV = analyzeFfmpegLogs(sVid.allLogsAsString ?: "", ReturnCode.isSuccess(sVid.returnCode))
                         videoDecodeErrors = stV[0] as Int
                         corruptFrameErrors += stV[1] as Int
@@ -2046,7 +2131,14 @@ class AndroidBridge(
                         if (linesV.isNotEmpty()) logBlocks.add("[VIDEO STREAM v:0]\n" + linesV.take(20).joinToString("\n"))
                     }
                     if (aCount > 0) {
-                        val sAud = FFmpegKit.execute("-v error -err_detect +crccheck+bitstream+buffer+explode -i \"$safePath\" -map 0:a:0 -vn -sn -dn -f null -")
+                        val expDurMsA = (durationSec * 1000.0).toLong().coerceAtLeast(1000L)
+                        emitUiProgress("onIntegrityProgress", if (mediaKind == "video") 72 else 40, "Deep scanning Audio stream (a:0)...", file.name)
+                        val sAud = executeFfmpegWithProgress("-v error -err_detect +crccheck+bitstream+buffer+explode -i \"$safePath\" -map 0:a:0 -vn -sn -dn -f null -", expDurMsA) { pct, _, _ ->
+                            val base = if (mediaKind == "video") 72 else 40
+                            val span = if (mediaKind == "video") 18 else 48
+                            val scaled = base + ((pct * span) / 100)
+                            emitUiProgress("onIntegrityProgress", scaled, "Deep scanning Audio stream (a:0) · $pct%", file.name)
+                        }
                         val stA = analyzeFfmpegLogs(sAud.allLogsAsString ?: "", ReturnCode.isSuccess(sAud.returnCode))
                         audioDecodeErrors = stA[0] as Int
                         corruptFrameErrors += stA[1] as Int
@@ -2069,7 +2161,14 @@ class AndroidBridge(
                     if (linesH.isNotEmpty()) logBlocks.add("[AUDIO CONTAINER / HEADER ERROR]\n" + linesH.take(20).joinToString("\n"))
                 } else if (deepScan) {
                     if (aCount > 0) {
-                        val sAud = FFmpegKit.execute("-v error -err_detect +crccheck+bitstream+buffer+explode -i \"$safePath\" -map 0:a:0 -vn -sn -dn -f null -")
+                        val expDurMsA = (durationSec * 1000.0).toLong().coerceAtLeast(1000L)
+                        emitUiProgress("onIntegrityProgress", if (mediaKind == "video") 72 else 40, "Deep scanning Audio stream (a:0)...", file.name)
+                        val sAud = executeFfmpegWithProgress("-v error -err_detect +crccheck+bitstream+buffer+explode -i \"$safePath\" -map 0:a:0 -vn -sn -dn -f null -", expDurMsA) { pct, _, _ ->
+                            val base = if (mediaKind == "video") 72 else 40
+                            val span = if (mediaKind == "video") 18 else 48
+                            val scaled = base + ((pct * span) / 100)
+                            emitUiProgress("onIntegrityProgress", scaled, "Deep scanning Audio stream (a:0) · $pct%", file.name)
+                        }
                         val stA = analyzeFfmpegLogs(sAud.allLogsAsString ?: "", ReturnCode.isSuccess(sAud.returnCode))
                         audioDecodeErrors = stA[0] as Int
                         corruptFrameErrors += stA[1] as Int
@@ -2091,6 +2190,7 @@ class AndroidBridge(
             val decodeErrors = videoDecodeErrors + audioDecodeErrors + photoDecodeErrors
             val errorSnippet = logBlocks.joinToString("\n\n").take(2600)
 
+            emitUiProgress("onIntegrityProgress", 93, "Computing SHA-256 checksum...", file.name)
             // 5. Streaming SHA-256 Checksum
             val sha256 = try {
                 val md = MessageDigest.getInstance("SHA-256")

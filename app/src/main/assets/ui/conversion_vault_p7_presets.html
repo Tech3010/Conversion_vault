@@ -307,6 +307,25 @@
       color: #ffffff; font-family: var(--mono); font-size: 11px; font-weight: 800; cursor: pointer;
     }
 
+    .tools-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .sort-sel {
+      flex: 1; padding: 6px 9px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--text); font-family: var(--mono); font-size: 11px; font-weight: 700;
+    }
+    .btn-sel-mode {
+      padding: 6px 11px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono); font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap;
+    }
+    .btn-sel-mode.active { border-color: var(--crimson); background: var(--crimson-soft); color: var(--crimson); }
+    .sel-bar {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 7px;
+      background: var(--card-elev); border: 1px solid rgba(252,209,22,0.45); border-radius: 9px; padding: 8px 10px;
+    }
+    .sel-bar-left { display: flex; align-items: center; gap: 8px; }
+    .sel-bar-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tpl-card.is-selected { border-color: var(--gold) !important; box-shadow: 0 0 0 1px rgba(252,209,22,0.35); }
+    .tpl-sel-chk { width: 17px; height: 17px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; margin-right: 4px; }
+
     .hidden { display: none !important; }
     .toast {
       position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
@@ -353,6 +372,30 @@
         <button type="button" class="f-chip" data-cat="image">Images</button>
         <button type="button" class="f-chip" data-cat="saved">My Saved</button>
         <button type="button" class="f-chip" data-cat="deleted" id="chip-del">Deleted (0)</button>
+      </div>
+
+      <div class="tools-row" id="preset-tools-row">
+        <select id="sel-preset-sort" class="sort-sel" aria-label="Sort Presets">
+          <option value="default">Sort: Default</option>
+          <option value="name_asc">Sort: Name (A → Z)</option>
+          <option value="name_desc">Sort: Name (Z → A)</option>
+          <option value="cat">Sort: Media Type</option>
+          <option value="saved_first">Sort: Saved First</option>
+          <option value="builtin_first">Sort: Built-in First</option>
+        </select>
+        <button type="button" id="btn-preset-select" class="btn-sel-mode">Select</button>
+      </div>
+
+      <div class="sel-bar hidden" id="preset-sel-bar">
+        <div class="sel-bar-left">
+          <button type="button" id="btn-preset-sel-all" class="btn-sec" style="padding:5px 9px; font-size:10px;">Select All</button>
+          <span id="lbl-preset-sel-cnt" style="font-family:var(--mono); font-size:10.5px; font-weight:700; color:var(--gold-text);">0 selected</span>
+        </div>
+        <div class="sel-bar-acts">
+          <button type="button" id="btn-preset-sel-export" class="btn-sec" style="padding:5px 9px; font-size:10px; border-color:var(--gold); color:var(--gold-text);">Export</button>
+          <button type="button" id="btn-preset-sel-restore" class="btn-sec hidden" style="padding:5px 9px; font-size:10px; border-color:var(--emerald); color:var(--emerald);">Restore</button>
+          <button type="button" id="btn-preset-sel-delete" class="btn-sec" style="padding:5px 9px; font-size:10px; border-color:rgba(219,10,64,0.55); color:#fda4af;">Delete</button>
+        </div>
       </div>
 
       <div class="tpl-list" id="tpl-list"></div>
@@ -454,6 +497,9 @@
     const state = {
       filter: 'all',
       query: '',
+      sort: 'default',
+      selectMode: false,
+      selectedIds: new Set(),
       deleted: [],
       pendingDelete: null,
       templates: []
@@ -480,7 +526,40 @@
         }
         if (q && !(t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q) || t.specs.toLowerCase().includes(q))) return false;
         return true;
-      });
+      }).slice();
+
+      if (state.sort === 'name_asc') {
+        list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+      } else if (state.sort === 'name_desc') {
+        list.sort((a, b) => String(b.name || '').localeCompare(String(a.name || ''), undefined, { sensitivity: 'base' }));
+      } else if (state.sort === 'cat') {
+        const ord = { video: 0, audio: 1, image: 2 };
+        list.sort((a, b) => ((ord[a.cat] ?? 9) - (ord[b.cat] ?? 9)) || String(a.name || '').localeCompare(String(b.name || '')));
+      } else if (state.sort === 'saved_first') {
+        list.sort((a, b) => ((a.origin === 'saved' ? 0 : 1) - (b.origin === 'saved' ? 0 : 1)) || String(a.name || '').localeCompare(String(b.name || '')));
+      } else if (state.sort === 'builtin_first') {
+        list.sort((a, b) => ((a.origin === 'builtin' ? 0 : 1) - (b.origin === 'builtin' ? 0 : 1)) || String(a.name || '').localeCompare(String(b.name || '')));
+      }
+
+      const visibleIds = new Set(list.map(x => String(x.id)));
+      Array.from(state.selectedIds).forEach(id => { if (!visibleIds.has(String(id))) state.selectedIds.delete(id); });
+      const selBar = document.getElementById('preset-sel-bar');
+      const selBtn = document.getElementById('btn-preset-select');
+      const selAllBtn = document.getElementById('btn-preset-sel-all');
+      const selCntEl = document.getElementById('lbl-preset-sel-cnt');
+      const selExpBtn = document.getElementById('btn-preset-sel-export');
+      const selResBtn = document.getElementById('btn-preset-sel-restore');
+      const selDelBtn = document.getElementById('btn-preset-sel-delete');
+      if (selBtn) {
+        selBtn.classList.toggle('active', state.selectMode);
+        selBtn.textContent = state.selectMode ? 'Done' : 'Select';
+      }
+      if (selBar) selBar.classList.toggle('hidden', !state.selectMode);
+      if (selCntEl) selCntEl.textContent = state.selectedIds.size + ' selected';
+      if (selAllBtn) selAllBtn.textContent = (list.length > 0 && state.selectedIds.size === list.length) ? 'Clear All' : 'Select All';
+      if (selExpBtn) selExpBtn.classList.toggle('hidden', isDelView);
+      if (selResBtn) selResBtn.classList.toggle('hidden', !isDelView);
+      if (selDelBtn) selDelBtn.textContent = isDelView ? 'Delete Forever' : 'Delete';
 
       const wrap = document.getElementById('tpl-list');
       if (list.length === 0) {
@@ -492,15 +571,18 @@
         const catCls = t.cat === 'video' ? 'cp-video' : (t.cat === 'audio' ? 'cp-audio' : 'cp-image');
         const catLbl = t.cat.toUpperCase();
         return `
-          <article class="tpl-card ${t.origin === 'saved' ? 'is-saved' : 'is-builtin'}">
+          <article class="tpl-card ${t.origin === 'saved' ? 'is-saved' : 'is-builtin'}${state.selectMode && state.selectedIds.has(String(t.id)) ? ' is-selected' : ''}" data-card-id="${t.id}">
             <div class="tpl-top">
-              <div>
+              <div style="display:flex; align-items:flex-start; gap:6px; min-width:0; width:100%;">
+                ${state.selectMode ? `<input type="checkbox" class="tpl-sel-chk" data-sel-id="${t.id}" ${state.selectedIds.has(String(t.id)) ? 'checked' : ''} style="margin-top:2px;">` : ''}
+                <div style="min-width:0; flex:1;">
                 <div class="tpl-badges">
                   <span class="cat-pill ${catCls}">${catLbl}</span>
                   <span class="orig-pill ${t.origin === 'saved' ? 'saved' : ''}">${t.origin === 'saved' ? 'SAVED' : 'BUILT-IN'}</span>
                 </div>
                 <div class="tpl-name">${t.name}</div>
                 <div class="tpl-desc">${t.desc}</div>
+                </div>
               </div>
             </div>
             <div class="tpl-specs">${t.specs}</div>
@@ -1117,7 +1199,20 @@
         const id = parseInt(actEl.getAttribute('data-id'), 10);
         const t = state.templates.find(x => x.id === id) || state.deleted.find(x => x.id === id);
         if (!t) return;
-        if (act === 'use') showToast('Pick files to apply "' + t.name + '" →');
+        if (act === 'use') {
+          if (window.VaultPresets) {
+            window.VaultPresets.setPendingPreset({
+              source: 'presets_hub',
+              name: t.name,
+              cat: t.cat,
+              category: t.cat === 'audio' ? 'Audio' : (t.cat === 'image' ? 'Image' : 'Video'),
+              specs: t.specs || '',
+              cfg: t.cfg || null
+            });
+          }
+          window.location.href = 'conversion_vault_p2_select.html';
+          return;
+        }
         else if (act === 'dup') {
           const dupName = t.name + ' (Copy)';
           const dupObj = Object.assign({}, t, { id: Date.now(), roomId: null, origin: 'saved', name: dupName });
@@ -1200,10 +1295,112 @@
       } catch (_) {}
     }
 
+    document.getElementById('sel-preset-sort').addEventListener('change', function() {
+      state.sort = this.value || 'default';
+      render();
+    });
+    document.getElementById('btn-preset-select').addEventListener('click', () => {
+      state.selectMode = !state.selectMode;
+      if (!state.selectMode) state.selectedIds.clear();
+      render();
+    });
+    document.getElementById('btn-preset-sel-all').addEventListener('click', () => {
+      const isDelView = state.filter === 'deleted';
+      const q = state.query.trim().toLowerCase();
+      const sourceArr = isDelView ? state.deleted : state.templates;
+      const visible = sourceArr.filter(t => {
+        if (!isDelView) {
+          if (state.filter === 'saved' && t.origin !== 'saved') return false;
+          if (['video', 'audio', 'image'].includes(state.filter) && t.cat !== state.filter) return false;
+        }
+        if (q && !(t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q) || t.specs.toLowerCase().includes(q))) return false;
+        return true;
+      });
+      if (visible.length > 0 && state.selectedIds.size === visible.length) {
+        state.selectedIds.clear();
+      } else {
+        visible.forEach(t => state.selectedIds.add(String(t.id)));
+      }
+      render();
+    });
+    document.getElementById('btn-preset-sel-export').addEventListener('click', () => {
+      const picked = state.templates.filter(t => state.selectedIds.has(String(t.id)));
+      if (!picked.length) { showToast('Select at least 1 preset to export'); return; }
+      const roomIds = picked.map(t => t.roomId).filter(Boolean);
+      if (window.VaultPresets && roomIds.length) {
+        const res = window.VaultPresets.exportSelected(roomIds);
+        showToast(res && res.ok ? ('Exported ' + (res.count || roomIds.length) + ' preset(s) ✓') : ('Export failed: ' + ((res && res.error) || 'Error')));
+      } else {
+        showToast('Exported ' + picked.length + ' preset(s) ✓');
+      }
+    });
+    document.getElementById('btn-preset-sel-restore').addEventListener('click', () => {
+      const picked = state.deleted.filter(t => state.selectedIds.has(String(t.id)));
+      if (!picked.length) { showToast('Select at least 1 preset to restore'); return; }
+      picked.forEach(t => {
+        if (t.roomId && window.VaultPresets) window.VaultPresets.restore(String(t.roomId));
+        state.deleted = state.deleted.filter(x => x.id !== t.id);
+        state.templates.unshift(t);
+      });
+      state.selectedIds.clear();
+      render();
+      showToast('Restored ' + picked.length + ' preset(s) ✓');
+    });
+    document.getElementById('btn-preset-sel-delete').addEventListener('click', () => {
+      const isDelView = state.filter === 'deleted';
+      const src = isDelView ? state.deleted : state.templates;
+      const picked = src.filter(t => state.selectedIds.has(String(t.id)));
+      if (!picked.length) { showToast('Select at least 1 preset first'); return; }
+      state.pendingDelete = { mode: isDelView ? 'batch_perm' : 'batch_soft', ids: picked.map(t => t.id), count: picked.length };
+      document.getElementById('confirm-title').textContent = isDelView ? ('Permanently Delete ' + picked.length + ' Presets?') : ('Delete ' + picked.length + ' Presets?');
+      document.getElementById('confirm-desc').textContent = isDelView
+        ? ('This will permanently erase ' + picked.length + ' selected preset(s). This cannot be undone.')
+        : ('Move ' + picked.length + ' selected preset(s) to Deleted Presets? You can restore them anytime.');
+      document.getElementById('btn-confirm-yes').textContent = isDelView ? 'Yes, Delete Forever' : 'Yes, Move to Deleted';
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    });
+    document.getElementById('tpl-list').addEventListener('change', (e) => {
+      const chk = e.target.closest('.tpl-sel-chk');
+      if (!chk) return;
+      const sid = String(chk.getAttribute('data-sel-id') || '');
+      if (chk.checked) state.selectedIds.add(sid);
+      else state.selectedIds.delete(sid);
+      render();
+    });
+    document.getElementById('tpl-list').addEventListener('click', (e) => {
+      if (!state.selectMode) return;
+      if (e.target.closest('button') || e.target.closest('input')) return;
+      const card = e.target.closest('.tpl-card[data-card-id]');
+      if (!card) return;
+      const sid = String(card.getAttribute('data-card-id') || '');
+      if (state.selectedIds.has(sid)) state.selectedIds.delete(sid);
+      else state.selectedIds.add(sid);
+      render();
+    });
+
     document.getElementById('btn-confirm-yes').addEventListener('click', () => {
       const p = state.pendingDelete;
       if (!p) return;
-      if (p.mode === 'soft') {
+      if (p.mode === 'batch_soft') {
+        const idSet = new Set(p.ids);
+        const moving = state.templates.filter(x => idSet.has(x.id));
+        moving.forEach(item => {
+          if (item.roomId && window.VaultPresets) window.VaultPresets.softDelete(String(item.roomId));
+          state.deleted.unshift(item);
+        });
+        state.templates = state.templates.filter(x => !idSet.has(x.id));
+        state.selectedIds.clear();
+        showToast('Moved ' + moving.length + ' preset(s) to Deleted');
+      } else if (p.mode === 'batch_perm') {
+        const idSet = new Set(p.ids);
+        const removing = state.deleted.filter(x => idSet.has(x.id));
+        removing.forEach(item => {
+          if (item.roomId && window.VaultPresets) window.VaultPresets.permanentDelete(String(item.roomId));
+        });
+        state.deleted = state.deleted.filter(x => !idSet.has(x.id));
+        state.selectedIds.clear();
+        showToast('Permanently deleted ' + removing.length + ' preset(s)');
+      } else if (p.mode === 'soft') {
         const item = state.templates.find(x => x.id === p.id);
         if (item) {
           state.templates = state.templates.filter(x => x.id !== p.id);

@@ -647,7 +647,7 @@
 
     document.getElementById('btn-pick').addEventListener('click', () => {
       if (window.AndroidBridge && typeof window.AndroidBridge.pickFile === 'function') {
-        window.AndroidBridge.pickFile('all');
+        window.AndroidBridge.pickFile();
       } else {
         document.getElementById('inp-file').click();
       }

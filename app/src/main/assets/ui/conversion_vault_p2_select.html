@@ -431,6 +431,7 @@
       } catch(e) {}
     })();
   </script>
+  <script src="vault-presets.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -450,6 +451,14 @@
     </header>
 
     <main class="content">
+      <div id="pending-preset-banner" class="hidden" style="background:linear-gradient(135deg, rgba(252,209,22,0.14), rgba(219,10,64,0.12)); border:1px solid rgba(252,209,22,0.55); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div style="min-width:0;">
+          <div style="font-family:var(--mono); font-size:10px; font-weight:800; color:var(--gold-text); text-transform:uppercase;">★ Preset Ready to Auto-Apply</div>
+          <div id="pending-preset-lbl" style="font-size:12.5px; font-weight:700; color:var(--text); margin-top:2px; word-break:break-word;"></div>
+        </div>
+        <button type="button" id="btn-clear-pending-preset" style="padding:5px 9px; border-radius:6px; border:1px solid var(--border-strong); background:var(--card); color:var(--text); font-family:var(--mono); font-size:10px; font-weight:700; cursor:pointer; flex-shrink:0;">✕ Clear</button>
+      </div>
+      <div id="pending-preset-warn" class="hidden" role="alert" style="background:rgba(219,10,64,0.14); border:1px solid rgba(219,10,64,0.6); border-radius:9px; padding:9px 12px; font-size:12px; font-weight:700; color:#fecdd3; line-height:1.4;"></div>
       <!-- Subtle, Optional Intro Note (Visually muted & dismissible so it never blocks the action) -->
       <aside class="intro-note" id="intro-box" aria-label="About Vault Core">
         <div class="intro-text-wrap">
@@ -540,9 +549,9 @@
         <div class="picked-name" id="picked-name">—</div>
         <div class="picked-meta" id="picked-meta">—</div>
         <div class="bucket-pills hidden" id="picked-buckets">
-          <div class="bpill"><span class="bpill-k">Videos</span><span class="bpill-v c-blue" id="cnt-v">0</span></div>
-          <div class="bpill"><span class="bpill-k">Audios</span><span class="bpill-v c-emerald" id="cnt-a">0</span></div>
-          <div class="bpill"><span class="bpill-k">Images</span><span class="bpill-v c-gold" id="cnt-i">0</span></div>
+          <div class="bpill" id="bpill-video"><span class="bpill-k">Videos</span><span class="bpill-v c-blue" id="cnt-v">0</span></div>
+          <div class="bpill" id="bpill-audio"><span class="bpill-k">Audios</span><span class="bpill-v c-emerald" id="cnt-a">0</span></div>
+          <div class="bpill" id="bpill-image"><span class="bpill-k">Images</span><span class="bpill-v c-gold" id="cnt-i">0</span></div>
         </div>
         <div id="picked-sort-row" class="hidden" style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; padding-top:8px; border-top:1px solid var(--border);">
           <span style="font-size:10.5px; font-weight:700; color:var(--muted); text-transform:uppercase;">Sort Dropped Files</span>
@@ -706,6 +715,54 @@
     document.getElementById('btn-continue').addEventListener('click', () => {
       showToast('Advancing to Step 2: Stream Inspection & Settings →');
     });
+  </script>
+  <script>
+    (function initPendingPresetBanner() {
+      function refreshBanner() {
+        const b = document.getElementById('pending-preset-banner');
+        const lbl = document.getElementById('pending-preset-lbl');
+        if (!b || !lbl || !window.VaultPresets) return;
+        const p = window.VaultPresets.getPendingPreset();
+        const pills = {
+          video: document.getElementById('bpill-video'),
+          audio: document.getElementById('bpill-audio'),
+          image: document.getElementById('bpill-image')
+        };
+        if (p && p.name) {
+          const catLbl = p.cat === 'audio' ? 'Audio' : (p.cat === 'image' ? 'Photo' : 'Video');
+          lbl.textContent = p.name + ' (' + catLbl + ' Preset) — Only ' + catLbl + ' files allowed';
+          b.classList.remove('hidden');
+          Object.entries(pills).forEach(([k, el]) => {
+            if (!el) return;
+            el.classList.toggle('hidden', k !== p.cat);
+            el.style.gridColumn = (k === p.cat) ? '1 / -1' : '';
+          });
+        } else {
+          b.classList.add('hidden');
+          Object.values(pills).forEach(el => {
+            if (!el) return;
+            el.classList.remove('hidden');
+            el.style.gridColumn = '';
+          });
+        }
+      }
+      const clr = document.getElementById('btn-clear-pending-preset');
+      if (clr) {
+        clr.addEventListener('click', () => {
+          if (window.VaultPresets) window.VaultPresets.clearPendingPreset();
+          const w = document.getElementById('pending-preset-warn'); if (w) w.classList.add('hidden');
+          refreshBanner();
+        });
+      }
+      const backBtn = document.getElementById('btn-back') || document.getElementById('btn-back-home');
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          if (window.VaultPresets) window.VaultPresets.clearPendingPreset();
+        });
+      }
+      refreshBanner();
+      window.addEventListener('pageshow', refreshBanner);
+    })();
   </script>
   <script src="vault-bridge.js"></script>
 </body>

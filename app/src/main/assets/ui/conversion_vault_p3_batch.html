@@ -1320,8 +1320,9 @@
         const items = (qCatSel && (op === 'all' || op === 'invert'))
           ? allCatItems.filter(f => (String(f.name || '') + ' ' + (f.hasPreset && f.cfg ? (f.cfg.presetName + ' ' + shortTagLine(cat, f.cfg)) : '')).toLowerCase().includes(qCatSel))
           : allCatItems;
-        if (bucketEl) bucketEl.classList.toggle('hidden', items.length === 0);
-        if (items.length === 0) return;
+        const hideBucket = items.length === 0 || (state.lockedCat && state.lockedCat !== cat);
+        if (bucketEl) bucketEl.classList.toggle('hidden', hideBucket);
+        if (hideBucket) return;
         const selCount = items.filter(f => f.selected).length;
 
         const applyBtn = document.getElementById('btn-apply-' + cat);
@@ -2291,9 +2292,12 @@
           if (idx % 5 === 0 || idx >= state.files.length) renderAll();
           if (idx < state.files.length) setTimeout(probeNext, 5);
         };
+        applyPendingPresetToBatch();
+        renderAll();
         setTimeout(probeNext, 10);
       } else {
         state.files.forEach(it => { it.res = it.sizeMB > 0 ? (it.sizeMB.toFixed(1) + ' MB') : 'Ready'; });
+        applyPendingPresetToBatch();
         renderAll();
       }
     };
@@ -2326,7 +2330,35 @@
       });
     }
 
+    function applyPendingPresetToBatch() {
+      if (!window.VaultPresets || !Array.isArray(state.files) || state.files.length === 0) return;
+      const p = window.VaultPresets.getPendingPreset();
+      if (!p || !p.cat) return;
+      state.lockedCat = p.cat;
+      // Remove any other file types so only the preset's target category stays focused
+      state.files = state.files.filter(f => f.cat === p.cat);
+      const base = Object.assign({}, DEFAULT_BATCH_CFG[p.cat] || {}, p.cfg || {});
+      base.presetName = p.name;
+      let applied = 0;
+      state.files.forEach(f => {
+        f.cfg = Object.assign({}, base);
+        f.hasPreset = true;
+        f.skipped = false;
+        f.selected = true;
+        applied++;
+      });
+      // Immediately hide other category buckets
+      ['video', 'audio', 'image'].forEach(c => {
+        const bEl = document.getElementById('bucket-' + c);
+        if (bEl && c !== p.cat) bEl.classList.add('hidden');
+      });
+      if (applied > 0) {
+        window.VaultPresets.clearPendingPreset();
+        if (typeof showToast === 'function') showToast('✓ Pre-applied "' + p.name + '" to ' + applied + ' ' + p.cat + ' file(s)');
+      }
+    }
     syncBatchSavedPresetsFromRoom();
+    applyPendingPresetToBatch();
     renderAll();
     const INFO_DICT = {
       'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',

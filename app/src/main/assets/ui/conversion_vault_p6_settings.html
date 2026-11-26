@@ -321,9 +321,9 @@
         <div class="field border-top">
           <label for="sel-def-suffix">Default Filename Suffix (All Modules)</label>
           <select id="sel-def-suffix">
-            <option value="none" selected>Keep Original Name (Auto _1, _2 if file exists)</option>
+            <option value="none">Keep Original Name (Auto _1, _2 if file exists)</option>
             <option value="_vault">Append _vault (e.g. clip_vault.mp4)</option>
-            <option value="_converted">Append _converted</option>
+            <option value="_converted" selected>Append _converted</option>
           </select>
         </div>
         <div class="toggle-row border-top">
@@ -382,6 +382,31 @@
             <span>Re-benchmark</span>
           </button>
         </div>
+        <div class="field border-top" style="gap:7px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div>
+              <span class="toggle-title">Export Device &amp; Engine Report</span>
+              <span class="toggle-sub">Model, SoC, CPU clusters, RAM, storage, ABI, OS, verified formats &amp; threads</span>
+            </div>
+          </div>
+          <div style="display:flex; gap:7px; align-items:center;">
+            <select id="sel-hw-report-fmt" aria-label="Device Report Format" style="width:94px; flex-shrink:0; font-family:var(--mono); font-size:11px; font-weight:800; color:var(--gold-text);">
+              <option value="txt" selected>.TXT</option>
+              <option value="html">.HTML</option>
+              <option value="md">.MD</option>
+              <option value="json">.JSON</option>
+              <option value="csv">.CSV</option>
+            </select>
+            <button type="button" id="btn-export-hw-report" class="btn-sm" style="flex:1; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Report ↗</button>
+          </div>
+          <div id="hw-export-bar" class="hidden" style="background:var(--card-elev); border:1px solid rgba(16,185,129,0.45); border-radius:7px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
+            <span id="hw-export-lbl" style="font-family:var(--mono); font-size:10px; color:var(--emerald); word-break:break-all;">✓ Exported report</span>
+            <div style="display:flex; gap:6px;">
+              <button type="button" id="btn-hw-open-file" class="btn-sm" style="flex:1; justify-content:center; border-color:var(--emerald); color:var(--emerald);">Open File ▶</button>
+              <button type="button" id="btn-hw-open-fm" class="btn-sm" style="flex:1; justify-content:center;">File Manager</button>
+            </div>
+          </div>
+        </div>
         <div class="field border-top">
           <label for="sel-def-threads">Default CPU Threads (-threads)</label>
           <select id="sel-def-threads">
@@ -421,39 +446,10 @@
         </div>
       </section>
 
-      <!-- 4. SAVED PRESETS MANAGER -->
-      <div class="sec-lbl">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-        <span>4. Presets</span>
-      </div>
-      <section class="set-card" aria-label="Presets">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-          <div>
-            <span class="toggle-title">Preset Library</span>
-            <span class="toggle-sub" id="lbl-saved-presets-sub">Loading built-in &amp; custom presets...</span>
-          </div>
-          <span class="cap-badge cb-warn" id="badge-saved-presets">PRESETS</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 8px; background:var(--input); border:1px solid var(--border); border-radius:8px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <button type="button" id="btn-preset-sel-all" class="btn-sm" style="padding:4px 9px; font-size:10px;">Select All</button>
-            <span id="lbl-preset-sel-count" style="font-family:var(--mono); font-size:10px; color:var(--muted);">0 selected</span>
-          </div>
-          <button type="button" id="btn-dedupe-presets" class="btn-sm" style="padding:4px 9px; font-size:10px; border-color:rgba(219,10,64,0.45); color:#fda4af;">Delete Duplicates</button>
-        </div>
-        <div id="settings-saved-presets-list" style="display:flex; flex-direction:column; gap:8px;"></div>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
-          <input type="file" id="inp-import-presets-file" accept=".json,application/json" style="display:none;">
-          <button type="button" id="btn-import-presets" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Import JSON</button>
-          <button type="button" id="btn-export-presets" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Export All</button>
-          <button type="button" id="btn-export-selected-presets" class="btn-sm" style="flex:1 1 100%; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Selected (0)</button>
-        </div>
-      </section>
-
-      <!-- 5. PRIVACY & CACHE -->
+      <!-- 4. PRIVACY & CACHE -->
       <div class="sec-lbl">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <span>5. Privacy &amp; Cache</span>
+        <span>4. Privacy &amp; Cache</span>
       </div>
       <section class="set-card" aria-label="Privacy and Cache">
         <div class="field">
@@ -482,6 +478,55 @@
             <option value="never">Never Auto-Delete</option>
           </select>
         </div>
+        <div class="field border-top">
+          <label for="sel-preset-ttl">Auto-Delete Deleted Presets (Trash) After</label>
+          <select id="sel-preset-ttl">
+            <option value="7">7 Days</option>
+            <option value="15">15 Days</option>
+            <option value="30" selected>30 Days (Default)</option>
+            <option value="60">60 Days</option>
+            <option value="never">Never Auto-Delete</option>
+          </select>
+        </div>
+        <div class="field border-top">
+          <label for="sel-history-ttl">Auto-Delete Queue &amp; History After</label>
+          <select id="sel-history-ttl">
+            <option value="7">7 Days</option>
+            <option value="15">15 Days</option>
+            <option value="30" selected>30 Days (Default)</option>
+            <option value="90">90 Days</option>
+            <option value="never">Never Auto-Delete</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- 5. SAVED PRESETS MANAGER -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        <span>5. Presets</span>
+      </div>
+      <section class="set-card" aria-label="Presets">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div>
+            <span class="toggle-title">Preset Library</span>
+            <span class="toggle-sub" id="lbl-saved-presets-sub">Loading built-in &amp; custom presets...</span>
+          </div>
+          <span class="cap-badge cb-warn" id="badge-saved-presets">PRESETS</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 8px; background:var(--input); border:1px solid var(--border); border-radius:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" id="btn-preset-sel-all" class="btn-sm" style="padding:4px 9px; font-size:10px;">Select All</button>
+            <span id="lbl-preset-sel-count" style="font-family:var(--mono); font-size:10px; color:var(--muted);">0 selected</span>
+          </div>
+          <button type="button" id="btn-dedupe-presets" class="btn-sm" style="padding:4px 9px; font-size:10px; border-color:rgba(219,10,64,0.45); color:#fda4af;">Delete Duplicates</button>
+        </div>
+        <div id="settings-saved-presets-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <input type="file" id="inp-import-presets-file" accept=".json,application/json" style="display:none;">
+          <button type="button" id="btn-import-presets" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Import JSON</button>
+          <button type="button" id="btn-export-presets" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Export All</button>
+          <button type="button" id="btn-export-selected-presets" class="btn-sm" style="flex:1 1 100%; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Selected (0)</button>
+        </div>
       </section>
 
       <!-- 6. FFMPEG PARAMETER ENCYCLOPEDIA (28 Flags) -->
@@ -508,7 +553,7 @@
       </section>
 
       <div class="about-foot">
-        Conversion Vault v1.5.6 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
+        Conversion Vault v1.6.6 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
       </div>
     </main>
 

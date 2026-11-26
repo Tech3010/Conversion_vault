@@ -226,6 +226,73 @@
       }
     `;
     document.head.appendChild(style);
+      // Global Android WebView tap polish: remove default blue tap highlight box & add curved theme-matched color-invert tap feedback
+      if (!document.getElementById('cv-tap-theme-style')) {
+        const ts = document.createElement('style');
+        ts.id = 'cv-tap-theme-style';
+        ts.textContent = `
+          *, *::before, *::after { -webkit-tap-highlight-color: transparent !important; }
+          button:focus, a:focus, [role="button"]:focus, .tool-card:focus { outline: none !important; }
+          button, .tool-card, .btn-sm, .btn-sec, .btn-primary, .btn-use, .btn-save, .btn-test,
+          .f-chip, .sf-chip, .s-chip, .cap-btn, .dest-pill, .mode-btn, .nav-item, .back-btn, .theme-opt, .encyc-cat-btn {
+            transition: transform 0.11s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease !important;
+          }
+          .btn-sm:active, .btn-sec:active, .btn-test:active, .btn-sel-mode:active, .back-btn:active,
+          .f-chip:active, .sf-chip:active, .s-chip:active, .cap-btn:active, .dest-pill:active,
+          .mode-btn:active, .theme-opt:active, .encyc-cat-btn:active {
+            background: var(--crimson) !important;
+            border-color: var(--crimson) !important;
+            color: #ffffff !important;
+            transform: scale(0.97) !important;
+          }
+          .btn-sm:active *, .btn-sec:active *, .mode-btn:active *, .cap-btn:active *, .back-btn:active * {
+            color: #ffffff !important;
+            stroke: #ffffff !important;
+          }
+          .btn-primary:active, .btn-use:active, .btn-gen-main:active, .btn-new-preset:active {
+            background: var(--gold) !important;
+            border-color: var(--gold) !important;
+            color: #090d16 !important;
+            transform: scale(0.97) !important;
+          }
+          .btn-primary:active *, .btn-use:active *, .btn-gen-main:active * {
+            color: #090d16 !important;
+          }
+          .tool-card:active {
+            background: var(--crimson) !important;
+            border-color: var(--crimson) !important;
+            color: #ffffff !important;
+            transform: scale(0.975) !important;
+          }
+          .tool-card:active .tool-title, .tool-card:active .tool-desc, .tool-card:active .tool-tag {
+            color: #ffffff !important;
+          }
+          .tool-card.primary-tile:active {
+            background: #f8fafc !important;
+            border-color: var(--crimson) !important;
+            color: #090d16 !important;
+          }
+          .tool-card.primary-tile:active .tool-title, .tool-card.primary-tile:active .tool-desc {
+            color: #090d16 !important;
+          }
+          .tool-card.gold-tile:active {
+            background: var(--gold) !important;
+            border-color: var(--gold) !important;
+            color: #090d16 !important;
+          }
+          .tool-card.gold-tile:active .tool-title, .tool-card.gold-tile:active .tool-desc, .tool-card.gold-tile:active .tool-tag {
+            color: #090d16 !important;
+            border-color: rgba(9,13,22,0.25) !important;
+          }
+          .nav-item:active {
+            background: var(--crimson-soft) !important;
+            color: var(--crimson) !important;
+            border-radius: 10px !important;
+            transform: scale(0.95) !important;
+          }
+        `;
+        document.head.appendChild(ts);
+      }
   }
 
   function applySavedTheme() {
@@ -551,12 +618,26 @@
 
     if (page === 'conversion_vault_p2_select.html') {
       // Unified Collect & Drop: append Single, Multi, or Folder picks into ONE shared basket (deduped by path)
-      const existing = getActiveFiles();
+      const pending = window.VaultPresets ? window.VaultPresets.getPendingPreset() : null;
+      const reqCode = pending && pending.cat ? (pending.cat === 'audio' ? 'a' : (pending.cat === 'image' ? 'i' : 'v')) : null;
+      const reqLabel = pending && pending.cat ? (pending.cat === 'audio' ? 'Audio' : (pending.cat === 'image' ? 'Photo' : 'Video')) : '';
+      const catPlural = { v: 'Videos', a: 'Audios', i: 'Photos' };
+
+      const existing = getActiveFiles().filter(f => !reqCode || classifyExt(f.name) === reqCode);
       const seenPaths = new Set(existing.map(x => x.path || x.name));
       let added = 0;
+      let rejectedCount = 0;
+      const rejectedCats = new Set();
       const merged = existing.slice();
+
       files.forEach(f => {
-        if (!classifyExt(f.name)) return;
+        const fc = classifyExt(f.name);
+        if (!fc) return;
+        if (reqCode && fc !== reqCode) {
+          rejectedCount++;
+          rejectedCats.add(catPlural[fc] || 'Other files');
+          return;
+        }
         const key = f.path || f.name;
         if (!seenPaths.has(key)) {
           seenPaths.add(key);
@@ -564,11 +645,24 @@
           added++;
         }
       });
+
       setActiveFiles(merged.length > 1 ? 'multi' : 'single', merged);
       if (typeof window.renderUnifiedPickBasket === 'function') {
         window.renderUnifiedPickBasket();
       }
-      toast(added > 0 ? ('Added ' + added + (added === 1 ? ' file' : ' files') + ' (' + merged.length + ' total)') : ('Already in list (' + merged.length + ' total)'));
+
+      const warnEl = document.getElementById('pending-preset-warn');
+      if (rejectedCount > 0 && reqCode) {
+        const rejStr = Array.from(rejectedCats).join(' and ');
+        const msg = merged.length === 0
+          ? (rejStr + ' are invalid for this ' + reqLabel + ' preset. No ' + reqLabel.toLowerCase() + ' file is selected.')
+          : (rejStr + ' are invalid for this ' + reqLabel + ' preset (removed). Kept ' + merged.length + ' ' + reqLabel.toLowerCase() + ' file' + (merged.length === 1 ? '' : 's') + '.');
+        if (warnEl) { warnEl.textContent = '⚠ ' + msg; warnEl.classList.remove('hidden'); }
+        toast(msg);
+      } else {
+        if (warnEl) warnEl.classList.add('hidden');
+        toast(added > 0 ? ('Added ' + added + (added === 1 ? ' file' : ' files') + ' (' + merged.length + ' total)') : ('Already in list (' + merged.length + ' total)'));
+      }
       return;
     }
 
@@ -648,7 +742,7 @@
       if (el) {
         el.addEventListener('click', (e) => {
           e.preventDefault(); e.stopImmediatePropagation();
-          if (defaultBack === 'conversion_vault_p1_home.html') clearActiveSelection();
+          if (defaultBack === 'conversion_vault_p1_home.html') { clearActiveSelection(); if (window.VaultPresets) window.VaultPresets.clearPendingPreset(); }
           navigateTo(defaultBack);
         }, true);
       }
@@ -656,7 +750,7 @@
     document.querySelectorAll('.back-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault(); e.stopImmediatePropagation();
-        if (defaultBack === 'conversion_vault_p1_home.html') clearActiveSelection();
+        if (defaultBack === 'conversion_vault_p1_home.html') { clearActiveSelection(); if (window.VaultPresets) window.VaultPresets.clearPendingPreset(); }
         navigateTo(defaultBack);
       }, true);
     });
@@ -895,7 +989,26 @@
       const btnCont = document.getElementById('btn-continue');
       if (btnCont) btnCont.addEventListener('click', (e) => {
         e.preventDefault(); e.stopImmediatePropagation();
-        const sorted = sortPickedFiles(getActiveFiles());
+        let sorted = sortPickedFiles(getActiveFiles());
+        const pending = window.VaultPresets ? window.VaultPresets.getPendingPreset() : null;
+        if (pending && pending.cat) {
+          const reqCode = pending.cat === 'audio' ? 'a' : (pending.cat === 'image' ? 'i' : 'v');
+          const reqLabel = pending.cat === 'audio' ? 'Audio' : (pending.cat === 'image' ? 'Photo' : 'Video');
+          const validOnly = sorted.filter(f => classifyExt(f.name) === reqCode);
+          const warnEl = document.getElementById('pending-preset-warn');
+          if (validOnly.length !== sorted.length) {
+            sorted = validOnly;
+            setActiveFiles(sorted.length > 1 ? 'multi' : 'single', sorted);
+            renderUnifiedPickBasket();
+          }
+          if (!sorted.length) {
+            const msg = 'No ' + reqLabel.toLowerCase() + ' file is selected — please select at least one ' + reqLabel.toLowerCase() + ' file for this preset.';
+            if (warnEl) { warnEl.textContent = '⚠ ' + msg; warnEl.classList.remove('hidden'); }
+            toast(msg);
+            return;
+          }
+          if (warnEl) warnEl.classList.add('hidden');
+        }
         if (!sorted.length) { toast('Add at least one file first'); return; }
         setActiveFiles(sorted.length > 1 ? 'multi' : 'single', sorted);
         if (sorted.length === 1) navigateTo('conversion_vault_p2a_single.html');
@@ -1224,7 +1337,29 @@
             }
           } catch (_) {}
           renderSavedImagePresets();
-          syncPhotoSummary(false);
+          let appliedPendingPhoto = false;
+          if (window.VaultPresets) {
+            const p = window.VaultPresets.getPendingPreset();
+            if (p && p.cat === 'image') {
+              const c = p.cfg || {};
+              const fmt = (c.fmt || c.format || p.container || 'webp').replace(/^\./, '').toLowerCase();
+              const fmtEl = document.getElementById('sp-fmt');
+              if (fmtEl && Array.from(fmtEl.options).some(o => o.value === fmt)) fmtEl.value = fmt;
+              if (c.scale && document.getElementById('sp-scale')) document.getElementById('sp-scale').value = String(c.scale);
+              if (c.orient && document.getElementById('sp-orient')) document.getElementById('sp-orient').value = String(c.orient);
+              if (c.meta && document.getElementById('sp-meta')) document.getElementById('sp-meta').value = String(c.meta);
+              if (c.crop && document.getElementById('sp-crop')) document.getElementById('sp-crop').value = String(c.crop);
+              if (c.filter && document.getElementById('sp-filter')) document.getElementById('sp-filter').value = String(c.filter);
+              if (typeof c.brightness !== 'undefined' && document.getElementById('sp-bright')) document.getElementById('sp-bright').value = String(c.brightness);
+              const q = parseInt(c.qual || c.quality || p.crfOrBitrate, 10);
+              if (q >= 15 && q <= 100 && document.getElementById('sp-qual')) document.getElementById('sp-qual').value = String(q);
+              window.VaultPresets.clearPendingPreset();
+              appliedPendingPhoto = true;
+              syncPhotoSummary(true);
+              toast('✓ Pre-applied preset: ' + p.name);
+            }
+          }
+          if (!appliedPendingPhoto) syncPhotoSummary(false);
         }
       } else if (fileCat === 'a') {
         // AUDIO MODE: start in neutral dark untouched state until user chooses a format or preset
@@ -1507,7 +1642,27 @@
             }
           } catch (_) {}
           renderSavedAudioPresets();
-          syncAudioSummary(false);
+          let appliedPendingAudio = false;
+          if (window.VaultPresets) {
+            const p = window.VaultPresets.getPendingPreset();
+            if (p && p.cat === 'audio') {
+              const c = p.cfg || {};
+              const fmt = (c.fmt || p.container || 'opus').replace(/^\./, '').toLowerCase();
+              const fmtEl = document.getElementById('sa-fmt');
+              if (fmtEl && Array.from(fmtEl.options).some(o => o.value === fmt)) fmtEl.value = fmt;
+              const br = c.br || p.crfOrBitrate || '192k';
+              const brEl = document.getElementById('sa-br');
+              if (brEl && Array.from(brEl.options).some(o => o.value === br)) brEl.value = br;
+              if (c.ar && document.getElementById('sa-ar') && Array.from(document.getElementById('sa-ar').options).some(o => o.value === String(c.ar))) document.getElementById('sa-ar').value = String(c.ar);
+              if (c.ch && document.getElementById('sa-ch') && Array.from(document.getElementById('sa-ch').options).some(o => o.value === String(c.ch))) document.getElementById('sa-ch').value = String(c.ch);
+              if (c.meta && document.getElementById('sa-meta') && Array.from(document.getElementById('sa-meta').options).some(o => o.value === String(c.meta))) document.getElementById('sa-meta').value = String(c.meta);
+              window.VaultPresets.clearPendingPreset();
+              appliedPendingAudio = true;
+              syncAudioSummary(true);
+              toast('✓ Pre-applied preset: ' + p.name);
+            }
+          }
+          if (!appliedPendingAudio) syncAudioSummary(false);
         }
       }
 
@@ -1887,6 +2042,187 @@
         }
       });
 
+      // Export Device, Hardware, Verified Formats & Engine Threads Report (auto-benchmarks first if not yet tested)
+      let lastHwExportPath = '';
+      const bExpHw = document.getElementById('btn-export-hw-report');
+      const selHwFmt = document.getElementById('sel-hw-report-fmt');
+      const hwExpBar = document.getElementById('hw-export-bar');
+      const hwExpLbl = document.getElementById('hw-export-lbl');
+
+      function buildDeviceReportData(benchObj) {
+        let tel = {};
+        let st = {};
+        try { if (hasBridge && window.AndroidBridge.getDeviceTelemetry) tel = JSON.parse(window.AndroidBridge.getDeviceTelemetry() || '{}'); } catch (_) {}
+        try { if (hasBridge && window.AndroidBridge.getSettings) st = JSON.parse(window.AndroidBridge.getSettings() || '{}'); } catch (_) {}
+        const c = (benchObj && benchObj.codecs) || tel.codecs || {};
+        const fps = Number((benchObj && benchObj.fps) || st.benchFps || 0).toFixed(1);
+        const clusters = Array.isArray(tel.clusters) && tel.clusters.length
+          ? tel.clusters.map(cl => `${cl.count}× ${cl.maxGhz || cl.maxMhz || ''} (${cl.label || cl.tier || 'core'})`).join(' + ')
+          : (tel.cpuSummary || ((tel.totalCores || 8) + ' Cores'));
+
+        const sections = [
+          {
+            title: 'Device & Hardware Profile',
+            rows: [
+              ['Device Model', tel.model || 'Unknown Android Device'],
+              ['SoC / Chipset', tel.soc || 'Unknown'],
+              ['CPU Clusters', clusters],
+              ['Total CPU Cores', String(tel.totalCores || '—')],
+              ['ABI Architecture', tel.abi || 'arm64-v8a'],
+              ['Android OS', tel.androidVersion || 'Android'],
+              ['RAM', tel.ramSummary || (tel.ramTotalGB ? (tel.ramTotalGB + ' GB') : '—')],
+              ['Internal Storage', tel.internalSummary || '—'],
+              ['SD / OTG Storage', tel.externalSummary || 'None']
+            ]
+          },
+          {
+            title: 'Benchmark & Best Supported Formats (Verified)',
+            rows: [
+              ['1080p60 x264 Benchmark', fps + ' fps (' + ((benchObj && benchObj.threads) || st.defaultThreads || '8') + ' threads)'],
+              ['MP4 · H.264 (yuv420p 8-bit)', (c.h264HwDecode ? 'HW Decode ✓' : 'SW Decode') + ' · ' + (c.h264HwEncode ? 'HW Encode ✓' : 'CPU x264')],
+              ['MKV · HEVC 10-bit (yuv420p10le)', (c.hevc10bitHwDecode ? '10-bit HW Decode ✓' : 'Software 10-bit Decode') + ' · ' + (c.hevcHwEncode ? 'HEVC HW Encode ✓' : 'CPU x265')],
+              ['MP4 / MKV · AV1 (libsvtav1 / libaom)', (c.av1HwDecode ? 'AV1 HW Decode ✓' : 'No AV1 HW Decode') + ' · ' + (c.av1HwEncode ? 'AV1 HW Encode ✓' : 'CPU Encode')],
+              ['H.264 10-bit (Hi10P)', c.h264_10bitHwDecode ? 'Hardware 10-bit AVC Decode ✓' : 'Avoid (No Hi10P HW Decoder)'],
+              ['Photos & Audio Engine', 'Native Skia + HeifWriter Photo Engine · FFmpeg Audio (Opus / FLAC / AAC / MP3)']
+            ]
+          },
+          {
+            title: 'Active Engine & Thread Settings',
+            rows: [
+              ['Default CPU Threads (-threads)', String(st.defaultThreads || '8') + ' Threads'],
+              ['Encoder Engine Preference', st.hwPreference === 'hw_fast' ? 'Hardware MediaCodec Fast (Auto SW Fallback)' : 'Software Quality First (x264 / x265)'],
+              ['Thermal Guard', st.thermalGuard !== false ? 'Enabled (45°C → 4T, 48°C → 2T)' : 'Disabled'],
+              ['Keep Screen Awake', st.keepScreenAwake ? 'Enabled during active runs' : 'Disabled'],
+              ['FFmpeg Log Level', String(st.logLevel || 'info')],
+              ['Default Vault Folder', st.defaultVaultFolder || '/storage/emulated/0/ConversionVault']
+            ]
+          }
+        ];
+        return { model: tel.model || 'device', generatedAt: new Date().toISOString(), telemetry: tel, benchmark: benchObj || {}, settings: st, sections };
+      }
+
+      function formatDeviceReport(data, fmt) {
+        if (fmt === 'json') return JSON.stringify(data, null, 2);
+        const escH = (s) => String(s || '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (fmt === 'txt') {
+          const lines = [
+            '============================================================',
+            'CONVERSION VAULT — DEVICE & ENGINE HARDWARE REPORT',
+            '============================================================',
+            'Device    : ' + data.model,
+            'Generated : ' + data.generatedAt,
+            ''
+          ];
+          data.sections.forEach(sec => {
+            lines.push('--- ' + sec.title.toUpperCase() + ' ---');
+            sec.rows.forEach(([k, v]) => lines.push(String(k).padEnd(32, ' ') + ': ' + String(v)));
+            lines.push('');
+          });
+          return lines.join('\n');
+        }
+        if (fmt === 'md') {
+          const lines = ['# Conversion Vault — Device & Engine Report', '', '- **Device:** ' + data.model, '- **Generated:** ' + data.generatedAt, ''];
+          data.sections.forEach(sec => {
+            lines.push('## ' + sec.title, '| Parameter | Value |', '| --- | --- |');
+            sec.rows.forEach(([k, v]) => lines.push('| ' + String(k).replace(/\|/g, '\\|') + ' | ' + String(v).replace(/\|/g, '\\|') + ' |'));
+            lines.push('');
+          });
+          return lines.join('\n');
+        }
+        if (fmt === 'csv') {
+          const ce = (v) => '"' + String(v || '').replace(/"/g, '""') + '"';
+          const out = ['Section,Parameter,Value'];
+          data.sections.forEach(sec => sec.rows.forEach(([k, v]) => out.push([ce(sec.title), ce(k), ce(v)].join(','))));
+          return out.join('\n');
+        }
+        // Standalone styled HTML report
+        const bodyHtml = data.sections.map(sec =>
+          '<h2>' + escH(sec.title) + '</h2><table><tbody>' +
+          sec.rows.map(([k, v]) => '<tr><th>' + escH(k) + '</th><td>' + escH(v) + '</td></tr>').join('') +
+          '</tbody></table>'
+        ).join('');
+        return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+          '<title>Device Report — ' + escH(data.model) + '</title>' +
+          '<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#090d16;color:#f8fafc;padding:20px;max-width:780px;margin:0 auto;line-height:1.45;}' +
+          'h1{font-size:18px;margin-bottom:4px;color:#fcd116;} .meta{font-family:monospace;font-size:12px;color:#94a3b8;margin-bottom:18px;}' +
+          'h2{font-size:13px;text-transform:uppercase;letter-spacing:0.05em;color:#fcd116;margin:18px 0 8px;border-bottom:1px solid #1e293b;padding-bottom:4px;}' +
+          'table{width:100%;border-collapse:collapse;background:#0f1624;border:1px solid #1e293b;border-radius:8px;overflow:hidden;}' +
+          'th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #1e293b;font-family:monospace;font-size:12px;word-break:break-word;}' +
+          'th{color:#94a3b8;width:40%;background:#131c2e;} td{color:#f8fafc;}</style></head><body>' +
+          '<h1>Conversion Vault — Device &amp; Engine Report</h1>' +
+          '<div class="meta">Device: ' + escH(data.model) + ' · Generated: ' + escH(data.generatedAt) + '</div>' +
+          bodyHtml + '</body></html>';
+      }
+
+      if (bExpHw) {
+        bExpHw.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          if (!hasBridge) { toast('Device report export runs inside Android APK'); return; }
+          const fmt = (selHwFmt && selHwFmt.value) || 'txt';
+          let existingBench = null;
+          try {
+            const stNow = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+            if (stNow.hwTestJson) existingBench = JSON.parse(stNow.hwTestJson);
+          } catch (_) {}
+
+          const finalizeExport = (benchObj) => {
+            const data = buildDeviceReportData(benchObj);
+            const content = formatDeviceReport(data, fmt);
+            const safeModel = String(data.model || 'device').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 28) || 'device';
+            try {
+              const res = JSON.parse(window.AndroidBridge.exportInspectorReport('device_report_' + safeModel, fmt, content) || '{}');
+              if (res && res.ok) {
+                lastHwExportPath = res.path || '';
+                if (hwExpLbl) hwExpLbl.textContent = '✓ Saved ' + (res.name || ('device_report.' + fmt)) + ' → Reports/';
+                if (hwExpBar) hwExpBar.classList.remove('hidden');
+                toast('Exported ' + (res.name || ('.' + fmt)) + ' ✓');
+              } else {
+                toast('Export failed: ' + ((res && res.error) || 'Error'));
+              }
+            } catch (err) {
+              toast('Export error: ' + err.message);
+            }
+          };
+
+          if (existingBench && existingBench.ok && existingBench.fps > 0) {
+            finalizeExport(existingBench);
+          } else if (typeof window.AndroidBridge.runBenchmark === 'function') {
+            bExpHw.disabled = true;
+            bExpHw.textContent = '⏳ Benchmarking & Exporting...';
+            toast('Running device benchmark & format check first...');
+            setTimeout(() => {
+              try {
+                const bRes = JSON.parse(window.AndroidBridge.runBenchmark() || '{}');
+                if (bRes && bRes.ok && bRes.fps > 0) {
+                  const bLbl = document.getElementById('lbl-bench');
+                  if (bLbl) bLbl.textContent = 'Verified: ~' + bRes.fps + ' fps (1080p60 x264 · ' + (bRes.threads || 8) + 'T)';
+                  renderTestedDeviceFormats(bRes);
+                }
+                finalizeExport(bRes);
+              } catch (_) {
+                finalizeExport(null);
+              }
+              bExpHw.disabled = false;
+              bExpHw.textContent = 'Export Report ↗';
+            }, 40);
+          } else {
+            finalizeExport(null);
+          }
+        }, true);
+      }
+
+      const bHwOpenFile = document.getElementById('btn-hw-open-file');
+      if (bHwOpenFile) bHwOpenFile.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (lastHwExportPath && hasBridge && window.AndroidBridge.openFile) window.AndroidBridge.openFile(lastHwExportPath);
+      }, true);
+      const bHwOpenFm = document.getElementById('btn-hw-open-fm');
+      if (bHwOpenFm) bHwOpenFm.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopImmediatePropagation();
+        const dir = lastHwExportPath && lastHwExportPath.includes('/') ? lastHwExportPath.slice(0, lastHwExportPath.lastIndexOf('/')) : '';
+        if (hasBridge && window.AndroidBridge.openFolder) window.AndroidBridge.openFolder(dir);
+      }, true);
+
       const bClearCache = document.getElementById('btn-clear-cache');
       if (bClearCache) bClearCache.addEventListener('click', (e) => {
         if (!hasBridge || typeof window.AndroidBridge.clearCache !== 'function') return;
@@ -1913,7 +2249,9 @@
             ['sel-hw-pref', 'hwPreference'],
             ['sel-loglevel', 'logLevel'],
             ['sel-def-meta', 'defaultMetadataPolicy'],
-            ['sel-sample-ttl', 'sampleRetentionDays']
+            ['sel-sample-ttl', 'sampleRetentionDays'],
+            ['sel-preset-ttl', 'presetRetentionDays'],
+            ['sel-history-ttl', 'historyRetentionDays']
           ];
           map.forEach(([id, key]) => {
             const el = document.getElementById(id);
@@ -1924,14 +2262,14 @@
               if (key === 'defaultSuffixRule' && targetVal === 'orig') targetVal = 'none';
               if (key === 'hwPreference' && targetVal === 'sw_quality') targetVal = 'sw_hq';
               if (key === 'defaultThreads' && targetVal === 'auto') targetVal = '8';
-              if (key === 'sampleRetentionDays' && (targetVal === '0' || targetVal === '-1')) targetVal = 'never';
+              if ((key === 'sampleRetentionDays' || key === 'presetRetentionDays' || key === 'historyRetentionDays') && (targetVal === '0' || targetVal === '-1')) targetVal = 'never';
               if (Array.from(el.options).some(o => o.value === targetVal)) {
                 el.value = targetVal;
               }
             }
             el.addEventListener('change', () => {
               const payload = {};
-              payload[key] = (key === 'sampleRetentionDays') ? (el.value === 'never' ? 0 : (parseInt(el.value, 10) || 15)) : el.value;
+              payload[key] = (key === 'sampleRetentionDays' || key === 'presetRetentionDays' || key === 'historyRetentionDays') ? (el.value === 'never' ? 0 : (parseInt(el.value, 10) || (key === 'sampleRetentionDays' ? 15 : 30))) : el.value;
               window.AndroidBridge.saveSettings(JSON.stringify(payload));
               toast('Setting saved ✓');
             });
@@ -2255,7 +2593,7 @@
       }, true);
 
       const bRun = document.getElementById('btn-run');
-      if (bRun) bRun.addEventListener('click', (e) => {
+      if (bRun && page === 'conversion_vault_t1_metadata.html') bRun.addEventListener('click', (e) => {
         if (!hasBridge) return;
         e.preventDefault(); e.stopImmediatePropagation();
         if (page === 'conversion_vault_t1_metadata.html') {

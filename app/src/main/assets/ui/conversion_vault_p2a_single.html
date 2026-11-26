@@ -1202,7 +1202,22 @@
       return state.hasPreset ? Object.assign({}, state.cfg, { threads: state.threads }) : null;
     };
 
+    function applyPendingPresetIfVideo() {
+      if (!window.VaultPresets) return;
+      const p = window.VaultPresets.getPendingPreset();
+      if (!p || p.cat !== 'video') return;
+      const merged = Object.assign({}, DEFAULT_VIDEO_FALLBACK_CFG, p.cfg || {});
+      merged.presetName = p.name;
+      if (p.container && !p.cfg) merged.container = p.container;
+      if (p.codec && !p.cfg) merged.codec = p.codec;
+      state.cfg = merged;
+      state.modal.draft = Object.assign({}, merged);
+      state.hasPreset = true;
+      window.VaultPresets.clearPendingPreset();
+      if (typeof showToast === 'function') showToast('✓ Pre-applied preset: ' + p.name);
+    }
     syncSavedPresetsFromRoom();
+    applyPendingPresetIfVideo();
     renderMain();
     const INFO_DICT = {
       'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',

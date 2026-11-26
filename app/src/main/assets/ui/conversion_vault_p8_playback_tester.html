@@ -183,6 +183,15 @@
     .prefill-title { font-family: var(--mono); font-size: 10.5px; font-weight: 800; color: var(--gold-text); }
     .prefill-sub { font-size: 11px; color: var(--text); margin-top: 2px; word-break: break-word; }
 
+    .prog-card {
+      background: var(--card-elev); border: 1px solid rgba(252, 209, 22, 0.45);
+      border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 7px;
+    }
+    .prog-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; font-weight: 800; }
+    .prog-track { width: 100%; height: 7px; border-radius: 999px; background: var(--input); overflow: hidden; border: 1px solid var(--border); }
+    .prog-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--crimson), var(--gold)); border-radius: 999px; transition: width 0.18s ease; }
+    .prog-sub { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
     .hidden { display: none !important; }
     .toast {
       position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
@@ -239,6 +248,18 @@
         <button type="button" id="btn-generate" class="btn-gen-main">
           <span>Generate Sample</span>
         </button>
+
+        <div class="prog-card hidden" id="sample-progress-box" aria-live="polite">
+          <div class="prog-top">
+            <span style="color:var(--gold-text);" id="sample-prog-stage">Generating sample...</span>
+            <span style="color:var(--text);" id="sample-prog-pct">0%</span>
+          </div>
+          <div class="prog-track"><div class="prog-fill" id="sample-prog-fill"></div></div>
+          <div class="prog-sub">
+            <span id="sample-prog-detail">Starting FFmpeg...</span>
+            <span id="sample-prog-time">0.0s</span>
+          </div>
+        </div>
 
         <div class="cmd-wrap">
           <div class="cmd-head">
@@ -442,6 +463,7 @@
       renderSaved();
     }
 
+    let deviceCheckHideTimer = null;
     function runDeviceCheck(codec, pixfmt, name) {
       const box = document.getElementById('test-result');
       const title = document.getElementById('res-title');
@@ -457,6 +479,10 @@
         title.textContent = '✓ Plays Smoothly on This Device';
         desc.textContent = name + ' decoded cleanly with zero dropped frames. Your sample remains saved in Saved Samples.';
       }
+      if (deviceCheckHideTimer) clearTimeout(deviceCheckHideTimer);
+      deviceCheckHideTimer = setTimeout(() => {
+        box.classList.add('hidden');
+      }, 5000);
     }
 
     function renderControls() {
@@ -674,7 +700,42 @@
       showToast('Copied FFmpeg command');
     });
 
+    let sampleTimerId = null;
+    let sampleStartMs = 0;
+
+    function startSampleProgressUI(label) {
+      sampleStartMs = Date.now();
+      const box = document.getElementById('sample-progress-box');
+      if (box) box.classList.remove('hidden');
+      window.onSampleProgress({ pct: 6, stage: 'Preparing ' + label + '...', detail: 'Launching FFmpeg lavfi engine' });
+      if (sampleTimerId) clearInterval(sampleTimerId);
+      sampleTimerId = setInterval(() => {
+        const el = document.getElementById('sample-prog-time');
+        if (el) el.textContent = ((Date.now() - sampleStartMs) / 1000).toFixed(1) + 's';
+      }, 150);
+    }
+
+    function stopSampleProgressUI() {
+      if (sampleTimerId) { clearInterval(sampleTimerId); sampleTimerId = null; }
+      const box = document.getElementById('sample-progress-box');
+      if (box) box.classList.add('hidden');
+    }
+
+    window.onSampleProgress = function(p) {
+      if (!p) return;
+      const pct = Math.max(0, Math.min(100, Number(p.pct) || 0));
+      const fill = document.getElementById('sample-prog-fill');
+      const pctEl = document.getElementById('sample-prog-pct');
+      const stEl = document.getElementById('sample-prog-stage');
+      const dtEl = document.getElementById('sample-prog-detail');
+      if (fill) fill.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = pct + '%';
+      if (stEl && p.stage) stEl.textContent = p.stage;
+      if (dtEl && p.detail) dtEl.textContent = p.detail;
+    };
+
     window.onSampleGenerated = function(res) {
+      stopSampleProgressUI();
       const btn = document.getElementById('btn-generate');
       if (btn) { btn.disabled = false; btn.textContent = 'Generate Sample ▶'; }
       if (!res || !res.ok) {
@@ -710,6 +771,7 @@
         const btn = document.getElementById('btn-generate');
         btn.disabled = true;
         btn.textContent = 'Generating...';
+        startSampleProgressUI(ext.toUpperCase() + ' sample');
         window.AndroidBridge.generateTestSample(JSON.stringify({
           type: state.type,
           baseName: baseName,

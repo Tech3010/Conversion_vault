@@ -600,7 +600,7 @@
 
     document.getElementById('btn-pick').addEventListener('click', () => {
       if (window.AndroidBridge && typeof window.AndroidBridge.pickFile === 'function') {
-        window.AndroidBridge.pickFile('all');
+        window.AndroidBridge.pickFile();
       } else {
         document.getElementById('inp-file').click();
       }
@@ -625,8 +625,8 @@
     document.getElementById('btn-sh').addEventListener('click', () => {
       if (!state.loaded) return;
       const body = '#!/data/data/com.termux/files/usr/bin/bash\n' + (document.getElementById('cmd-box').textContent || '').replace(/^\$\s*/, '') + '\n';
-      if (window.AndroidBridge && typeof window.AndroidBridge.exportScript === 'function') {
-        const r = JSON.parse(window.AndroidBridge.exportScript('target_compress', body) || '{}');
+      if (window.AndroidBridge && typeof window.AndroidBridge.exportShellScript === 'function') {
+        const r = JSON.parse(window.AndroidBridge.exportShellScript('target_compress.sh', body) || '{}');
         showToast(r.ok ? ('Saved → ' + (r.path || 'SH_Scripts/')) : 'Export failed');
       } else {
         showToast('Saved to /SH_Scripts/target_compress.sh');
@@ -651,20 +651,24 @@
         showToast('Pick a file first');
         return;
       }
-      const outPath = getDestDir() + '/' + getOutputFileName();
+      const outDir = getDestDir();
+      const outExt = getOutputExt();
+      const outBase = getOutputFileName().replace(new RegExp('\\.' + outExt + '$', 'i'), '');
       const cmdArgs = buildJobCommand('{INPUT}', '{OUTPUT}');
       const mediaType = state.mediaKind === 'audio' ? 'Audio' : (state.mediaKind === 'photo' ? 'Image' : 'Video');
 
-      if (window.AndroidBridge && typeof window.AndroidBridge.enqueueJobs === 'function') {
+      if (window.AndroidBridge && typeof window.AndroidBridge.enqueueJob === 'function') {
         try {
-          const res = JSON.parse(window.AndroidBridge.enqueueJobs(JSON.stringify([{
+          const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify({
             module: 'Target_Compressor',
             mediaType: mediaType,
             inputPath: state.path,
-            outputPath: outPath,
+            outputDir: outDir,
+            outputBaseName: outBase,
+            outputExt: outExt,
             commandArgs: cmdArgs,
             durationMs: Math.round((state.durSec || 0) * 1000)
-          }])) || '{}');
+          })) || '{}');
           if (res && res.ok) {
             try { localStorage.setItem('cv_active_job_id', res.jobId || ''); } catch (_) {}
             try { if (window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', res.jobId || ''); } catch (_) {}

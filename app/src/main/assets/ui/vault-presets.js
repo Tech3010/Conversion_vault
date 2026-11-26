@@ -282,6 +282,62 @@
     }
   }
 
+  function setPendingPreset(presetObj) {
+    if (!presetObj || !presetObj.name) return;
+    const catKey = normCat(presetObj.cat || presetObj.category);
+    const cfg = Object.assign({}, DEFAULT_CFG[catKey], presetObj.cfg || {});
+    cfg.presetName = presetObj.name;
+    const payload = {
+      source: presetObj.source || 'presets',
+      name: String(presetObj.name),
+      cat: catKey,
+      category: catLabel(catKey),
+      container: String(presetObj.container || cfg.container || cfg.fmt || (catKey === 'audio' ? 'opus' : (catKey === 'image' ? 'webp' : 'mp4'))).replace(/^\./, ''),
+      codec: String(presetObj.codec || cfg.codec || cfg.fmt || ''),
+      crfOrBitrate: String(presetObj.crfOrBitrate || cfg.crf || cfg.br || cfg.qual || ''),
+      specs: String(presetObj.specs || ''),
+      cfg: cfg,
+      ts: Date.now()
+    };
+    const raw = JSON.stringify(payload);
+    try { localStorage.setItem('cv_pending_preset', raw); } catch (_) {}
+    try { localStorage.removeItem('cv_active_files'); } catch (_) {}
+    try {
+      if (global.AndroidBridge && typeof global.AndroidBridge.setAppState === 'function') {
+        global.AndroidBridge.setAppState('cv_pending_preset', raw);
+        global.AndroidBridge.setAppState('cv_active_files', '[]');
+      }
+    } catch (_) {}
+  }
+
+  function getPendingPreset() {
+    let raw = '';
+    try {
+      if (global.AndroidBridge && typeof global.AndroidBridge.getAppState === 'function') {
+        raw = global.AndroidBridge.getAppState('cv_pending_preset') || '';
+      }
+    } catch (_) {}
+    if (!raw) {
+      try { raw = localStorage.getItem('cv_pending_preset') || ''; } catch (_) {}
+    }
+    if (!raw || raw === 'null') return null;
+    try {
+      const p = JSON.parse(raw);
+      return (p && p.name) ? p : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function clearPendingPreset() {
+    try { localStorage.removeItem('cv_pending_preset'); } catch (_) {}
+    try {
+      if (global.AndroidBridge && typeof global.AndroidBridge.setAppState === 'function') {
+        global.AndroidBridge.setAppState('cv_pending_preset', '');
+      }
+    } catch (_) {}
+  }
+
   global.VaultPresets = {
     DEFAULT_CFG,
     hasBridge,
@@ -297,6 +353,9 @@
     exportAll,
     exportSelected,
     importArray,
-    bindAutoSync
+    bindAutoSync,
+    setPendingPreset,
+    getPendingPreset,
+    clearPendingPreset
   };
 })(window);

@@ -137,6 +137,19 @@ class MainActivity : AppCompatActivity() {
         val sampleRetDays = getSharedPreferences("vault_settings", Context.MODE_PRIVATE).getInt("sample_retention_days", 15)
         VaultStorageManager.cleanupExpiredSamples(this, sampleRetDays)
         VaultStorageManager.scheduleSampleCleanup(this)
+        val vPrefs = getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+        val presetRetDays = vPrefs.getInt("preset_retention_days", 30)
+        val historyRetDays = vPrefs.getInt("history_retention_days", 30)
+        Thread {
+            try {
+                val db = com.conversionvault.app.data.VaultDatabase.getInstance(applicationContext)
+                val now = System.currentTimeMillis()
+                kotlinx.coroutines.runBlocking {
+                    if (presetRetDays > 0) db.presetDao().purgeExpiredDeletedPresets(now - presetRetDays * 86_400_000L)
+                    if (historyRetDays > 0) db.jobDao().purgeExpiredHistoryJobs(now - historyRetDays * 86_400_000L)
+                }
+            } catch (_: Throwable) {}
+        }.start()
 
         requestRequiredPermissions()
         try {

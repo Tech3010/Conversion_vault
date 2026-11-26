@@ -56,6 +56,9 @@ interface JobDao {
 
     @Query("DELETE FROM jobs WHERE status IN ('DONE', 'CANCELLED', 'FAILED')")
     suspend fun clearFinishedHistory()
+
+    @Query("DELETE FROM jobs WHERE status IN ('DONE', 'CANCELLED', 'FAILED') AND updatedAt < :cutoffMs")
+    suspend fun purgeExpiredHistoryJobs(cutoffMs: Long)
 }
 
 @Dao
@@ -77,6 +80,9 @@ interface PresetDao {
 
     @Query("DELETE FROM presets WHERE id = :id")
     suspend fun permanentlyDeletePreset(id: String)
+
+    @Query("DELETE FROM presets WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt < :cutoffMs")
+    suspend fun purgeExpiredDeletedPresets(cutoffMs: Long)
 }
 
 @Database(entities = [JobEntity::class, PresetEntity::class], version = 1, exportSchema = false)
