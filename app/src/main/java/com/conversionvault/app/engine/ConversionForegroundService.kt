@@ -163,7 +163,7 @@ class ConversionForegroundService : Service() {
                 }
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun processNextInQueue() {
@@ -268,13 +268,23 @@ class ConversionForegroundService : Service() {
                 try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Throwable) {}
                 isProcessing.set(false)
                 try { nm.cancel(JOB_NOTIFICATION_ID) } catch (_: Throwable) {}
-                updateSessionNotification("Engine session active · Ready")
-                // Safety re-check: if new jobs arrived (and queue is NOT paused), re-trigger once!
+                // Safety re-check: if new jobs arrived (and queue is NOT paused), re-trigger once; otherwise stop service cleanly!
+                var restarted = false
                 try {
                     if (!queuePaused.get() && dao.getNextQueuedJob() != null && isProcessing.compareAndSet(false, true)) {
+                        restarted = true
                         processNextInQueue()
                     }
                 } catch (_: Throwable) {}
+                if (!restarted) {
+                    try {
+                        ServiceCompat.stopForeground(this@ConversionForegroundService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                    } catch (_: Throwable) {
+                        @Suppress("DEPRECATION")
+                        try { stopForeground(true) } catch (_: Throwable) {}
+                    }
+                    try { stopSelf() } catch (_: Throwable) {}
+                }
             }
         }
     }

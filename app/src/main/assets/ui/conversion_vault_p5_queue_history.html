@@ -889,9 +889,12 @@
       });
     }
 
-    setInterval(() => {
-      if (state.queue.length > 0) loadJobsFromNative();
-    }, 1000);
+    const qhPollTimer = setInterval(() => {
+      if (document.hidden) return;
+      const hasLive = state.queue.some(j => j && (j.status === 'RUNNING' || j.status === 'QUEUED'));
+      if (hasLive) loadJobsFromNative();
+    }, 1200);
+    window.addEventListener('pagehide', () => clearInterval(qhPollTimer));
 
     document.addEventListener('click', (e) => {
       const st = e.target.closest('.seg-tab');

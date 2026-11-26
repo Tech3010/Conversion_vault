@@ -119,7 +119,8 @@ class AndroidBridge(
                 }
                 isBenchmarkRunning = true
                 return try {
-                    val threads = prefs.getString("default_threads", "8")?.toIntOrNull() ?: 8
+                    val maxCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(2)
+                    val threads = (prefs.getString("default_threads", "8")?.toIntOrNull() ?: maxCores).coerceIn(1, maxCores)
                     val startNs = System.nanoTime()
                     val session = FFmpegKit.execute("-loglevel error -threads $threads -f lavfi -i testsrc2=size=1920x1080:rate=60 -t 1 -c:v libx264 -preset fast -pix_fmt yuv420p -f null -")
                     val elapsedMs = ((System.nanoTime() - startNs) / 1_000_000L).coerceAtLeast(1L)
@@ -193,6 +194,11 @@ class AndroidBridge(
     @JavascriptInterface
     fun pickFolder() {
         pickFiles("folder", "*/*")
+    }
+
+    @JavascriptInterface
+    fun haptic(kind: String) {
+        activity.triggerHaptic(kind)
     }
 
     @JavascriptInterface

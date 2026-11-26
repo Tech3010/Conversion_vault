@@ -215,6 +215,57 @@
     }
     .btn-cmd-act:hover { border-color: var(--gold); color: var(--gold-text); }
 
+    .oled-btn {
+      font-family: var(--mono); font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+      padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--gold-text); cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .oled-btn:hover { border-color: var(--gold); background: var(--gold-soft); }
+    .oled-overlay {
+      position: fixed; inset: 0; z-index: 9999; background: #000000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; user-select: none; -webkit-user-select: none; cursor: pointer;
+      animation: oledFadeIn 0.24s ease both;
+    }
+    @keyframes oledFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .oled-stage {
+      display: flex; flex-direction: column; align-items: center; gap: 22px;
+      transition: transform 1.2s ease;
+    }
+    .oled-ring-wrap {
+      position: relative; width: 220px; height: 220px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .oled-svg { width: 220px; height: 220px; transform: rotate(-90deg); }
+    .oled-track { fill: none; stroke: #141821; stroke-width: 10; }
+    .oled-arc {
+      fill: none; stroke: url(#oledGrad); stroke-width: 10; stroke-linecap: round;
+      stroke-dasharray: 578.05; stroke-dashoffset: 578.05;
+      transition: stroke-dashoffset 0.35s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s ease;
+    }
+    .oled-overlay.is-done .oled-arc { stroke: #10b981; }
+    .oled-overlay.is-failed .oled-arc { stroke: #db0a40; }
+    .oled-center {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+    }
+    .oled-pct {
+      font-family: var(--mono); font-size: 46px; font-weight: 800; line-height: 1;
+      letter-spacing: -0.04em; color: #f8fafc;
+    }
+    .oled-overlay.is-done .oled-pct { color: #10b981; }
+    .oled-label {
+      font-family: var(--mono); font-size: 13px; font-weight: 800; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--gold-text); text-align: center;
+    }
+    .oled-overlay.is-done .oled-label { color: #10b981; }
+    .oled-overlay.is-failed .oled-label { color: #db0a40; }
+    .oled-wake {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+      color: rgba(148, 163, 184, 0.38); text-transform: uppercase; white-space: nowrap;
+    }
     .hidden { display: none !important; }
     .toast {
       position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%);
@@ -243,10 +294,13 @@
           <div class="page-sub" id="engine-sub">SINGLE FILE PROCESSING</div>
         </div>
       </div>
-      <span class="engine-state-pill state-running" id="engine-pill">
-        <span class="pulse-dot"></span>
-        <span id="engine-pill-txt">RUNNING</span>
-      </span>
+      <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+        <button type="button" id="btn-oled-focus" class="oled-btn" title="OLED Focus Mode" aria-label="OLED Focus Mode">☾ OLED</button>
+        <span class="engine-state-pill state-running" id="engine-pill">
+          <span class="pulse-dot"></span>
+          <span id="engine-pill-txt">RUNNING</span>
+        </span>
+      </div>
     </header>
 
     <main class="content">
@@ -352,12 +406,89 @@
     </footer>
   </div>
 
+  <div class="oled-overlay hidden" id="oled-overlay" role="dialog" aria-modal="true" aria-label="OLED Focus Mode">
+    <div class="oled-stage" id="oled-stage">
+      <div class="oled-ring-wrap">
+        <svg class="oled-svg" viewBox="0 0 220 220" aria-hidden="true">
+          <defs>
+            <linearGradient id="oledGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#db0a40"/>
+              <stop offset="100%" stop-color="#fcd116"/>
+            </linearGradient>
+          </defs>
+          <circle class="oled-track" cx="110" cy="110" r="92"/>
+          <circle class="oled-arc" id="oled-arc" cx="110" cy="110" r="92"/>
+        </svg>
+        <div class="oled-center">
+          <div class="oled-pct" id="oled-pct">0%</div>
+        </div>
+      </div>
+      <div class="oled-label" id="oled-label">CONVERTING</div>
+    </div>
+    <div class="oled-wake">Tap anywhere to wake</div>
+  </div>
+
   <div class="toast" id="toast">Ready</div>
 
   <script>
     let activeJobId = '';
     let lastJob = null;
     let pollTimer = null;
+
+    const OLED_CIRC = 578.05;
+    let oledShiftTimer = null;
+
+    function updateOledOverlay(pct, label, stateKind) {
+      const ov = document.getElementById('oled-overlay');
+      const arc = document.getElementById('oled-arc');
+      const pctEl = document.getElementById('oled-pct');
+      const lblEl = document.getElementById('oled-label');
+      if (!ov || !arc || !pctEl || !lblEl) return;
+      const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+      pctEl.textContent = p + '%';
+      arc.style.strokeDashoffset = String(OLED_CIRC * (1 - p / 100));
+      if (label) lblEl.textContent = label;
+      ov.classList.toggle('is-done', stateKind === 'done');
+      ov.classList.toggle('is-failed', stateKind === 'failed');
+    }
+
+    function openOledFocus() {
+      const ov = document.getElementById('oled-overlay');
+      const stg = document.getElementById('oled-stage');
+      if (!ov) return;
+      ov.classList.remove('hidden');
+      if (oledShiftTimer) clearInterval(oledShiftTimer);
+      oledShiftTimer = setInterval(() => {
+        if (!stg || ov.classList.contains('hidden')) return;
+        const dx = Math.round((Math.random() - 0.5) * 12);
+        const dy = Math.round((Math.random() - 0.5) * 12);
+        stg.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+      }, 20000);
+    }
+
+    function closeOledFocus() {
+      const ov = document.getElementById('oled-overlay');
+      const stg = document.getElementById('oled-stage');
+      if (ov) ov.classList.add('hidden');
+      if (stg) stg.style.transform = 'none';
+      if (oledShiftTimer) { clearInterval(oledShiftTimer); oledShiftTimer = null; }
+    }
+
+    document.getElementById('btn-oled-focus')?.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      openOledFocus();
+    });
+    document.getElementById('oled-overlay')?.addEventListener('click', () => closeOledFocus());
+    window.addEventListener('pagehide', () => closeOledFocus());
+
+    function getSingleOledLabel(st) {
+      const mod = String((lastJob && lastJob.module) || '');
+      const isComp = mod === 'Target_Compressor' || window.location.search.includes('mode=compress');
+      const isRec = mod === 'Integrity_Repair' || window.location.search.includes('mode=recover');
+      if (st === 'DONE') return isComp ? 'COMPRESSION COMPLETE' : (isRec ? 'RECOVERY COMPLETE' : 'CONVERSION COMPLETE');
+      if (st === 'FAILED' || st === 'CANCELLED') return st === 'CANCELLED' ? 'STOPPED' : 'FAILED';
+      return isComp ? 'COMPRESSING' : (isRec ? 'RECOVERING' : 'CONVERTING');
+    }
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -435,6 +566,7 @@
 
       const pctEl = document.getElementById('pit-pct');
       if (pctEl) pctEl.textContent = pct + '%';
+      updateOledOverlay(pct, getSingleOledLabel(st), st === 'DONE' ? 'done' : ((st === 'FAILED' || st === 'CANCELLED') ? 'failed' : 'running'));
 
       const fillEl = document.getElementById('master-fill');
       if (fillEl) fillEl.style.width = Math.max(st === 'RUNNING' ? 4 : 0, pct) + '%';
@@ -569,6 +701,7 @@
         const frEl = document.getElementById('tele-frames');
         const etaEl = document.getElementById('pit-eta');
         if (pctEl) pctEl.textContent = pct + '%';
+        updateOledOverlay(pct, getSingleOledLabel('RUNNING'), 'running');
         if (fillEl) fillEl.style.width = Math.max(3, pct) + '%';
         if (spdEl) spdEl.textContent = (ev.fps > 0 ? (Math.round(ev.fps) + ' fps · ') : '') + (ev.speed || 'Running');
         if (szEl && ev.outBytes > 0 && lastJob) szEl.textContent = fmtMB(lastJob.inputSizeBytes) + ' → ' + fmtMB(ev.outBytes);
@@ -655,7 +788,8 @@
     }
     activeJobId = resolveActiveJobId();
     pollJob();
-    pollTimer = setInterval(pollJob, 500);
+    pollTimer = setInterval(() => { if (!document.hidden) pollJob(); }, 1000);
+    window.addEventListener('pagehide', () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } });
 
     document.getElementById('btn-ask-keep-src')?.addEventListener('click', () => {
       const p = window.__cvPendingDeleteSrcJob;

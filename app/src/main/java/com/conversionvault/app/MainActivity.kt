@@ -152,14 +152,6 @@ class MainActivity : AppCompatActivity() {
         }.start()
 
         requestRequiredPermissions()
-        try {
-            ContextCompat.startForegroundService(
-                this,
-                Intent(this, ConversionForegroundService::class.java).apply {
-                    action = ConversionForegroundService.ACTION_START_SESSION
-                }
-            )
-        } catch (_: Exception) {}
 
         assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -241,7 +233,7 @@ class MainActivity : AppCompatActivity() {
                     Thread.sleep(900L)
                     com.conversionvault.app.hardware.HardwareProfiler.getTelemetry(applicationContext, forceRefresh = true)
                     AndroidBridge.runBenchmarkInternal(applicationContext)
-                    evalJs("window.onVaultBenchmarkUpdated && window.onVaultBenchmarkUpdated();")
+                    evalJs("window.onVaultHardwareUpdated && window.onVaultHardwareUpdated(); window.onVaultBenchmarkUpdated && window.onVaultBenchmarkUpdated();")
                 } catch (_: Throwable) {}
             }.apply {
                 priority = Thread.MIN_PRIORITY
@@ -282,6 +274,27 @@ class MainActivity : AppCompatActivity() {
     fun clearWebViewCache() {
         runOnUiThread {
             try { webView.clearCache(true) } catch (_: Throwable) {}
+        }
+    }
+
+    fun triggerHaptic(kind: String) {
+        runOnUiThread {
+            try {
+                val code = when (kind) {
+                    "tick" -> android.view.HapticFeedbackConstants.CLOCK_TICK
+                    "confirm" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        android.view.HapticFeedbackConstants.CONFIRM
+                    } else {
+                        android.view.HapticFeedbackConstants.VIRTUAL_KEY
+                    }
+                    "heavy" -> android.view.HapticFeedbackConstants.LONG_PRESS
+                    else -> android.view.HapticFeedbackConstants.KEYBOARD_TAP
+                }
+                webView.performHapticFeedback(
+                    code,
+                    android.view.HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                )
+            } catch (_: Throwable) {}
         }
     }
 

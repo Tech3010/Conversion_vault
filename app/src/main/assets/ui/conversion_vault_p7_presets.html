@@ -1157,7 +1157,32 @@
       const t = e.target;
       if (t.matches('[data-mc]')) {
         const k = t.getAttribute('data-mc');
-        modalCfg.draft[k] = t.type === 'range' ? parseInt(t.value, 10) : t.value;
+        const val = t.type === 'range' ? parseInt(t.value, 10) : t.value;
+        modalCfg.draft[k] = val;
+        if (t.type === 'range') {
+          const fld = t.closest('.field');
+          const fv = fld ? fld.querySelector('.field-val') : null;
+          if (fv) {
+            if (k === 'crf') fv.textContent = 'CRF ' + val;
+            else if (k === 'maxrate') fv.textContent = val + ' Mbps';
+            else if (k === 'qual') fv.textContent = val + '%';
+            else if (k === 'brightness') fv.textContent = (val > 0 ? '+' : '') + val + '%';
+            else fv.textContent = String(val);
+          }
+          const barsEl = document.getElementById('m-status-bars');
+          if (barsEl && typeof computeModalBars === 'function' && typeof renderBarsHTML === 'function') {
+            barsEl.innerHTML = renderBarsHTML(computeModalBars(modalCfg.cat, modalCfg.draft));
+          }
+          const specEl = document.getElementById('m-spec-preview');
+          if (specEl && typeof buildAutoSpec === 'function') specEl.textContent = buildAutoSpec(modalCfg.cat, modalCfg.draft);
+          return;
+        }
+        renderModalFields();
+      }
+    });
+    document.getElementById('m-dynamic-fields').addEventListener('change', (e) => {
+      const t = e.target;
+      if (t && t.type === 'range' && t.matches('[data-mc]')) {
         renderModalFields();
       }
     });

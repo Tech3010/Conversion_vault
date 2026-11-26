@@ -693,7 +693,20 @@
       if (state.type === 'video') state.v[k] = val;
       else if (state.type === 'audio') state.a[k] = val;
       else state.i[k] = val;
+      if (e.target.type === 'range') {
+        const fld = e.target.closest('.field');
+        const fv = fld ? fld.querySelector('.field-val') : null;
+        if (fv) fv.textContent = (k === 'crf') ? ('CRF ' + val) : (k === 'qual' ? (val + '%') : String(val));
+        const cmdEl = document.getElementById('cmd-preview');
+        if (cmdEl && typeof buildCommand === 'function') cmdEl.textContent = buildCommand();
+        return;
+      }
       renderControls();
+    });
+    document.getElementById('ctrl-grid').addEventListener('change', (e) => {
+      if (e.target && e.target.type === 'range' && e.target.getAttribute('data-k')) {
+        renderControls();
+      }
     });
 
     document.getElementById('btn-copy-cmd').addEventListener('click', () => {
@@ -922,6 +935,7 @@
       } catch (_) {}
     })();
     loadSavedSamplesFromDisk();
+    window.addEventListener('pagehide', () => { if (sampleTimerId) { clearInterval(sampleTimerId); sampleTimerId = null; } });
   </script>
   <script src="vault-bridge.js"></script>
 </body>

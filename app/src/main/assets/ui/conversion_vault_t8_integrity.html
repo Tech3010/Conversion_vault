@@ -710,6 +710,7 @@
     });
 
     renderCmd();
+    window.addEventListener('pagehide', () => { if (scanTimerId) { clearInterval(scanTimerId); scanTimerId = null; } });
   </script>
   <script src="vault-bridge.js"></script>
 </body>

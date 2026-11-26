@@ -1169,9 +1169,28 @@
       const t = e.target;
       if (t.matches('[data-mf]')) {
         const k = t.getAttribute('data-mf');
-        state.modal.draft[k] = (t.type === 'range' || t.type === 'number') ? parseInt(t.value, 10) : t.value;
+        const numVal = (t.type === 'range' || t.type === 'number') ? parseInt(t.value, 10) : t.value;
+        state.modal.draft[k] = numVal;
         state.modal.touched = true;
         state.modal.draft.presetName = 'Custom Tuned';
+        if (t.type === 'range') {
+          const fld = t.closest('.field');
+          const fv = fld ? fld.querySelector('.field-val') : null;
+          if (fv) fv.textContent = (k === 'crf') ? ('CRF ' + numVal) : (k === 'maxrate' ? (numVal + ' Mbps') : String(numVal));
+          const barsEl = document.getElementById('m-status-bars');
+          if (barsEl && typeof computeBars === 'function' && typeof renderBarsHTML === 'function') {
+            barsEl.innerHTML = renderBarsHTML(computeBars(state.modal.draft));
+          }
+          const tagEl = document.getElementById('m-live-tag');
+          if (tagEl && typeof shortTag === 'function') tagEl.textContent = shortTag(state.modal.draft);
+          return;
+        }
+        renderModal();
+      }
+    });
+    document.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t && t.type === 'range' && t.matches('[data-mf]')) {
         renderModal();
       }
     });

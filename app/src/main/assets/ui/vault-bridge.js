@@ -182,16 +182,32 @@
       
       .bottom-nav {
         position: fixed !important; bottom: 0 !important; left: 50% !important; transform: translateX(-50%) !important;
-        width: 100% !important; max-width: 540px !important; height: 64px !important;
-        padding: 0 !important; gap: 0 !important;
+        width: 100% !important; max-width: 540px !important; height: 66px !important;
+        padding: 6px 8px !important; gap: 6px !important;
         display: grid !important; grid-template-columns: repeat(4, 1fr) !important; z-index: 40 !important;
       }
       .bottom-nav .nav-item {
-        background: transparent !important; border: none !important;
+        background: transparent !important; border: 1px solid transparent !important; border-radius: 11px !important;
         display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;
-        gap: 3px !important; padding: 0 !important; font-size: 10.5px !important; font-weight: 700 !important;
+        gap: 3px !important; padding: 4px 2px !important; font-size: 10.5px !important; font-weight: 700 !important;
+        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.14s cubic-bezier(0.22,1,0.36,1) !important;
       }
-      .bottom-nav .nav-item.active { color: var(--crimson) !important; background: transparent !important; }
+      .bottom-nav .nav-item.active {
+        color: var(--crimson) !important;
+        background: var(--crimson-soft) !important;
+        border: 1px solid rgba(219, 10, 64, 0.50) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 10px rgba(219, 10, 64, 0.18) !important;
+      }
+      @keyframes cvSwipeFromRight {
+        0% { opacity: 0.25; transform: translateX(34px); }
+        100% { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes cvSwipeFromLeft {
+        0% { opacity: 0.25; transform: translateX(-34px); }
+        100% { opacity: 1; transform: translateX(0); }
+      }
+      main.content.cv-enter-right { animation: cvSwipeFromRight 0.24s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+      main.content.cv-enter-left { animation: cvSwipeFromLeft 0.24s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
       .bottom-nav .nav-item svg { width: 18px !important; height: 18px !important; }
 
       @keyframes cvPageEnter {
@@ -290,8 +306,109 @@
             border-radius: 10px !important;
             transform: scale(0.95) !important;
           }
+
+          /* Unified Liquid Spring Motion & Smooth Range Sliders */
+          @keyframes cvLiquidRise {
+            0% { opacity: 0; transform: translateY(10px) scale(0.988); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+          }
+          @keyframes cvToastPop {
+            0% { opacity: 0; transform: translate(-50%, 10px) scale(0.94); }
+            100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+          }
+          main.content > section, main.content > .card-box, main.content > .set-card, main.content > .sec-card,
+          main.content > .bucket, main.content > .status-strip, main.content > .pit-hero, main.content > .overall-hero {
+            animation: cvLiquidRise 0.30s cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          main.content > *:nth-child(2) { animation-delay: 0.03s; }
+          main.content > *:nth-child(3) { animation-delay: 0.06s; }
+          main.content > *:nth-child(4) { animation-delay: 0.09s; }
+          main.content > *:nth-child(5) { animation-delay: 0.12s; }
+          main.content > *:nth-child(6) { animation-delay: 0.15s; }
+          .toast.show { animation: cvToastPop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+          .master-fill, .prog-fill, .bar-fill, .mbar-fill {
+            transition: width 0.32s cubic-bezier(0.22, 1, 0.36, 1) !important;
+          }
+          .file-drawer, .deep-probe-box, .compat-note, .verdict-box {
+            animation: cvLiquidRise 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          /* Liquid, zero-stick touch range sliders */
+          input[type="range"] {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            touch-action: none !important;
+            width: 100% !important;
+            height: 28px !important;
+            background: transparent !important;
+            cursor: pointer !important;
+            margin: 2px 0 !important;
+          }
+          input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(219,10,64,0.35), rgba(252,209,22,0.45));
+            border: 1px solid var(--border-strong);
+          }
+          input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            margin-top: -9px;
+            border-radius: 50%;
+            background: var(--gold);
+            border: 2.5px solid #090d16;
+            box-shadow: 0 2px 8px rgba(252, 209, 22, 0.45);
+            transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.14s ease, box-shadow 0.14s ease;
+          }
+          input[type="range"]:active::-webkit-slider-thumb {
+            transform: scale(1.22);
+            background: var(--crimson);
+            box-shadow: 0 0 0 6px rgba(219, 10, 64, 0.24);
+          }
         `;
         document.head.appendChild(ts);
+      }
+      // Global haptic feedback & slider touch-drag protection
+      if (!window.__cvHapticsWired) {
+        window.__cvHapticsWired = true;
+        let lastTickTs = 0;
+        const doHaptic = (kind) => {
+          try {
+            if (hasBridge && typeof window.AndroidBridge.haptic === 'function') {
+              window.AndroidBridge.haptic(kind || 'tap');
+            }
+          } catch (_) {}
+        };
+        window.cvHaptic = doHaptic;
+        document.addEventListener('pointerdown', (e) => {
+          const el = e.target && e.target.closest
+            ? e.target.closest('button, .tool-card, .select-card, .nav-item, .s-chip, .f-chip, .sf-chip, .t-tab, .seg-tab, .mode-btn, .theme-opt, .pcard, .back-btn')
+            : null;
+          if (!el || el.disabled) return;
+          if (el.classList.contains('btn-danger') || el.id === 'btn-abort') doHaptic('heavy');
+          else if (el.classList.contains('btn-primary') || el.classList.contains('btn-use') || el.classList.contains('btn-gen-main') || el.id === 'btn-start') doHaptic('confirm');
+          else doHaptic('tap');
+        }, { passive: true });
+        document.addEventListener('change', (e) => {
+          const t = e.target;
+          if (t && (t.type === 'checkbox' || t.tagName === 'SELECT')) doHaptic('tick');
+        }, { passive: true });
+        document.addEventListener('touchstart', (e) => {
+          if (e.target && e.target.type === 'range') e.stopPropagation();
+        }, { passive: true });
+        document.addEventListener('touchmove', (e) => {
+          if (e.target && e.target.type === 'range') e.stopPropagation();
+        }, { passive: true });
+        document.addEventListener('input', (e) => {
+          if (e.target && e.target.type === 'range') {
+            const now = Date.now();
+            if (now - lastTickTs >= 28) {
+              lastTickTs = now;
+              doHaptic('tick');
+            }
+          }
+        }, { passive: true });
       }
   }
 
@@ -311,7 +428,7 @@
 
   function hydrateHardwareStrip() {
     if (!hasBridge || typeof window.AndroidBridge.getDeviceTelemetry !== 'function') return;
-    if (!document.querySelector('.hw-strip, .hw-grid, .hw-chip, #home-storage-box')) return;
+    if (!document.querySelector('.status-strip, .hw-grid, .hw-chip')) return;
     try {
       const t = JSON.parse(window.AndroidBridge.getDeviceTelemetry());
       const hwTag = document.querySelector('.status-strip .hw-tag');
@@ -1968,7 +2085,12 @@
         if (queuedCount > 0) {
           clearActiveSelection();
           toast('Starting Conversion Engine...');
-          navigateTo('conversion_vault_p4_convert_batch.html');
+          if (queuedCount === 1) {
+            safeSet('cv_batch_job_ids', '[]');
+            navigateTo('conversion_vault_p4a_convert_single.html');
+          } else {
+            navigateTo('conversion_vault_p4_convert_batch.html');
+          }
         } else {
           toast('Engine error: ' + lastErr);
         }
@@ -2731,6 +2853,7 @@
     const page = currentPage();
     injectGlobalAnimations();
     applySavedTheme();
+    window.onVaultHardwareUpdated = hydrateHardwareStrip;
     hydrateHardwareStrip();
     if (page === 'conversion_vault_p1_home.html' && hasBridge && typeof window.AndroidBridge.checkEngineHealth === 'function') {
       setTimeout(() => {
@@ -2750,16 +2873,112 @@
       }, 150);
     }
 
+    const TAB_ORDER = [
+      'conversion_vault_p1_home.html',
+      'conversion_vault_p5_queue_history.html',
+      'conversion_vault_p7_presets.html',
+      'conversion_vault_p6_settings.html'
+    ];
+    const curTabIdx = TAB_ORDER.indexOf(page);
+
+    // Apply directional entrance animation when arriving via swipe or tab switch
+    try {
+      const slideDir = sessionStorage.getItem('cv_tab_slide_dir');
+      if (slideDir && curTabIdx !== -1) {
+        sessionStorage.removeItem('cv_tab_slide_dir');
+        const mainEl = document.querySelector('main.content');
+        if (mainEl) mainEl.classList.add(slideDir === 'right' ? 'cv-enter-right' : 'cv-enter-left');
+      }
+    } catch (_) {}
+
     document.querySelectorAll('.bottom-nav .nav-item[data-nav]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const key = btn.getAttribute('data-nav');
         if (NAV_ROUTES[key]) {
           e.preventDefault();
           e.stopImmediatePropagation();
-          navigateTo(NAV_ROUTES[key]);
+          const targetPage = NAV_ROUTES[key];
+          const targetIdx = TAB_ORDER.indexOf(targetPage);
+          if (curTabIdx !== -1 && targetIdx !== -1 && targetIdx !== curTabIdx) {
+            try { sessionStorage.setItem('cv_tab_slide_dir', targetIdx > curTabIdx ? 'right' : 'left'); } catch (_) {}
+          }
+          navigateTo(targetPage);
         }
       }, true);
     });
+
+    // Smooth left/right swipe gesture between the 4 main tabs (Home <-> Queue <-> Presets <-> Settings)
+    if (curTabIdx !== -1) {
+      let swStartX = 0, swStartY = 0, swActive = false, swLocked = false;
+      const mainEl = document.querySelector('main.content');
+      document.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        const tgt = e.target;
+        if (tgt && tgt.closest && tgt.closest('input, select, textarea, .modal-backdrop, .modal-sheet, .confirm-card, .chip-row')) {
+          swActive = false;
+          return;
+        }
+        swStartX = e.touches[0].clientX;
+        swStartY = e.touches[0].clientY;
+        swActive = true;
+        swLocked = false;
+      }, { passive: true });
+
+      document.addEventListener('touchmove', (e) => {
+        if (!swActive || !e.touches || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - swStartX;
+        const dy = e.touches[0].clientY - swStartY;
+        if (!swLocked) {
+          if (Math.abs(dy) > 22 && Math.abs(dy) > Math.abs(dx)) {
+            swActive = false;
+            if (mainEl) mainEl.style.transform = '';
+            return;
+          }
+          if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+            swLocked = true;
+          }
+        }
+        if (swLocked && mainEl) {
+          const canGoNext = dx < 0 && curTabIdx < TAB_ORDER.length - 1;
+          const canGoPrev = dx > 0 && curTabIdx > 0;
+          const damp = (canGoNext || canGoPrev) ? 0.24 : 0.08;
+          const shift = Math.max(-44, Math.min(44, dx * damp));
+          mainEl.style.transition = 'none';
+          mainEl.style.transform = 'translateX(' + shift.toFixed(1) + 'px)';
+        }
+      }, { passive: true });
+
+      const finishSwipe = (endX, endY) => {
+        if (!swActive) return;
+        swActive = false;
+        const dx = endX - swStartX;
+        const dy = endY - swStartY;
+        if (mainEl) {
+          mainEl.style.transition = 'transform 0.18s cubic-bezier(0.22, 1, 0.36, 1)';
+          mainEl.style.transform = '';
+        }
+        if (Math.abs(dx) >= 62 && Math.abs(dx) > Math.abs(dy) * 1.45) {
+          if (dx < 0 && curTabIdx < TAB_ORDER.length - 1) {
+            if (typeof window.cvHaptic === 'function') window.cvHaptic('tap');
+            try { sessionStorage.setItem('cv_tab_slide_dir', 'right'); } catch (_) {}
+            navigateTo(TAB_ORDER[curTabIdx + 1]);
+          } else if (dx > 0 && curTabIdx > 0) {
+            if (typeof window.cvHaptic === 'function') window.cvHaptic('tap');
+            try { sessionStorage.setItem('cv_tab_slide_dir', 'left'); } catch (_) {}
+            navigateTo(TAB_ORDER[curTabIdx - 1]);
+          }
+        }
+      };
+
+      document.addEventListener('touchend', (e) => {
+        if (!e.changedTouches || !e.changedTouches.length) return;
+        finishSwipe(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      }, { passive: true });
+      document.addEventListener('touchcancel', () => {
+        swActive = false;
+        if (mainEl) { mainEl.style.transition = 'transform 0.18s ease'; mainEl.style.transform = ''; }
+      }, { passive: true });
+    }
 
     document.querySelectorAll('.tool-card[data-tool]').forEach(card => {
       card.addEventListener('click', (e) => {
