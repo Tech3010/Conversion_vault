@@ -8,17 +8,17 @@
   <img src="https://img.shields.io/badge/Built_With-Vibe_Coding-FCD116?style=for-the-badge&logoColor=090D16" alt="Vibe-Coded" />
 </p>
 
-100% offline Android media converter and studio combining **MediaCodec Hardware** and **Software CPU** encoding, smart file selection, pre-conversion time and size calculations, FFmpeg terminal command copying, and `.sh` script generation.
+A fast, 100% offline Android media studio for converting, compressing, and organizing videos, audio, and photos—with zero ads, zero file-size limits, and complete privacy on your device.
 
 ## Core Features
 
 | Feature | What It Offers |
 | :--- | :--- |
-| **Automated Workflows** | Pre-configure Video, Audio, and Photo presets with separate output folders—pick files, see the time estimate, and press **Start**. |
+| **Automated Workflows** | Pre-configure Video, Audio, and Photo presets with separate output folders—pick files, check the time estimate, and press **Start**. |
 | **Custom Modules** | Import `.json` modules from File Manager (such as live-scrubbing **Thumbnail Capturer**) to add new tools without app updates. |
-| **Full-Control Presets** | Built-in and custom presets with full codec, bitrate/CRF, audio, filter, privacy, rename, and `.json` import/export control. |
-| **Smart File Selection & Pre-Run Calculations** | Auto-sorts single picks, multi-picks, and mixed folders into Video, Audio, and Photo buckets with live pre-conversion time and output size estimates. |
-| **Hardware + Software & CLI Export** | Switch between **MediaCodec Hardware** and **Software (`x264`/`x265`/`AV1`)**, copy exact **FFmpeg terminal commands**, or generate `.sh` shell scripts completely offline. |
+| **Full-Control Presets** | Built-in and custom presets with full codec, quality, audio, filter, privacy, rename, and `.json` import/export control. |
+| **Smart File Selection & Pre-Run Estimates** | Auto-sorts single picks, multi-picks, and mixed folders into Video, Audio, and Photo buckets with live pre-conversion time and output size estimates. |
+| **Fast Hardware + Software Encoding** | Runs on **MediaCodec Hardware** by default for fast, cool conversions with automatic **Software (`x264`/`x265`/`AV1`)** fallback—plus optional FFmpeg command copy & `.sh` export. |
 
 ## 6 Signature Tools
 
