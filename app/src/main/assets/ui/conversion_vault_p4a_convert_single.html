@@ -266,6 +266,11 @@
       font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
       color: rgba(148, 163, 184, 0.38); text-transform: uppercase; white-space: nowrap;
     }
+    .dest-delta.is-err {
+      background: var(--crimson-soft) !important;
+      border-color: rgba(219, 10, 64, 0.55) !important;
+      color: #fda4af !important;
+    }
     .hidden { display: none !important; }
     .toast {
       position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%);
@@ -403,6 +408,12 @@
       <button type="button" id="btn-open-file" class="btn-primary" style="flex:1.2;">Open File ▶</button>
       <button type="button" id="btn-open-folder" class="btn-secondary" style="flex:1.1;">File Manager</button>
       <button type="button" id="btn-share" class="btn-secondary" style="flex:0.8;">Share</button>
+    </footer>
+
+    <footer class="bottom-bar hidden" id="footer-failed" style="gap:8px;">
+      <button type="button" id="btn-retry-job" class="btn-primary" style="flex:1.2;">↻ Retry</button>
+      <button type="button" id="btn-copy-err" class="btn-secondary" style="flex:1;">Copy Error</button>
+      <button type="button" id="btn-failed-queue" class="btn-secondary" style="flex:0.9;">Queue ↗</button>
     </footer>
   </div>
 
@@ -578,7 +589,8 @@
       const etaEl = document.getElementById('pit-eta');
       if (etaEl) {
         if (st === 'DONE') etaEl.textContent = 'Completed';
-        else if (st === 'FAILED' || st === 'CANCELLED') etaEl.textContent = st;
+        else if (st === 'FAILED') etaEl.textContent = 'Conversion Failed';
+        else if (st === 'CANCELLED') etaEl.textContent = 'Stopped';
         else if (pct > 2 && elapsedSec > 0) {
           const rem = Math.round((elapsedSec / pct) * (100 - pct));
           etaEl.textContent = 'ETA ' + fmtClock(rem);
@@ -608,7 +620,7 @@
       const doneSum = document.getElementById('done-summary');
       if (doneSum) {
         if (st === 'DONE') {
-          doneSum.classList.remove('hidden');
+          doneSum.classList.remove('hidden', 'is-err');
           doneSum.textContent = '✓ Saved (' + fmtMB(j.outputSizeBytes) + ') in ' + fmtClock(elapsedSec);
           try {
             if (!window.__cvAskedSourceIds) window.__cvAskedSourceIds = new Set();
@@ -624,11 +636,15 @@
               window.__cvPendingDeleteSrcJob = { id: j.id, path: j.inputPath, name: inName };
             }
           } catch (_) {}
-        } else if (st === 'FAILED') {
+        } else if (st === 'FAILED' || st === 'CANCELLED') {
           doneSum.classList.remove('hidden');
-          doneSum.textContent = '✗ Failed: ' + (j.errorLog || 'Check console below').slice(0, 140);
+          doneSum.classList.add('is-err');
+          doneSum.textContent = st === 'CANCELLED'
+            ? '■ Conversion Stopped — tap Retry below to run again.'
+            : ('✗ Conversion Failed: ' + (j.errorLog || 'Check FFmpeg console below').slice(0, 180));
         } else {
           doneSum.classList.add('hidden');
+          doneSum.classList.remove('is-err');
         }
       }
 
@@ -649,9 +665,12 @@
 
       const fRun = document.getElementById('footer-running');
       const fDone = document.getElementById('footer-done');
+      const fFail = document.getElementById('footer-failed');
       const isActive = (st === 'RUNNING' || st === 'QUEUED');
+      const isFailed = (st === 'FAILED' || st === 'CANCELLED');
       if (fRun) fRun.classList.toggle('hidden', !isActive);
-      if (fDone) fDone.classList.toggle('hidden', isActive);
+      if (fDone) fDone.classList.toggle('hidden', !(st === 'DONE'));
+      if (fFail) fFail.classList.toggle('hidden', !isFailed);
 
       if (!isActive) {
         // Check if more jobs are still RUNNING or QUEUED in a multi-file batch; if so, auto-advance to the next active job!
@@ -744,6 +763,26 @@
     });
 
     document.getElementById('btn-pause')?.addEventListener('click', () => {
+      if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p5_queue_history.html');
+    });
+
+    document.getElementById('btn-retry-job')?.addEventListener('click', () => {
+      if (!activeJobId || !window.AndroidBridge || !window.AndroidBridge.resumeJob) return;
+      try {
+        window.AndroidBridge.resumeJob(activeJobId);
+        showToast('Retrying conversion...');
+        if (!pollTimer) pollTimer = setInterval(() => { if (!document.hidden) pollJob(); }, 1000);
+        setTimeout(pollJob, 200);
+      } catch (_) {}
+    });
+
+    document.getElementById('btn-copy-err')?.addEventListener('click', () => {
+      const errTxt = 'Conversion Failed\nCommand: ffmpeg ' + ((lastJob && lastJob.commandArgs) || '') + '\nError: ' + ((lastJob && lastJob.errorLog) || 'Unknown error');
+      if (window.VaultBridge && window.VaultBridge.copyText) window.VaultBridge.copyText(errTxt, 'Copied error details');
+      else showToast('Copied error details');
+    });
+
+    document.getElementById('btn-failed-queue')?.addEventListener('click', () => {
       if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p5_queue_history.html');
     });
 

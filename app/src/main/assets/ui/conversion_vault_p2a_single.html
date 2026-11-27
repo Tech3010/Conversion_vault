@@ -1223,6 +1223,10 @@
 
     function applyPendingPresetIfVideo() {
       if (!window.VaultPresets) return;
+      if (!window.location.search.includes('mode=preset')) {
+        window.VaultPresets.clearPendingPreset();
+        return;
+      }
       const p = window.VaultPresets.getPendingPreset();
       if (!p || p.cat !== 'video') return;
       const merged = Object.assign({}, DEFAULT_VIDEO_FALLBACK_CFG, p.cfg || {});

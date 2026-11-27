@@ -308,6 +308,11 @@
       font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
       color: rgba(148, 163, 184, 0.38); text-transform: uppercase; white-space: nowrap;
     }
+    .dest-delta.is-err {
+      background: var(--crimson-soft) !important;
+      border-color: rgba(219, 10, 64, 0.55) !important;
+      color: #fda4af !important;
+    }
     .hidden { display: none !important; }
     .toast {
       position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%);
@@ -458,7 +463,19 @@
         <div class="console-body" id="console-body"></div>
       </section>
 
-      <!-- 4. BATCH QUEUE (STRICTLY SCOPED TO THIS BATCH) -->
+      <!-- 4. FAILED CONVERSIONS (ABOVE BATCH QUEUE) -->
+      <section class="sec-card hidden" id="batch-failed-card" aria-label="Failed Conversions" style="border-color:rgba(219,10,64,0.55); background:linear-gradient(145deg, rgba(219,10,64,0.10) 0%, var(--surface) 65%);">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid rgba(219,10,64,0.28);">
+          <div style="display:flex; align-items:center; gap:7px;">
+            <span style="font-size:12.5px; font-weight:800; color:var(--crimson);">✗ Failed Conversions</span>
+            <span id="batch-failed-count" style="font-family:var(--mono); font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; background:var(--crimson-soft); color:var(--crimson);">0</span>
+          </div>
+          <button type="button" id="btn-failed-retry-all" class="btn-cmd-act" style="border-color:rgba(219,10,64,0.55); color:var(--crimson);">↻ Retry All</button>
+        </div>
+        <div id="batch-failed-list" style="display:flex; flex-direction:column; gap:8px; padding:10px 12px;"></div>
+      </section>
+
+      <!-- 5. BATCH QUEUE (STRICTLY SCOPED TO THIS BATCH) -->
       <section class="sec-card hidden" id="batch-queue-card" aria-label="Batch Conversion Queue">
         <div style="display:flex; justify-content:space-between; align-items:center; padding:11px 14px; border-bottom:1px solid var(--border);">
           <span style="font-size:12.5px; font-weight:800; color:var(--text);">Batch Queue</span>
@@ -478,6 +495,12 @@
     <footer class="bottom-bar hidden" id="footer-done" style="gap:8px;">
       <button type="button" id="btn-open-folder" class="btn-primary" style="flex:1.3;">Open Folder ▶</button>
       <button type="button" id="btn-view-history" class="btn-secondary" style="flex:1;">Queue &amp; History ↗</button>
+    </footer>
+
+    <footer class="bottom-bar hidden" id="footer-failed" style="gap:8px;">
+      <button type="button" id="btn-retry-batch" class="btn-primary" style="flex:1.2;">↻ Retry Failed</button>
+      <button type="button" id="btn-copy-err" class="btn-secondary" style="flex:1;">Copy Error</button>
+      <button type="button" id="btn-failed-queue" class="btn-secondary" style="flex:0.9;">Queue ↗</button>
     </footer>
   </div>
 
@@ -641,7 +664,8 @@
       const etaEl = document.getElementById('pit-eta');
       if (etaEl) {
         if (st === 'DONE') etaEl.textContent = 'Completed';
-        else if (st === 'FAILED' || st === 'CANCELLED') etaEl.textContent = st;
+        else if (st === 'FAILED') etaEl.textContent = 'Conversion Failed';
+        else if (st === 'CANCELLED') etaEl.textContent = 'Stopped';
         else if (pct > 2 && elapsedSec > 0) {
           const rem = Math.round((elapsedSec / pct) * (100 - pct));
           etaEl.textContent = 'ETA ' + fmtClock(rem);
@@ -671,7 +695,7 @@
       const doneSum = document.getElementById('done-summary');
       if (doneSum) {
         if (st === 'DONE') {
-          doneSum.classList.remove('hidden');
+          doneSum.classList.remove('hidden', 'is-err');
           doneSum.textContent = '✓ Saved (' + fmtMB(j.outputSizeBytes) + ') in ' + fmtClock(elapsedSec);
           try {
             if (!window.__cvAskedSourceIds) window.__cvAskedSourceIds = new Set();
@@ -687,11 +711,15 @@
               window.__cvPendingDeleteSrcJob = { id: j.id, path: j.inputPath, name: inName };
             }
           } catch (_) {}
-        } else if (st === 'FAILED') {
+        } else if (st === 'FAILED' || st === 'CANCELLED') {
           doneSum.classList.remove('hidden');
-          doneSum.textContent = '✗ Failed: ' + (j.errorLog || 'Check console below').slice(0, 140);
+          doneSum.classList.add('is-err');
+          doneSum.textContent = st === 'CANCELLED'
+            ? '■ Stopped — tap Retry Failed below to run again.'
+            : ('✗ Conversion Failed: ' + (j.errorLog || 'Check FFmpeg console below').slice(0, 180));
         } else {
           doneSum.classList.add('hidden');
+          doneSum.classList.remove('is-err');
         }
       }
 
@@ -760,6 +788,9 @@
           liveFilePct = Math.max(0, Math.min(99, parseInt(activeBatchJob.progressPct, 10) || 0));
           try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', activeJobId); } catch (_) {}
           renderJobTelemetry(activeBatchJob);
+          const pitCard = document.getElementById('pit-hero');
+          if (pitCard && typeof window.cvAnimateUpdate === 'function') window.cvAnimateUpdate(pitCard, 'drop');
+          if (typeof window.cvHaptic === 'function') window.cvHaptic('tick');
         }
 
         const curFileFrac = (activeBatchJob && activeBatchJob.status === 'RUNNING')
@@ -810,12 +841,19 @@
           pill.className = 'engine-state-pill ' + (allDone ? (failCnt > 0 && doneCnt === 0 ? 'state-paused' : 'state-done') : 'state-running');
           pillTxt.textContent = allDone ? (failCnt > 0 && doneCnt === 0 ? 'FAILED' : 'DONE') : 'RUNNING';
         }
+        window.__cvLastBatchFailedIds = batchJobs.filter(j => j.status === 'FAILED' || j.status === 'CANCELLED').map(j => String(j.id));
+        const allFailed = allDone && doneCnt === 0 && failCnt > 0;
+        const partialFailed = allDone && doneCnt > 0 && failCnt > 0;
+        if (ovEta && allFailed) ovEta.textContent = 'Conversion Failed';
+        if (ovEye && allFailed) ovEye.textContent = '✗ BATCH CONVERSION FAILED';
         const fRun = document.getElementById('footer-running');
         const fDone = document.getElementById('footer-done');
-        if (fRun && fDone) {
-          fRun.classList.toggle('hidden', allDone);
-          fDone.classList.toggle('hidden', !allDone);
-        }
+        const fFail = document.getElementById('footer-failed');
+        const bRetryPartial = document.getElementById('btn-retry-partial');
+        if (fRun) fRun.classList.toggle('hidden', allDone);
+        if (fDone) fDone.classList.toggle('hidden', !(allDone && !allFailed));
+        if (fFail) fFail.classList.toggle('hidden', !allFailed);
+        if (bRetryPartial) bRetryPartial.classList.toggle('hidden', !partialFailed);
         if (allDone && pollTimer) {
           clearInterval(pollTimer);
           pollTimer = null;
@@ -826,10 +864,46 @@
           : ('BATCH FILE PROCESSING · ' + curPos + ' OF ' + total + ' · ' + queuedCnt + ' QUEUED');
         if (sumEl) sumEl.textContent = doneCnt + '/' + total + ' Done · ' + queuedCnt + ' Queued' + (failCnt > 0 ? (' · ' + failCnt + ' Failed') : '');
 
-        const activeAndUpcoming = batchJobs.filter(j => j.status === 'RUNNING' || j.status === 'QUEUED');
-        const finished = batchJobs.filter(j => j.status === 'DONE' || j.status === 'FAILED' || j.status === 'CANCELLED');
-        const ordered = activeAndUpcoming.concat(finished);
         const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const failedJobs = batchJobs.filter(j => j.status === 'FAILED' || j.status === 'CANCELLED');
+        window.__cvBatchJobsMap = {};
+        batchJobs.forEach(j => { window.__cvBatchJobsMap[String(j.id)] = j; });
+
+        const failCard = document.getElementById('batch-failed-card');
+        const failListEl = document.getElementById('batch-failed-list');
+        const failCntEl = document.getElementById('batch-failed-count');
+        const retryAllBtn = document.getElementById('btn-failed-retry-all');
+        if (failCard && failListEl) {
+          if (failedJobs.length === 0) {
+            failCard.classList.add('hidden');
+            failListEl.innerHTML = '';
+          } else {
+            failCard.classList.remove('hidden');
+            if (failCntEl) failCntEl.textContent = failedJobs.length + ' Failed';
+            if (retryAllBtn) retryAllBtn.classList.toggle('hidden', failedJobs.length < 2);
+            failListEl.innerHTML = failedJobs.map(j => {
+              const nm = (j.inputPath || 'File').split('/').pop();
+              const errLine = j.status === 'CANCELLED'
+                ? 'Stopped before completion'
+                : String(j.errorLog || 'Conversion failed — check console').replace(/\s+/g, ' ').slice(0, 120);
+              return '<div style="display:flex; flex-direction:column; gap:7px; padding:9px 10px; border-radius:8px; border:1px solid rgba(219,10,64,0.35); background:var(--card);">' +
+                '<div style="min-width:0;">' +
+                  '<div style="font-size:12px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(nm) + '</div>' +
+                  '<div style="font-size:10.5px; font-family:var(--mono); color:#fda4af; margin-top:2px; word-break:break-word;">' + esc(errLine) + '</div>' +
+                '</div>' +
+                '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
+                  '<button type="button" class="btn-cmd-act" data-bf-act="retry" data-id="' + esc(j.id) + '" style="flex:1; border-color:var(--crimson); background:var(--crimson); color:#ffffff;">↻ Retry</button>' +
+                  '<button type="button" class="btn-cmd-act" data-bf-act="copy" data-id="' + esc(j.id) + '" style="flex:1;">Copy Error</button>' +
+                  '<button type="button" class="btn-cmd-act" data-bf-act="remove" data-id="' + esc(j.id) + '" style="flex:0.85; border-color:rgba(219,10,64,0.45); color:var(--crimson);">Remove</button>' +
+                '</div>' +
+              '</div>';
+            }).join('');
+          }
+        }
+
+        const activeAndUpcoming = batchJobs.filter(j => j.status === 'RUNNING' || j.status === 'QUEUED');
+        const doneOnly = batchJobs.filter(j => j.status === 'DONE');
+        const ordered = activeAndUpcoming.concat(doneOnly);
 
         listEl.innerHTML = ordered.map((j, idx) => {
           const nm = (j.inputPath || 'File').split('/').pop();
@@ -930,6 +1004,59 @@
     });
 
     document.getElementById('btn-view-history')?.addEventListener('click', () => {
+      if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p5_queue_history.html');
+    });
+
+    function retryFailedBatchJobs() {
+      const ids = Array.isArray(window.__cvLastBatchFailedIds) ? window.__cvLastBatchFailedIds : [];
+      if (!ids.length || !window.AndroidBridge || !window.AndroidBridge.resumeJob) return;
+      ids.forEach(id => { try { window.AndroidBridge.resumeJob(id); } catch (_) {} });
+      batchStartAt = Date.now();
+      activeJobId = ids[0];
+      showToast('Retrying ' + ids.length + ' failed file(s)...');
+      if (!pollTimer) pollTimer = setInterval(() => { if (!document.hidden) pollJob(); }, 1000);
+      setTimeout(pollJob, 200);
+    }
+
+    document.getElementById('btn-retry-batch')?.addEventListener('click', retryFailedBatchJobs);
+    document.getElementById('btn-failed-retry-all')?.addEventListener('click', retryFailedBatchJobs);
+    document.getElementById('batch-failed-list')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-bf-act]');
+      if (!btn) return;
+      const act = btn.getAttribute('data-bf-act');
+      const jid = btn.getAttribute('data-id');
+      const job = window.__cvBatchJobsMap && window.__cvBatchJobsMap[String(jid)];
+      if (act === 'retry') {
+        if (window.AndroidBridge && window.AndroidBridge.resumeJob) {
+          try { window.AndroidBridge.resumeJob(jid); } catch (_) {}
+          activeJobId = String(jid);
+          showToast('Retrying file...');
+          if (!pollTimer) pollTimer = setInterval(() => { if (!document.hidden) pollJob(); }, 1000);
+          setTimeout(pollJob, 200);
+        }
+      } else if (act === 'copy') {
+        const txt = 'Conversion Failed\nFile: ' + ((job && job.inputPath) || '') + '\nCommand: ffmpeg ' + ((job && job.commandArgs) || '') + '\nError: ' + ((job && job.errorLog) || 'Unknown error');
+        if (window.VaultBridge && window.VaultBridge.copyText) window.VaultBridge.copyText(txt, 'Copied error details');
+        else showToast('Copied error details');
+      } else if (act === 'remove') {
+        try {
+          if (window.AndroidBridge && window.AndroidBridge.deleteJob) window.AndroidBridge.deleteJob(jid);
+          if (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.setAppState) {
+            const raw = window.AndroidBridge.getAppState('cv_batch_job_ids') || '[]';
+            const ids = JSON.parse(raw).filter(x => String(x) !== String(jid));
+            window.AndroidBridge.setAppState('cv_batch_job_ids', JSON.stringify(ids));
+          }
+        } catch (_) {}
+        showToast('Removed failed file from list');
+        pollJob();
+      }
+    });
+    document.getElementById('btn-copy-err')?.addEventListener('click', () => {
+      const errTxt = 'Conversion Failed\nCommand: ffmpeg ' + ((lastJob && lastJob.commandArgs) || '') + '\nError: ' + ((lastJob && lastJob.errorLog) || 'Unknown error');
+      if (window.VaultBridge && window.VaultBridge.copyText) window.VaultBridge.copyText(errTxt, 'Copied error details');
+      else showToast('Copied error details');
+    });
+    document.getElementById('btn-failed-queue')?.addEventListener('click', () => {
       if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p5_queue_history.html');
     });
 

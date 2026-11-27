@@ -274,7 +274,7 @@
 
   function bindAutoSync(callback) {
     if (typeof callback !== 'function') return;
-    global.addEventListener('pageshow', () => { try { callback(); } catch (_) {} });
+    global.addEventListener('pageshow', (e) => { if (e && e.persisted) { try { callback(); } catch (_) {} } });
     if (global.document) {
       global.document.addEventListener('visibilitychange', () => {
         if (!global.document.hidden) { try { callback(); } catch (_) {} }

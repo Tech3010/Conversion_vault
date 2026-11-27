@@ -132,6 +132,7 @@ class MainActivity : AppCompatActivity() {
             .remove("cv_active_mode")
             .remove("cv_last_probe")
             .remove("cv_pending_convert_cfg")
+            .remove("cv_pending_preset")
             .apply()
         VaultStorageManager.ensureVaultFolders(this)
         val sampleRetDays = getSharedPreferences("vault_settings", Context.MODE_PRIVATE).getInt("sample_retention_days", 15)

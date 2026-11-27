@@ -106,8 +106,9 @@
       padding: 13px; display: flex; flex-direction: column; gap: 10px;
       transition: border-color 0.15s ease;
     }
-    .tpl-card.is-saved { border-color: rgba(252, 209, 22, 0.45); box-shadow: inset 3px 0 0 var(--gold); }
-    .tpl-card.is-builtin { box-shadow: inset 3px 0 0 var(--crimson); }
+    .tpl-card { contain: layout paint style; content-visibility: auto; contain-intrinsic-size: auto 235px; }
+    .tpl-card.is-saved { border-color: rgba(252, 209, 22, 0.45); border-left: 3px solid var(--gold); }
+    .tpl-card.is-builtin { border-left: 3px solid var(--crimson); }
 
     .tpl-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .tpl-badges { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
@@ -1235,7 +1236,7 @@
               cfg: t.cfg || null
             });
           }
-          window.location.href = 'conversion_vault_p2_select.html';
+          window.location.href = 'conversion_vault_p2_select.html?mode=preset';
           return;
         }
         else if (act === 'dup') {
@@ -1475,7 +1476,45 @@
       } catch (_) {}
       render();
     }
+    window.syncHubFromVaultPresets = syncHubFromVaultPresets;
     syncHubFromVaultPresets();
+    (function wirePresetLongPress() {
+      let lpTimer = null, lpFired = false, lpStartX = 0, lpStartY = 0;
+      document.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        const card = e.target && e.target.closest ? e.target.closest('.tpl-card') : null;
+        if (!card || e.target.closest('button, input, select')) return;
+        const idHolder = card.querySelector('[data-id]') || card.querySelector('[data-sel-preset]');
+        if (!idHolder) return;
+        const pid = parseInt(idHolder.getAttribute('data-id') || idHolder.getAttribute('data-sel-preset'), 10);
+        if (isNaN(pid)) return;
+        lpFired = false;
+        lpStartX = e.touches[0].clientX;
+        lpStartY = e.touches[0].clientY;
+        clearTimeout(lpTimer);
+        lpTimer = setTimeout(() => {
+          lpFired = true;
+          state.selectMode = true;
+          if (state.selectedIds.has(pid)) state.selectedIds.delete(pid);
+          else state.selectedIds.add(pid);
+          if (typeof window.cvHaptic === 'function') window.cvHaptic('heavy');
+          render();
+          showToast(state.selectedIds.size + ' preset(s) selected');
+        }, 420);
+      }, { passive: true });
+      document.addEventListener('touchmove', (e) => {
+        if (!lpTimer || !e.touches || e.touches.length !== 1) return;
+        if (Math.abs(e.touches[0].clientX - lpStartX) > 12 || Math.abs(e.touches[0].clientY - lpStartY) > 12) {
+          clearTimeout(lpTimer); lpTimer = null;
+        }
+      }, { passive: true });
+      const cancelLp = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+      document.addEventListener('touchend', cancelLp, { passive: true });
+      document.addEventListener('touchcancel', cancelLp, { passive: true });
+      document.addEventListener('click', (e) => {
+        if (lpFired) { lpFired = false; e.preventDefault(); e.stopImmediatePropagation(); }
+      }, true);
+    })();
     if (window.VaultPresets) window.VaultPresets.bindAutoSync(syncHubFromVaultPresets);
     const INFO_DICT = {
       'Preset Status Bars': '• Quality Preserved: Closeness to original look/sound.\n• Size Compressed: Storage space saved.\n• Processing Speed: How fast FFmpeg finishes.\n• Compatibility: How many phones/TVs/apps play it.\n• Raw Fidelity: Closeness to uncompressed/All-I editing master.\n• Battery Efficiency: Power & thermal friendliness.',

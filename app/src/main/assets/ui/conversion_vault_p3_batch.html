@@ -1320,11 +1320,7 @@
         const bucketEl = document.getElementById('bucket-' + cat);
         const listEl = document.getElementById('list-' + cat);
         listEl.innerHTML = '';
-        const qCatSel = String((state.bucketSearch && state.bucketSearch[cat]) || '').trim().toLowerCase();
-        const allCatItems = state.files.filter(f => f.cat === cat);
-        const items = (qCatSel && (op === 'all' || op === 'invert'))
-          ? allCatItems.filter(f => (String(f.name || '') + ' ' + (f.hasPreset && f.cfg ? (f.cfg.presetName + ' ' + shortTagLine(cat, f.cfg)) : '')).toLowerCase().includes(qCatSel))
-          : allCatItems;
+        const items = state.files.filter(f => f.cat === cat);
         const hideBucket = items.length === 0 || (state.lockedCat && state.lockedCat !== cat);
         if (bucketEl) bucketEl.classList.toggle('hidden', hideBucket);
         if (hideBucket) return;
@@ -2390,7 +2386,14 @@
     }
 
     function applyPendingPresetToBatch() {
-      if (!window.VaultPresets || !Array.isArray(state.files) || state.files.length === 0) return;
+      if (!window.VaultPresets) return;
+      if (!window.location.search.includes('mode=preset')) {
+        state.lockedCat = null;
+        state.usePresetMode = false;
+        window.VaultPresets.clearPendingPreset();
+        return;
+      }
+      if (!Array.isArray(state.files) || state.files.length === 0) return;
       const p = window.VaultPresets.getPendingPreset();
       if (!p || !p.cat) return;
       state.lockedCat = p.cat;
@@ -2564,6 +2567,44 @@
       });
       return { byName, byCat };
     };
+    // Long-press any file row to select/unselect cleanly (with heavy haptic feedback)
+    (function wireBatchLongPress() {
+      let lpTimer = null, lpFired = false, lpStartX = 0, lpStartY = 0;
+      document.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        const row = e.target && e.target.closest ? e.target.closest('.file-item') : null;
+        if (!row || e.target.closest('button, input, select, .file-drawer')) return;
+        const cb = row.querySelector('input[data-act="sel-file"]');
+        if (!cb) return;
+        const fid = parseInt(cb.getAttribute('data-id'), 10);
+        lpFired = false;
+        lpStartX = e.touches[0].clientX;
+        lpStartY = e.touches[0].clientY;
+        clearTimeout(lpTimer);
+        lpTimer = setTimeout(() => {
+          lpFired = true;
+          const item = state.files.find(f => f.id === fid);
+          if (item) {
+            item.selected = !item.selected;
+            if (typeof window.cvHaptic === 'function') window.cvHaptic('heavy');
+            renderAll();
+            showToast(item.selected ? ('Selected "' + item.name + '"') : ('Unselected "' + item.name + '"'));
+          }
+        }, 420);
+      }, { passive: true });
+      document.addEventListener('touchmove', (e) => {
+        if (!lpTimer || !e.touches || e.touches.length !== 1) return;
+        if (Math.abs(e.touches[0].clientX - lpStartX) > 12 || Math.abs(e.touches[0].clientY - lpStartY) > 12) {
+          clearTimeout(lpTimer); lpTimer = null;
+        }
+      }, { passive: true });
+      const cancelLp = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+      document.addEventListener('touchend', cancelLp, { passive: true });
+      document.addEventListener('touchcancel', cancelLp, { passive: true });
+      document.addEventListener('click', (e) => {
+        if (lpFired) { lpFired = false; e.preventDefault(); e.stopImmediatePropagation(); }
+      }, true);
+    })();
   </script>
   <script src="vault-bridge.js"></script>
 </body>
