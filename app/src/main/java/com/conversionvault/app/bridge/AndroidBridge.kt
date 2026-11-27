@@ -1616,7 +1616,7 @@ class AndroidBridge(
                 val bytes = computeCacheBytes()
                 cachedCacheBytes = bytes
                 val mb = String.format(Locale.US, "%.2f MB cached temp files", bytes / (1024.0 * 1024.0))
-                activity.evalJs("(function(){var el=document.getElementById('lbl-cache');if(el)el.textContent='$mb';})();")
+                activity.evalJsFromBridge("(function(){var el=document.getElementById('lbl-cache');if(el)el.textContent='$mb';})();")
             } catch (_: Throwable) {}
         }.start()
     }
