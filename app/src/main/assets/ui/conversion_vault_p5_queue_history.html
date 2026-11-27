@@ -803,7 +803,10 @@
     }
 
     window.refreshVaultQueueHistory = function() {
-      document.getElementById('btn-toggle-select')?.addEventListener('click', () => {
+      loadJobsFromNative();
+    };
+
+    document.getElementById('btn-toggle-select')?.addEventListener('click', () => {
       state.selectMode = !state.selectMode;
       state.selectedIds.clear();
       render();
@@ -872,9 +875,6 @@
         document.getElementById('confirm-modal').classList.remove('hidden');
       }
     });
-
-    loadJobsFromNative();
-    };
 
     const selSort = document.getElementById('sel-sort-jobs');
     if (selSort) {

@@ -762,7 +762,7 @@
         } else if (st === 'CANCELLED') {
           doneSum.classList.remove('hidden', 'is-err');
           doneSum.classList.add('is-stopped');
-          doneSum.textContent = '■ Conversion Stopped — tap Start Again below to run it again.';
+          doneSum.textContent = '■ Batch Cancelled — completed files are saved. Tap Resume Batch below to continue incomplete files.';
         } else if (st === 'FAILED') {
           doneSum.classList.remove('hidden', 'is-stopped');
           doneSum.classList.add('is-err');
@@ -861,12 +861,14 @@
         const nowIdx = document.getElementById('now-file-idx');
 
         if (ovHero) ovHero.classList.toggle('is-done', allDone);
-        if (ovEye) ovEye.textContent = allDone ? (failCnt > 0 ? 'BATCH FINISHED WITH ERRORS' : '✓ OVERALL BATCH COMPLETE') : 'OVERALL BATCH PROGRESS';
+        const cancelledCnt = batchJobs.filter(x => x && x.status === 'CANCELLED').length;
+        const hasCancelled = cancelledCnt > 0;
+        if (ovEye) ovEye.textContent = allDone ? (hasCancelled ? '■ BATCH CANCELLED' : (failCnt > 0 ? 'BATCH FINISHED WITH ERRORS' : '✓ OVERALL BATCH COMPLETE')) : 'OVERALL BATCH PROGRESS';
         if (ovCnt) ovCnt.textContent = doneCnt + ' / ' + total + ' Done' + (queuedCnt > 0 ? (' · ' + queuedCnt + ' Queued') : '') + (failCnt > 0 ? (' · ' + failCnt + ' Failed') : '');
         if (ovPctEl) ovPctEl.textContent = overallPct + '%';
         updateOledOverlay(overallPct, allDone ? (failCnt > 0 && doneCnt === 0 ? 'BATCH FAILED' : 'BATCH COMPLETE') : 'BATCH CONVERTING', allDone ? (failCnt > 0 && doneCnt === 0 ? 'failed' : 'done') : 'running', doneCnt, total, allDone ? 100 : liveFilePct);
         if (ovSubEl) ovSubEl.textContent = allDone
-          ? ('Converted ' + doneCnt + ' of ' + total + ' files' + (failCnt > 0 ? (' (' + failCnt + ' failed)') : ''))
+          ? (hasCancelled ? ('Batch Cancelled · ' + doneCnt + ' saved · ' + cancelledCnt + ' incomplete') : ('Converted ' + doneCnt + ' of ' + total + ' files' + (failCnt > 0 ? (' (' + failCnt + ' failed)') : '')))
           : ('Processing file ' + curPos + ' of ' + total + ' · ' + queuedCnt + ' remaining');
         if (ovFill) {
           ovFill.style.width = Math.max(allDone ? 100 : 2, overallPct) + '%';
@@ -905,10 +907,11 @@
         const bRetryBatch = document.getElementById('btn-retry-batch');
         const bCopyErr = document.getElementById('btn-copy-err');
         if (fRun) fRun.classList.toggle('hidden', allDone);
-        if (fDone) fDone.classList.toggle('hidden', !(allDone && !allFailedOrStopped));
-        if (fFail) fFail.classList.toggle('hidden', !allFailedOrStopped);
-        if (bRetryBatch) bRetryBatch.textContent = onlyStopped ? '▶ Start Again' : '↻ Retry Failed';
-        if (bCopyErr) bCopyErr.classList.toggle('hidden', onlyStopped);
+        const showResumeFooter = allDone && (allFailedOrStopped || hasCancelled);
+        if (fDone) fDone.classList.toggle('hidden', !(allDone && !showResumeFooter));
+        if (fFail) fFail.classList.toggle('hidden', !showResumeFooter);
+        if (bRetryBatch) bRetryBatch.textContent = (onlyStopped || hasCancelled) ? '▶ Resume Batch' : '↻ Retry Failed';
+        if (bCopyErr) bCopyErr.classList.toggle('hidden', onlyStopped || hasCancelled);
         if (allDone && pollTimer) {
           clearInterval(pollTimer);
           pollTimer = null;
@@ -1102,11 +1105,16 @@
 
     function retryFailedBatchJobs() {
       const ids = Array.isArray(window.__cvLastBatchFailedIds) ? window.__cvLastBatchFailedIds : [];
-      if (!ids.length || !window.AndroidBridge || !window.AndroidBridge.resumeJob) return;
-      ids.forEach(id => { try { window.AndroidBridge.resumeJob(id); } catch (_) {} });
+      if (!ids.length || !window.AndroidBridge) return;
+      if (typeof window.AndroidBridge.resumeBatchJobs === 'function') {
+        try { window.AndroidBridge.resumeBatchJobs(JSON.stringify(ids)); } catch (_) {}
+      } else if (typeof window.AndroidBridge.resumeJob === 'function') {
+        ids.forEach(id => { try { window.AndroidBridge.resumeJob(id); } catch (_) {} });
+      }
       batchStartAt = Date.now();
       activeJobId = ids[0];
-      showToast('Retrying ' + ids.length + ' failed file(s)...');
+      try { if (window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', activeJobId); } catch (_) {}
+      showToast('Resuming ' + ids.length + ' incomplete file' + (ids.length === 1 ? '' : 's') + ' ▶');
       if (!pollTimer) pollTimer = setInterval(() => { if (!document.hidden) pollJob(); }, 1000);
       setTimeout(pollJob, 200);
     }
@@ -1154,7 +1162,11 @@
     });
 
     document.getElementById('btn-abort')?.addEventListener('click', () => {
-      if (activeJobId && window.AndroidBridge && window.AndroidBridge.cancelJob) {
+      if (window.AndroidBridge && typeof window.AndroidBridge.cancelAllActiveJobs === 'function') {
+        window.AndroidBridge.cancelAllActiveJobs();
+        showToast('Batch cancelled — incomplete files stopped');
+        setTimeout(pollJob, 250);
+      } else if (activeJobId && window.AndroidBridge && window.AndroidBridge.cancelJob) {
         window.AndroidBridge.cancelJob(activeJobId);
         showToast('Stopping conversion...');
         setTimeout(pollJob, 250);
