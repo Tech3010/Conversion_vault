@@ -1101,6 +1101,11 @@
       return;
     }
 
+    if (page === 'conversion_vault_t9_custom_module.html') {
+      if (typeof window.onVaultCustomModuleFilesPicked === 'function') window.onVaultCustomModuleFilesPicked(files);
+      return;
+    }
+
     if (page === 'conversion_vault_p2b_multi_collector.html') {
       if (typeof window.setCollectedFromNative === 'function') window.setCollectedFromNative(getActiveFiles());
       const existing = getActiveFiles();
@@ -1226,6 +1231,7 @@
   function wireBackButtons(page) {
     const backMap = {
       'conversion_vault_p2_select.html': 'conversion_vault_p1_home.html',
+      'conversion_vault_t9_custom_module.html': 'conversion_vault_p1_home.html',
       'conversion_vault_p2a_single.html': 'conversion_vault_p2_select.html',
       'conversion_vault_p2b_multi_collector.html': 'conversion_vault_p2_select.html',
       'conversion_vault_p3_batch.html': 'conversion_vault_p2_select.html',

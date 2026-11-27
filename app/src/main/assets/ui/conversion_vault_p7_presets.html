@@ -507,6 +507,21 @@
     </div>
   </div>
 
+  <!-- Rename Preset Modal -->
+  <div class="modal-backdrop hidden" id="rename-preset-modal" style="align-items:center; padding-bottom:18vh;" role="dialog" aria-modal="true" aria-label="Rename Preset">
+    <div class="confirm-sheet">
+      <div class="confirm-title">Rename Preset</div>
+      <div class="field">
+        <label for="inp-rename-preset">New Preset Name</label>
+        <input type="text" id="inp-rename-preset" placeholder="Enter custom preset name...">
+      </div>
+      <div class="confirm-actions">
+        <button type="button" id="btn-rp-cancel" class="btn-sec">Cancel</button>
+        <button type="button" id="btn-rp-save" class="btn-new-preset">Save Name</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast">Ready</div>
 
   <script>

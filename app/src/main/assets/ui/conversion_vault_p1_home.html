@@ -226,7 +226,91 @@
       gap: 6px;
       padding-top: 2px;
     }
-    .home-fmt-drawer.hidden { display: none !important; }
+    .home-fmt-drawer
+    /* Custom Modules Section (Exact Same Red/Crimson Style) + Full-Width Add Custom Module Bar */
+    .red-badge {
+      background: var(--crimson-soft);
+      border: 1px solid rgba(219, 10, 64, 0.45);
+      color: var(--crimson);
+    }
+    .tool-card.red-tile {
+      border-color: rgba(219, 10, 64, 0.38);
+      background: linear-gradient(145deg, rgba(219, 10, 64, 0.09) 0%, var(--surface) 58%, var(--card) 100%);
+      position: relative;
+    }
+    .tool-card.red-tile:hover { border-color: var(--crimson); }
+    .tool-card.red-tile .tool-icon {
+      background: var(--crimson-soft);
+      border-color: rgba(219, 10, 64, 0.45);
+      color: var(--crimson);
+    }
+    .tool-card.red-tile .tool-tag {
+      background: var(--crimson-soft);
+      color: var(--crimson);
+      border-color: rgba(219, 10, 64, 0.38);
+    }
+    .cm-del-btn {
+      position: absolute; top: 8px; right: 8px; z-index: 4;
+      width: 22px; height: 22px; border-radius: 6px;
+      border: 1px solid rgba(219, 10, 64, 0.35); background: var(--surface);
+      color: var(--muted); font-size: 13px; font-weight: 800; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .cm-del-btn:hover { border-color: var(--crimson); color: var(--crimson); background: var(--crimson-soft); }
+
+    .add-cm-bar {
+      width: 100%;
+      padding: 13px 15px;
+      border-radius: 12px;
+      border: 1.5px dashed rgba(219, 10, 64, 0.65);
+      background: linear-gradient(135deg, rgba(219, 10, 64, 0.12) 0%, var(--surface) 75%);
+      color: var(--text);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      cursor: pointer; text-align: left;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+    }
+    .add-cm-bar:hover { border-color: var(--crimson); background: linear-gradient(135deg, rgba(219, 10, 64, 0.18) 0%, var(--surface) 75%); }
+    .add-cm-left { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .add-cm-icon {
+      width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+      background: var(--crimson-soft); border: 1px solid rgba(219, 10, 64, 0.5);
+      color: var(--crimson); display: flex; align-items: center; justify-content: center;
+    }
+    .add-cm-title { font-size: 13.5px; font-weight: 800; color: var(--text); line-height: 1.2; }
+    .add-cm-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .add-cm-fm-pill {
+      display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+      padding: 6px 10px; border-radius: 7px;
+      background: var(--crimson); color: #ffffff;
+      font-family: var(--mono); font-size: 10px; font-weight: 800;
+    }
+
+    .cm-modal-backdrop {
+      position: fixed; inset: 0; z-index: 95;
+      background: rgba(5, 8, 15, 0.78);
+      display: flex; justify-content: center; align-items: center; padding: 16px;
+    }
+    .cm-modal-card {
+      width: 100%; max-width: 390px;
+      background: var(--surface); border: 1px solid rgba(219, 10, 64, 0.5); border-radius: 14px;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+    .cm-modal-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .cm-modal-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .btn-open-fm-big {
+      width: 100%; padding: 11px 14px; border-radius: 9px;
+      border: 1px solid var(--crimson); background: var(--crimson); color: #ffffff;
+      font-family: var(--mono); font-size: 12px; font-weight: 800; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-cm-cancel {
+      width: 100%; padding: 8px 12px; border-radius: 8px;
+      border: 1px solid var(--border-strong); background: var(--card); color: var(--muted);
+      font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+
+    .hidden { display: none !important; }
     .hf-row {
       display: flex;
       justify-content: space-between;
@@ -525,6 +609,7 @@
     })();
   </script>
   <script src="vault-workflows.js"></script>
+  <script src="vault-custom-modules.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -540,7 +625,7 @@
         </div>
         <div>
           <div class="brand-name">Conversion Vault</div>
-          <div class="brand-sub">OFFLINE MEDIA ENGINE · v2.0.5</div>
+          <div class="brand-sub">OFFLINE MEDIA ENGINE · v2.0.7</div>
         </div>
       </div>
     </header>
@@ -735,6 +820,37 @@
           </div>
         </button>
       </section>
+
+      <!-- Custom Modules Section (Same Red Color Style, Below Signature Modules) -->
+      <div id="custom-modules-sec" class="hidden" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="sec-head">
+          <span class="sec-title">Custom Module</span>
+          <span class="sec-badge red-badge" id="cm-count-badge">0 Installed</span>
+        </div>
+        <section class="tool-grid" id="custom-modules-grid" aria-label="Custom Modules"></section>
+      </div>
+
+      <!-- Full-Width Rectangular Add Custom Module Bar (Always Below Custom Modules) -->
+      <button type="button" id="btn-add-custom-module" class="add-cm-bar" aria-label="Add Custom Module">
+        <div class="add-cm-left">
+          <div class="add-cm-icon">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+          </div>
+          <div style="min-width:0;">
+            <div class="add-cm-title">Add Custom Module</div>
+            <div class="add-cm-sub">Import a .json module file from File Manager</div>
+          </div>
+        </div>
+        <span class="add-cm-fm-pill">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>Open File Manager</span>
+        </span>
+      </button>
+      <input type="file" id="inp-cm-json" accept=".json,application/json" class="hidden">
     </main>
 
     <!-- TAB 2: QUEUE & HISTORY SHELL -->
@@ -800,6 +916,27 @@
     </nav>
   </div>
 
+
+  <!-- Add Custom Module Modal (Open File Manager) -->
+  <div class="cm-modal-backdrop hidden" id="cm-import-modal" role="dialog" aria-modal="true" aria-label="Add Custom Module">
+    <div class="cm-modal-card">
+      <div class="cm-modal-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Add Custom Module</span>
+      </div>
+      <div class="cm-modal-desc">Choose a <strong>.json</strong> custom module file from your phone's File Manager. Once imported, it will appear under <strong>Custom Module</strong> on your Home screen.</div>
+      <button type="button" id="btn-cm-open-fm" class="btn-open-fm-big">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Open File Manager</span>
+      </button>
+      <button type="button" id="btn-cm-modal-cancel" class="btn-cm-cancel">Cancel</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast">Selected!</div>
 
   <script>
@@ -847,6 +984,125 @@
       });
     });
   </script>
+
+  <script>
+    (function () {
+      function escHtml(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      function showHomeToast(msg) {
+        const t = document.getElementById('toast');
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(window.__cmHomeToastT);
+        window.__cmHomeToastT = setTimeout(() => t.classList.remove('show'), 2200);
+      }
+      function renderCustomModules() {
+        const sec = document.getElementById('custom-modules-sec');
+        const grid = document.getElementById('custom-modules-grid');
+        const badge = document.getElementById('cm-count-badge');
+        if (!sec || !grid) return;
+        const list = (window.VaultCustomModules && window.VaultCustomModules.list()) || [];
+        if (!list.length) {
+          sec.classList.add('hidden');
+          grid.innerHTML = '';
+          return;
+        }
+        sec.classList.remove('hidden');
+        if (badge) badge.textContent = list.length + (list.length === 1 ? ' Module' : ' Modules');
+        grid.innerHTML = list.map(m =>
+          '<div class="tool-card red-tile" role="button" tabindex="0" data-custom-mod-id="' + escHtml(m.id) + '">' +
+            '<button type="button" class="cm-del-btn" data-cm-remove="' + escHtml(m.id) + '" aria-label="Remove Custom Module" title="Remove">×</button>' +
+            '<div class="tool-card-top">' +
+              '<div class="tool-icon">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>' +
+                '</svg>' +
+              '</div>' +
+            '</div>' +
+            '<div>' +
+              '<div class="tool-title">' + escHtml(m.name) + '</div>' +
+              '<div class="tool-desc">' + escHtml(m.description) + '</div>' +
+            '</div>' +
+            '<div class="tool-card-foot">' +
+              '<span class="tool-tag">' + escHtml(m.badge || 'Custom') + '</span>' +
+              '<span class="tool-go" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>' +
+            '</div>' +
+          '</div>'
+        ).join('');
+      }
+
+      const btnAdd = document.getElementById('btn-add-custom-module');
+      const modal = document.getElementById('cm-import-modal');
+      const btnOpenFm = document.getElementById('btn-cm-open-fm');
+      const btnCancel = document.getElementById('btn-cm-modal-cancel');
+      const inpFile = document.getElementById('inp-cm-json');
+
+      if (btnAdd && modal) {
+        btnAdd.addEventListener('click', () => modal.classList.remove('hidden'));
+      }
+      if (btnCancel && modal) {
+        btnCancel.addEventListener('click', () => modal.classList.add('hidden'));
+      }
+      if (modal) {
+        modal.addEventListener('click', (e) => { if (e.target && e.target.id === 'cm-import-modal') modal.classList.add('hidden'); });
+      }
+      if (btnOpenFm && inpFile) {
+        btnOpenFm.addEventListener('click', () => {
+          inpFile.value = '';
+          inpFile.click();
+        });
+      }
+      if (inpFile) {
+        inpFile.addEventListener('change', () => {
+          const file = inpFile.files && inpFile.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (!window.VaultCustomModules) return;
+            const res = window.VaultCustomModules.importJson(String(reader.result || ''));
+            if (modal) modal.classList.add('hidden');
+            if (res && res.ok) {
+              renderCustomModules();
+              showHomeToast('Added ' + res.added + ' custom module' + (res.added === 1 ? '' : 's') + ' ✓');
+            } else {
+              showHomeToast((res && res.error) || 'Invalid custom module JSON');
+            }
+          };
+          reader.readAsText(file);
+        });
+      }
+
+      const grid = document.getElementById('custom-modules-grid');
+      if (grid) {
+        grid.addEventListener('click', (e) => {
+          const rmBtn = e.target.closest('[data-cm-remove]');
+          if (rmBtn) {
+            e.preventDefault(); e.stopPropagation();
+            const id = rmBtn.getAttribute('data-cm-remove');
+            if (window.VaultCustomModules) window.VaultCustomModules.remove(id);
+            renderCustomModules();
+            showHomeToast('Removed custom module');
+            return;
+          }
+          const card = e.target.closest('[data-custom-mod-id]');
+          if (!card) return;
+          const id = card.getAttribute('data-custom-mod-id');
+          const url = 'conversion_vault_t9_custom_module.html?id=' + encodeURIComponent(id);
+          if (window.AndroidBridge && typeof window.AndroidBridge.navigate === 'function') {
+            window.AndroidBridge.navigate(url);
+          } else {
+            window.location.href = url;
+          }
+        });
+      }
+
+      window.renderHomeCustomModules = renderCustomModules;
+      renderCustomModules();
+    })();
+  </script>
+
   <script src="vault-bridge.js"></script>
 </body>
 </html>

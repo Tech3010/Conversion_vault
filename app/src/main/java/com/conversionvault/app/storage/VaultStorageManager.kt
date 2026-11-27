@@ -29,6 +29,7 @@ object VaultStorageManager {
         "Samples",
         "Presets",
         "Workflows",
+        "Custom_Modules",
         "Reports",
         "SH_Scripts"
     )
