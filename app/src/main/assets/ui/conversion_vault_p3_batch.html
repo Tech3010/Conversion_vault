@@ -594,6 +594,7 @@
     })();
   </script>
   <script src="vault-presets.js"></script>
+  <script src="vault-workflows.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -2693,8 +2694,20 @@
 
       const goBtn = document.getElementById('btn-go-convert');
       if (goBtn) goBtn.innerHTML = 'Start Workflow ▶';
+      const backFilesBtn = document.getElementById('btn-back-files');
+      if (backFilesBtn) backFilesBtn.textContent = '← Review Files';
 
       if (typeof renderAll === 'function') renderAll();
+
+      // Jump straight to Estimations (#page-perf) so user sees Time Estimation + Start Workflow ▶ immediately
+      const pagePerf = document.getElementById('page-perf');
+      if (sumCard && pagePerf && sumCard.parentElement !== pagePerf) {
+        pagePerf.insertBefore(sumCard, pagePerf.firstChild);
+      }
+      const btnGotoPerf = document.getElementById('btn-goto-perf');
+      if (btnGotoPerf && !btnGotoPerf.disabled) {
+        btnGotoPerf.click();
+      }
     };
 
     window.getVaultActiveWorkflowFiles = function() {

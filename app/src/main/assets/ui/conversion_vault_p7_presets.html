@@ -1253,8 +1253,9 @@
       const actEl = e.target.closest('[data-act]');
       if (actEl) {
         const act = actEl.getAttribute('data-act');
-        const id = parseInt(actEl.getAttribute('data-id'), 10);
-        const t = state.templates.find(x => x.id === id) || state.deleted.find(x => x.id === id);
+        const rawId = String(actEl.getAttribute('data-id') || '');
+        const id = parseInt(rawId, 10);
+        const t = state.templates.find(x => String(x.id) === rawId || x.id === id) || state.deleted.find(x => String(x.id) === rawId || x.id === id);
         if (!t) return;
         if (act === 'use') {
           if (window.VaultPresets) {
@@ -1271,7 +1272,9 @@
           return;
         }
         else if (act === 'rename') {
+          e.preventDefault(); e.stopPropagation();
           openRenamePresetModal(t);
+          return;
         }
         else if (act === 'dup') {
           const dupName = t.name + ' (Copy)';
@@ -1629,49 +1632,60 @@
   </script>
   <script>
 
-    let renamingPresetId = null;
+    let renamingPresetTarget = null;
     function openRenamePresetModal(t) {
       if (!t) return;
-      renamingPresetId = t.id;
+      renamingPresetTarget = t;
       const inp = document.getElementById('inp-rename-preset');
       if (inp) inp.value = t.name || '';
-      document.getElementById('rename-preset-modal').classList.remove('hidden');
-      setTimeout(() => { if (inp) { inp.focus(); inp.select(); } }, 30);
+      const modal = document.getElementById('rename-preset-modal');
+      if (modal) modal.classList.remove('hidden');
+      setTimeout(() => { if (inp) { inp.focus(); try { inp.select(); } catch (_) {} } }, 60);
     }
     function closeRenamePresetModal() {
-      document.getElementById('rename-preset-modal').classList.add('hidden');
-      renamingPresetId = null;
+      const modal = document.getElementById('rename-preset-modal');
+      if (modal) modal.classList.add('hidden');
+      renamingPresetTarget = null;
     }
     function saveRenamedPreset() {
-      if (renamingPresetId == null) return;
-      const newName = (document.getElementById('inp-rename-preset').value || '').trim();
+      const t = renamingPresetTarget;
+      if (!t) return;
+      const inp = document.getElementById('inp-rename-preset');
+      const newName = (inp && inp.value ? inp.value : '').trim();
       if (!newName) { showToast('Enter a preset name'); return; }
-      const t = state.templates.find(x => x.id === renamingPresetId);
-      if (t) {
-        t.name = newName;
-        if (window.AndroidBridge && typeof window.AndroidBridge.savePreset === 'function') {
-          try {
-            const saveRes = JSON.parse(window.AndroidBridge.savePreset(JSON.stringify({
-              id: t.roomId ? String(t.roomId) : '',
-              name: newName,
-              category: t.cat === 'audio' ? 'Audio' : (t.cat === 'image' ? 'Image' : 'Video'),
-              codec: (t.cfg && (t.cfg.codec || t.cfg.fmt)) || 'libx264',
-              container: (t.cfg && (t.cfg.container || t.cfg.fmt)) || (t.cat === 'audio' ? 'opus' : (t.cat === 'image' ? 'webp' : 'mp4')),
-              crfOrBitrate: String((t.cfg && (t.cfg.crf || t.cfg.br || t.cfg.qual)) || '18'),
-              isBuiltIn: t.origin === 'builtin',
-              extraFlags: JSON.stringify({ desc: t.desc, specs: t.specs, bars: { qual: t.qual, comp: t.comp, speed: t.speed, compat: t.compat, edit: t.edit, batt: t.batt }, cfg: t.cfg || null })
-            })) || '{}');
-            if (saveRes && saveRes.id) t.roomId = saveRes.id;
-          } catch (_) {}
-        }
-        render();
-        showToast('Renamed preset to "' + newName + '"');
+      t.name = newName;
+      if (t.cfg) t.cfg.presetName = newName;
+      let savedOk = false;
+      if (window.VaultPresets && typeof window.VaultPresets.rename === 'function' && t.roomId) {
+        const res = window.VaultPresets.rename(t.roomId, newName);
+        if (res && res.ok) savedOk = true;
+      }
+      if (!savedOk && window.VaultPresets && typeof window.VaultPresets.save === 'function') {
+        const res = window.VaultPresets.save({
+          id: t.roomId ? String(t.roomId) : '',
+          name: newName,
+          cat: t.cat,
+          category: t.cat === 'audio' ? 'Audio' : (t.cat === 'image' ? 'Image' : 'Video'),
+          isBuiltIn: t.origin === 'builtin',
+          desc: t.desc,
+          specs: t.specs,
+          bars: { qual: t.qual, comp: t.comp, speed: t.speed, compat: t.compat, edit: t.edit, batt: t.batt },
+          cfg: t.cfg || null
+        });
+        if (res && res.id) t.roomId = res.id;
       }
       closeRenamePresetModal();
+      if (typeof syncHubFromVaultPresets === 'function' && window.VaultPresets && window.VaultPresets.hasBridge()) {
+        syncHubFromVaultPresets();
+      } else {
+        render();
+      }
+      showToast('Renamed preset to "' + newName + '"');
     }
-    document.getElementById('btn-rp-cancel').addEventListener('click', closeRenamePresetModal);
-    document.getElementById('btn-rp-save').addEventListener('click', saveRenamedPreset);
-    document.getElementById('inp-rename-preset').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveRenamedPreset(); });
+    document.getElementById('btn-rp-cancel').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); closeRenamePresetModal(); });
+    document.getElementById('btn-rp-save').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); saveRenamedPreset(); });
+    document.getElementById('rename-preset-modal').addEventListener('click', (e) => { if (e.target && e.target.id === 'rename-preset-modal') closeRenamePresetModal(); });
+    document.getElementById('inp-rename-preset').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRenamedPreset(); } });
 
   </script>
   <script src="vault-bridge.js"></script>

@@ -349,6 +349,7 @@
     })();
   </script>
   <script src="vault-presets.js"></script>
+  <script src="vault-workflows.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -587,7 +588,7 @@
 
 
   <!-- Rename Workflow Modal -->
-  <div class="modal-backdrop hidden" id="rename-wf-modal" role="dialog" aria-modal="true" aria-label="Rename Workflow">
+  <div class="modal-backdrop hidden" id="rename-wf-modal" style="align-items:center; padding-bottom:18vh;" role="dialog" aria-modal="true" aria-label="Rename Workflow">
     <div class="confirm-sheet">
       <div class="confirm-title">Rename Workflow</div>
       <div class="field">
@@ -625,6 +626,9 @@
       }
 
       function safeReadAll() {
+        if (window.VaultWorkflows) {
+          return window.VaultWorkflows.listActive().concat(window.VaultWorkflows.listDeleted());
+        }
         let raw = '';
         try {
           if (window.AndroidBridge && typeof window.AndroidBridge.getAppState === 'function') {
@@ -710,9 +714,9 @@
       }
 
       function updateDirLabels() {
-        document.getElementById('m-vid-dir-lbl').textContent = draftDirs.video || 'Default (ConversionVault/Vault_Core/Videos)';
-        document.getElementById('m-aud-dir-lbl').textContent = draftDirs.audio || 'Default (ConversionVault/Vault_Core/Audios)';
-        document.getElementById('m-img-dir-lbl').textContent = draftDirs.image || 'Default (ConversionVault/Vault_Core/Images)';
+        const vEl = document.getElementById('m-vid-dir-lbl'); vEl.textContent = draftDirs.video || 'Default (ConversionVault/Vault_Core/Videos)'; vEl.style.color = draftDirs.video ? 'var(--gold-text)' : 'var(--muted)';
+        const aEl = document.getElementById('m-aud-dir-lbl'); aEl.textContent = draftDirs.audio || 'Default (ConversionVault/Vault_Core/Audios)'; aEl.style.color = draftDirs.audio ? 'var(--gold-text)' : 'var(--muted)';
+        const iEl = document.getElementById('m-img-dir-lbl'); iEl.textContent = draftDirs.image || 'Default (ConversionVault/Vault_Core/Images)'; iEl.style.color = draftDirs.image ? 'var(--gold-text)' : 'var(--muted)';
       }
 
       function syncRuleExtraFields() {
@@ -929,11 +933,16 @@
       // Wire native folder picker callback for Workflow Builder
       window.onVaultWorkflowDirPicked = function (payload) {
         if (!activeDirPickTarget) return;
-        const dirPath = (payload && (payload.folderPath || payload.folderName)) ? String(payload.folderPath || payload.folderName) : '';
+        const dirPath = (payload && (payload.folderPath || payload.folderName)) ? String(payload.folderPath || payload.folderName).trim() : '';
         if (dirPath) {
           draftDirs[activeDirPickTarget] = dirPath;
           updateDirLabels();
-          toast('Folder set for ' + activeDirPickTarget);
+          const lblMap = { video: 'm-vid-dir-lbl', audio: 'm-aud-dir-lbl', image: 'm-img-dir-lbl' };
+          const el = document.getElementById(lblMap[activeDirPickTarget]);
+          if (el) { el.style.color = 'var(--gold-text)'; el.title = dirPath; }
+          toast('Selected folder: ' + shortDir(dirPath, dirPath));
+        } else {
+          toast('Could not resolve selected folder');
         }
         activeDirPickTarget = null;
       };
@@ -1143,7 +1152,9 @@
         if (!wf) return;
 
         if (act === 'rename') {
+          e.preventDefault(); e.stopPropagation();
           openRenameWfModal(wf);
+          return;
         } else if (act === 'use') {
           useWorkflow(wf);
         } else if (act === 'edit') {
@@ -1209,34 +1220,39 @@
       let renamingWfId = null;
       function openRenameWfModal(wf) {
         if (!wf) return;
-        renamingWfId = wf.id;
+        renamingWfId = String(wf.id || '');
         const inp = document.getElementById('inp-rename-wf');
-        if (inp) { inp.value = wf.name || ''; }
-        document.getElementById('rename-wf-modal').classList.remove('hidden');
-        setTimeout(() => { if (inp) { inp.focus(); inp.select(); } }, 30);
+        if (inp) inp.value = wf.name || '';
+        const modal = document.getElementById('rename-wf-modal');
+        if (modal) modal.classList.remove('hidden');
+        setTimeout(() => { if (inp) { inp.focus(); try { inp.select(); } catch (_) {} } }, 60);
       }
       function closeRenameWfModal() {
-        document.getElementById('rename-wf-modal').classList.add('hidden');
+        const modal = document.getElementById('rename-wf-modal');
+        if (modal) modal.classList.add('hidden');
         renamingWfId = null;
       }
       function saveRenamedWf() {
         if (!renamingWfId) return;
-        const newName = (document.getElementById('inp-rename-wf').value || '').trim();
+        const inp = document.getElementById('inp-rename-wf');
+        const newName = (inp && inp.value ? inp.value : '').trim();
         if (!newName) { toast('Enter a workflow name'); return; }
-        const all = safeReadAll();
-        const hit = all.find(x => x.id === renamingWfId);
-        if (hit) {
-          hit.name = newName;
-          hit.updatedAt = Date.now();
-          safeWriteAll(all);
+        if (window.VaultWorkflows && typeof window.VaultWorkflows.rename === 'function') {
+          window.VaultWorkflows.rename(renamingWfId, newName);
+        } else {
+          const all = safeReadAll();
+          const hit = all.find(x => String(x.id) === renamingWfId);
+          if (hit) { hit.name = newName; hit.updatedAt = Date.now(); safeWriteAll(all); }
         }
         closeRenameWfModal();
         renderList();
         toast('Renamed workflow to "' + newName + '"');
       }
-      document.getElementById('btn-rwf-cancel').addEventListener('click', closeRenameWfModal);
-      document.getElementById('btn-rwf-save').addEventListener('click', saveRenamedWf);
-      document.getElementById('inp-rename-wf').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveRenamedWf(); });
+      document.getElementById('btn-rwf-cancel').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); closeRenameWfModal(); });
+      document.getElementById('btn-rwf-save').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); saveRenamedWf(); });
+      document.getElementById('rename-wf-modal').addEventListener('click', (e) => { if (e.target && e.target.id === 'rename-wf-modal') closeRenameWfModal(); });
+      document.getElementById('inp-rename-wf').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRenamedWf(); } });
+      window.renderWorkflowsHub = renderList;
       document.getElementById('btn-exit-wf-trash').addEventListener('click', () => {
         showTrash = false;
         selectedIds.clear();

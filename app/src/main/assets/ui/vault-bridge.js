@@ -7,12 +7,14 @@
     try { return window.location.search.indexOf('mode=workflow') !== -1; } catch (_) { return false; }
   }
   function getSavedWorkflows() {
+    if (window.VaultWorkflows) return window.VaultWorkflows.listActive();
     try {
       const arr = JSON.parse(safeGet('cv_workflows_v1', '[]') || '[]');
       return Array.isArray(arr) ? arr.filter(w => w && !w.deleted) : [];
     } catch (_) { return []; }
   }
   function getPendingWorkflow() {
+    if (window.VaultWorkflows) return window.VaultWorkflows.getPendingWorkflow();
     try {
       const raw = safeGet('cv_pending_workflow', '') || '';
       if (!raw) return null;
@@ -21,6 +23,7 @@
     } catch (_) { return null; }
   }
   function clearPendingWorkflow() {
+    if (window.VaultWorkflows) { window.VaultWorkflows.clearPendingWorkflow(); return; }
     safeSet('cv_pending_workflow', '');
   }
 
@@ -664,6 +667,9 @@
                   } else if (curP === 'conversion_vault_p7_presets.html' && typeof window.syncHubFromVaultPresets === 'function') {
                     window.syncHubFromVaultPresets();
                     toast('Presets refreshed ✓');
+                  } else if (curP === 'conversion_vault_p9_workflows.html' && typeof window.renderWorkflowsHub === 'function') {
+                    window.renderWorkflowsHub();
+                    toast('Workflows refreshed ✓');
                   } else if (curP === 'conversion_vault_p1_home.html') {
                     hydrateHardwareStrip();
                     toast('Dashboard refreshed ✓');
@@ -1049,6 +1055,22 @@
     const files = payload.files || [];
     const page = currentPage();
 
+    if (window.__pickingWorkflowDir && mode === 'folder') {
+      window.__pickingWorkflowDir = false;
+      const wfFolderPath = (payload.folderPath && String(payload.folderPath).trim())
+        || ((files[0] && files[0].path && String(files[0].path).includes('/'))
+          ? String(files[0].path).substring(0, String(files[0].path).lastIndexOf('/'))
+          : ('/storage/emulated/0/' + (payload.folderName || 'ConversionVault')));
+      if (typeof window.onVaultWorkflowDirPicked === 'function') {
+        window.onVaultWorkflowDirPicked({
+          folderPath: wfFolderPath,
+          folderName: payload.folderName || wfFolderPath.split('/').filter(Boolean).pop() || 'Folder',
+          treeUri: payload.treeUri || ''
+        });
+      }
+      return;
+    }
+
     if (window.__pickingCustomDest && mode === 'folder') {
       window.__pickingCustomDest = false;
       try { window.dispatchEvent(new CustomEvent('cv_custom_folder_picked', { detail: { path: pickedDir } })); } catch (_) {}
@@ -1061,11 +1083,6 @@
           window.AndroidBridge.saveSettings(JSON.stringify({ defaultVaultFolder: folderPath }));
         }
         toast('Default Vault Folder saved: ' + folderPath);
-        return;
-      }
-      if (window.__pickingWorkflowDir) {
-        window.__pickingWorkflowDir = false;
-        if (typeof window.onVaultWorkflowDirPicked === 'function') window.onVaultWorkflowDirPicked(payload);
         return;
       }
       if (page === 'conversion_vault_p3b_output.html' || page === 'conversion_vault_p3b_output_single.html') {
@@ -2275,7 +2292,7 @@
             if (fnRule === 'append_date') return stem + '_' + dateTag;
             if (fnRule === 'prefix_workflow') return safeWfSlug + '_' + stem;
             if (fnRule === 'suffix_custom' && customSuf) return stem + customSuf;
-            return '';
+            return stem;
           }
 
           const jobSpecs = [];
@@ -2369,6 +2386,7 @@
               outputBaseName: buildWfBaseName(f.name),
               outputExt: ext,
               durationMs: Math.round((f.durationSec || 0) * 1000),
+              originalPolicy: (rules.sourceAction === 'delete_after_verify') ? 'delete' : 'keep',
               commandArgs: args
             });
           });
@@ -3321,6 +3339,13 @@
       if (bDedupeWfs) {
         bDedupeWfs.addEventListener('click', (e) => {
           e.preventDefault(); e.stopImmediatePropagation();
+          if (window.VaultWorkflows) {
+            const r = window.VaultWorkflows.dedupe();
+            (r.removedIds || []).forEach(id => selectedWorkflowIds.delete(id));
+            renderSettingsSavedWorkflows();
+            toast(r.removed > 0 ? ('Removed ' + r.removed + ' duplicate workflow' + (r.removed === 1 ? '' : 's') + ' ✓') : 'No duplicate workflows found');
+            return;
+          }
           const all = readAllWorkflowsRaw();
           const seen = new Set();
           let removed = 0;

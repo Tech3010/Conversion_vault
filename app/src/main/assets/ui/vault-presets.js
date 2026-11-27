@@ -192,6 +192,32 @@
     return { ok: true, id: payload.id || String(Date.now()) };
   }
 
+
+  function rename(id, newName) {
+    const sid = String(id || '').trim();
+    const trimmed = String(newName || '').trim();
+    if (!trimmed) return { ok: false, error: 'Preset name required' };
+    const all = listActive();
+    const hit = all.find(p => String(p.id) === sid || String(p.roomId) === sid);
+    if (!hit) return { ok: false, error: 'Preset not found' };
+    const nextCfg = Object.assign({}, hit.cfg || {}, { presetName: trimmed });
+    return save({
+      id: hit.roomId || hit.id,
+      roomId: hit.roomId || hit.id,
+      name: trimmed,
+      category: hit.category,
+      cat: hit.cat,
+      codec: hit.codec,
+      container: hit.container,
+      crfOrBitrate: hit.crfOrBitrate,
+      isBuiltIn: hit.isBuiltIn,
+      desc: hit.desc,
+      specs: hit.specs,
+      bars: hit.bars,
+      cfg: nextCfg
+    });
+  }
+
   function softDelete(id) {
     if (!id) return { ok: false, error: 'Missing preset id' };
     if (global.AndroidBridge && typeof global.AndroidBridge.softDeletePreset === 'function') {
@@ -460,6 +486,7 @@
     listActive,
     listDeleted,
     save,
+    rename,
     softDelete,
     restore,
     permanentDelete,
