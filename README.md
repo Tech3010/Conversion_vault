@@ -1,63 +1,30 @@
 # Conversion Vault
 
-**100% Offline Android FFmpeg Media Engine, Batch Studio & Privacy Utility**
+[https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white]
+[https://img.shields.io/badge/FFmpeg-8.1.9%20Full--GPL-007808?style=for-the-badge&logo=ffmpeg&logoColor=white]
+[https://img.shields.io/badge/Kotlin-Room%20%2B%20WorkManager-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white]
+[https://img.shields.io/badge/100%25%20Offline-Zero%20Ads-DB0A40?style=for-the-badge]
+[https://img.shields.io/badge/Vibe--Coded-FCD116?style=for-the-badge&logoColor=090D16]
 
-[![Android](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026–35)-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
-[![FFmpeg](https://img.shields.io/badge/Engine-FFmpeg%206.1.4%20GPL%20(16KB)-007808?style=flat-square&logo=ffmpeg&logoColor=white)](https://mvnrepository.com/artifact/io.github.jamaismagic.ffmpeg/ffmpeg-kit-main-full-gpl-16kb)
-[![Kotlin](https://img.shields.io/badge/Backend-Kotlin%20%2B%20Room%20%2B%20WorkManager-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Offline](https://img.shields.io/badge/Privacy-100%25%20Offline%20%7C%20Zero%20Telemetry-DB0A40?style=flat-square)](#)
+100% offline Android media converter and studio combining **MediaCodec Hardware** and **Software CPU** encoding, smart file selection, pre-conversion time and size calculations, FFmpeg terminal command copying, and `.sh` script generation.
 
-> **No cloud uploads. No ads. No watermarks. No paywalled codecs.**
-> Conversion Vault turns any Android phone into a local FFmpeg powerhouse—combining a 3-bucket batch converter, forensic metadata scrubber, file corruption detector, hardware-aware codec advisor, and deep stream inspector in one fast, offline-first app.
+## Core Features
 
-## What Makes Conversion Vault Different?
-
-| Typical Media Converters | Conversion Vault |
+| Feature | What It Offers |
 | :--- | :--- |
-| Upload files to remote servers or inject ads and watermarks | **100% offline on-device FFmpeg 6.1.4 GPL** (`libx264`, `libx265`, `libsvtav1`, `libopus`, `ffprobe`) with native 16 KB page-size support for Android 15+ |
-| Overwrite existing files silently or hide risky "delete original" toggles | **Zero-data-loss protection:** automatic `_1`, `_2` suffixing everywhere, explicit **Original Source File Policy** selector, and confirmation-gated deletes |
-| Force blind codec presets that stutter or fail on your specific chipset | **Live Hardware Profiler:** reads your CPU clusters, RAM, internal + SD/OTG storage, and `MediaCodecList` decoders—flagging real SoC gaps (such as missing H.264 10-bit HW decode on MediaTek Dimensity chips) before you encode |
-| Dump every output into one messy folder | **Module-based Vault storage:** every tool saves into its own dedicated subfolder under `/ConversionVault/` with optional media-type separation |
-| Crash or stall when you lock your screen or switch apps | **Foreground Service + WakeLock + Room SQLite queue:** live FPS/speed/ETA notification with one-tap Cancel and full queue/history persistence across restarts |
-| Lock power users out of real FFmpeg flags | **Full transparency:** inspect live FFmpeg commands, explore the built-in 45-flag FFmpeg Encyclopedia, or export jobs as Termux/SSH `.sh` scripts |
+| **Automated Workflows** | Pre-configure Video, Audio, and Photo presets with separate output folders—pick files, see the time estimate, and press **Start**. |
+| **Custom Modules** | Import `.json` modules from File Manager (such as live-scrubbing **Thumbnail Capturer**) to add new tools without app updates. |
+| **Full-Control Presets** | Built-in and custom presets with full codec, bitrate/CRF, audio, filter, privacy, rename, and `.json` import/export control. |
+| **Smart File Selection & Pre-Run Calculations** | Auto-sorts single picks, multi-picks, and mixed folders into Video, Audio, and Photo buckets with live pre-conversion time and output size estimates. |
+| **Hardware + Software & CLI Export** | Switch between **MediaCodec Hardware** and **Software (`x264`/`x265`/`AV1`)**, copy exact **FFmpeg terminal commands**, or generate `.sh` shell scripts completely offline. |
 
-## Core Modules & Tools
+## 6 Signature Tools
 
-### Master Engine
-- **Master Vault Studio:** All-in-one converter supporting Single File, Multi-Folder Collector (pick files across different directories), and 3-Bucket Mixed-Folder batch processing (`Videos` · `Audios` · `Images`) with Windows-style `All · None · Invert · Skip` selection, Intra/Inter-frame control, CRF, `-tune`, trim, denoise/sharpen, speed, audio gain, forensic metadata scrub, and `-threads` / `taskset` core affinity.
-
-### Special Vault Tools
-- **Metadata Modifier:** Sequential privacy workflow—wipe first (`Forensic Scrub`, `Wipe All`, `Strip GPS`) and optionally edit Title, Artist, Album, Genre, GPS, Device Model, Creation Time, and Comments.
-- **Format Suggestor:** Recommends 4 ranked codec presets tailored to your device, goal, and priority metric, with instant **Use Preset**, **Save Preset**, or **Test Sample** actions.
-- **Stream Inspector:** 28-field deep `ffprobe` analyzer revealing true codec profiles, color depth, Intra/Inter GOP structure, bitrates, and hidden container tags, with raw JSON report export.
-- **Integrity Check:** Detects incomplete downloads, broken frames, and corrupted streams via Quick Header Check or Deep Frame Scan (`-v error -i <file> -f null -`), with one-tap lossless remux repair.
-
-### Quick Media Tools & Utilities
-- **Target Compressor:** Calculates file-aware safe MB bounds, warns on impossible targets, and shrinks videos to exact size caps (WhatsApp, Discord, Email, Web).
-- **Audio Extract & Mute:** Extracts lossless FLAC, Opus, MP3, M4A, or WAV from video, or mutes clips instantly (`-an`) without re-encoding video.
-- **Trim & GIF Maker:** Zero-loss keyframe cutting (`-c copy`) with dual Start/End frame previews and 2-pass custom-palette GIF creation.
-- **Thumbnail Capturer:** Frame-accurate scrubber with `-0.1s` / `+0.1s` stepping to grab bit-exact lossless PNG frames.
-- **Sample & Playback Tester:** Generates 0 MB-bloat `lavfi` (`testsrc2` + `sine`) test clips on the fly to verify playback on your phone before running long batch jobs, with automatic 15-day cleanup.
-
-## Clean Module-Based Storage
-
-Every output is automatically organized under `/storage/emulated/0/ConversionVault/` with universal `_1`, `_2` conflict protection:
-
-| Folder | Saved Output |
+| Tool | What It Does |
 | :--- | :--- |
-| `Vault_Core/` | Master Vault Studio exports (`Conversion_01/`, `Nov_23/`, custom folder, or separated `Videos/`, `Audios/`, `Images/`) |
-| `Metadata_Modifier/` | Privacy-scrubbed and re-tagged media files |
-| `Target_Compressor/` | Size-capped compressed videos |
-| `Audio_Extract_Mute/` | Extracted audio tracks and muted clips |
-| `Trim_GIF/` | Lossless trims and 2-pass palette GIFs |
-| `Thumbnail_Capturer/` | Bit-exact PNG frame captures |
-| `Samples/` | Temporary `lavfi` playback test clips (auto-cleaned after 15 days) |
-| `Presets/` | Exported `.json` custom preset packs (with soft-delete & restore) |
-| `Reports/` | Exported `ffprobe` JSON and Integrity Check reports |
-| `SH_Scripts/` | Exported `.sh` scripts for Termux and SSH workflows |
-
-## Queue, History & Presets Hub
-
-- **Module-Aware History & Queue:** Filter jobs by `Vault Core` (with `Videos`, `Audios`, and `Images` sub-filters), `Metadata Modifier`, `Target Compressor`, `Audio Extract & Mute`, `Trim & GIF`, `Thumbnail Capturer`, or `Cancelled`. Cancelled jobs move automatically to History with one-tap **Re-queue Now** or **Edit & Re-run**.
-- **Portable Presets Hub:** Save, import, and export `.json` presets with built-in soft-delete and restore so you never lose a tuned configuration.
-- **Built-In FFmpeg Encyclopedia:** Searchable 45-flag reference inside Settings so you always know what every codec, pixel format, and filter flag actually does.
+| **Metadata Modifier** | View, modify, or completely delete GPS location, camera details, timestamps, and EXIF/ID3 metadata. |
+| **Stream Inspector** | Inspect every video, audio, and subtitle stream—codecs, bitrates, resolution, frame rate, pixel format, and tags. |
+| **Smart Format Suggestor** | Recommends ranked formats and codecs matched to your device hardware, goal, and priority. |
+| **Target-Size Compressor** | Compresses any video, audio, or photo to fit an exact MB or KB size limit automatically. |
+| **Integrity Check & Repair** | Detects broken headers, corrupt frames, or incomplete downloads and recovers playable files offline. |
+| **Sample & Playback Tester** | Generates instant offline test clips (`H.264`, `HEVC`, `AV1`, `VP9`, `Opus`) to verify phone or TV playback. |
