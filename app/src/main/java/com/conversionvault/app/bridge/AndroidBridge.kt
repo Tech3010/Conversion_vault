@@ -2672,6 +2672,75 @@ class AndroidBridge(
     }
 
 
+
+    @JavascriptInterface
+    fun extractVideoFrameBase64(inputPath: String, timeMs: Long): String {
+        return try {
+            val resolved = VaultStorageManager.resolveInputPath(context, inputPath)
+            val file = File(resolved)
+            if (!file.exists()) {
+                return JSONObject().put("ok", false).put("error", "Video file not found").toString()
+            }
+            var durationMs = 0L
+            var bmp: android.graphics.Bitmap? = null
+            val mmr = MediaMetadataRetriever()
+            try {
+                mmr.setDataSource(file.absolutePath)
+                durationMs = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                val safeMs = if (durationMs > 0L) timeMs.coerceIn(0L, (durationMs - 40L).coerceAtLeast(0L)) else timeMs.coerceAtLeast(0L)
+                bmp = mmr.getFrameAtTime(safeMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST)
+                    ?: mmr.getFrameAtTime(safeMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            } catch (_: Throwable) {
+            } finally {
+                try { mmr.release() } catch (_: Throwable) {}
+            }
+
+            if (bmp == null) {
+                // Fallback to 1-frame FFmpeg snapshot for MKV / AV1 / exotic codecs
+                val tmp = File(context.cacheDir, "cv_frame_${System.currentTimeMillis()}.jpg")
+                try {
+                    val sec = String.format(Locale.US, "%.3f", timeMs.coerceAtLeast(0L) / 1000.0)
+                    val cmd = "-y -ss $sec -i \"${file.absolutePath}\" -frames:v 1 -vf \"scale='min(960,iw)':-2\" -q:v 4 \"${tmp.absolutePath}\""
+                    val session = FFmpegKit.execute(cmd)
+                    if (ReturnCode.isSuccess(session.returnCode) && tmp.exists() && tmp.length() > 0L) {
+                        bmp = BitmapFactory.decodeFile(tmp.absolutePath)
+                    }
+                } catch (_: Throwable) {
+                } finally {
+                    try { tmp.delete() } catch (_: Throwable) {}
+                }
+            }
+
+            if (bmp == null) {
+                return JSONObject().put("ok", false).put("durationMs", durationMs).put("error", "Could not decode frame").toString()
+            }
+
+            val origW = bmp.width
+            val origH = bmp.height
+            val finalBmp = if (origW > 960) {
+                val targetH = ((origH.toFloat() / origW.toFloat()) * 960f).toInt().coerceAtLeast(1)
+                android.graphics.Bitmap.createScaledBitmap(bmp, 960, targetH, true).also {
+                    if (it !== bmp) try { bmp.recycle() } catch (_: Throwable) {}
+                }
+            } else bmp
+
+            val baos = java.io.ByteArrayOutputStream()
+            finalBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, baos)
+            val b64 = android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.NO_WRAP)
+            try { finalBmp.recycle() } catch (_: Throwable) {}
+
+            JSONObject()
+                .put("ok", true)
+                .put("durationMs", durationMs)
+                .put("width", origW)
+                .put("height", origH)
+                .put("dataUrl", "data:image/jpeg;base64,$b64")
+                .toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", "${t.javaClass.simpleName}: ${t.message}").toString()
+        }
+    }
+
     @JavascriptInterface
     fun exportWorkflowJson(baseName: String, content: String): String {
         return try {

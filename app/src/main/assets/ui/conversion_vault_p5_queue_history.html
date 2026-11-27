@@ -596,7 +596,7 @@
                 <span>${state.queue.length} remaining</span>
               </div>
               <div class="job-actions">
-                <button type="button" class="btn-sm primary" data-qact="open" data-id="${esc(targetOpenId)}">Open Engine ↗</button>
+                <button type="button" class="btn-sm primary" data-qact="open-batch" data-id="${esc(targetOpenId)}">Open Engine ↗</button>
                 <button type="button" class="btn-sm" data-qact="folder" data-id="${esc(targetOpenId)}">File Manager ↗</button>
                 ${isBatchPaused
                   ? `<button type="button" class="btn-sm primary" data-qact="resume-batch">▶ Restart Batch</button>`
@@ -964,10 +964,41 @@
       if (qa) {
         const act = qa.getAttribute('data-qact');
         const id = qa.getAttribute('data-id');
+        if (act === 'open-batch') {
+          const allBatchIds = (() => {
+            const matchedMeta = (state.batchesMeta || []).find(b => Array.isArray(b.jobIds) && b.jobIds.includes(id));
+            if (matchedMeta && matchedMeta.jobIds.length > 1) return matchedMeta.jobIds;
+            const qIds = (state.queue || []).map(q => q.id).filter(Boolean);
+            return qIds.length > 1 ? qIds : [id];
+          })();
+          if (window.AndroidBridge && window.AndroidBridge.setAppState) {
+            window.AndroidBridge.setAppState('cv_active_job_id', id || allBatchIds[0] || '');
+            window.AndroidBridge.setAppState('cv_batch_job_ids', JSON.stringify(allBatchIds));
+          }
+          try {
+            localStorage.setItem('cv_active_job_id', id || allBatchIds[0] || '');
+            localStorage.setItem('cv_batch_job_ids', JSON.stringify(allBatchIds));
+          } catch (_) {}
+          const destPage = allBatchIds.length > 1 ? 'conversion_vault_p4_convert_batch.html' : 'conversion_vault_p4a_convert_single.html';
+          if (window.VaultBridge) window.VaultBridge.navigateTo(destPage);
+          else window.location.href = destPage;
+          return;
+        }
         if (act === 'open') {
-          if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', id);
-          try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_batch_job_ids', '[]'); } catch (_) {}
-          if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p4a_convert_single.html');
+          const matchedMeta = (state.batchesMeta || []).find(b => Array.isArray(b.jobIds) && b.jobIds.length > 1 && b.jobIds.includes(id));
+          const isInActiveMultiQueue = (state.queue || []).length > 1 && (state.queue || []).some(q => q.id === id);
+          const batchIds = matchedMeta ? matchedMeta.jobIds : (isInActiveMultiQueue ? (state.queue || []).map(q => q.id).filter(Boolean) : []);
+          if (window.AndroidBridge && window.AndroidBridge.setAppState) {
+            window.AndroidBridge.setAppState('cv_active_job_id', id);
+            window.AndroidBridge.setAppState('cv_batch_job_ids', JSON.stringify(batchIds));
+          }
+          try {
+            localStorage.setItem('cv_active_job_id', id);
+            localStorage.setItem('cv_batch_job_ids', JSON.stringify(batchIds));
+          } catch (_) {}
+          const destPage = batchIds.length > 1 ? 'conversion_vault_p4_convert_batch.html' : 'conversion_vault_p4a_convert_single.html';
+          if (window.VaultBridge) window.VaultBridge.navigateTo(destPage);
+          else window.location.href = destPage;
           return;
         }
         if (act === 'folder') {
@@ -1024,8 +1055,19 @@
           state.view = 'queue';
           state.userPickedTab = true;
           setTimeout(() => {
-            try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_batch_job_ids', '[]'); } catch (_) {}
-          if (window.VaultBridge) window.VaultBridge.navigateTo('conversion_vault_p4a_convert_single.html');
+            let parsedIds = [];
+            try { parsedIds = JSON.parse(idsStr || '[]'); } catch (_) {}
+            if (!Array.isArray(parsedIds)) parsedIds = [];
+            try {
+              if (window.AndroidBridge && window.AndroidBridge.setAppState) {
+                if (parsedIds[0]) window.AndroidBridge.setAppState('cv_active_job_id', parsedIds[0]);
+                window.AndroidBridge.setAppState('cv_batch_job_ids', JSON.stringify(parsedIds));
+              }
+              if (parsedIds[0]) localStorage.setItem('cv_active_job_id', parsedIds[0]);
+              localStorage.setItem('cv_batch_job_ids', JSON.stringify(parsedIds));
+            } catch (_) {}
+            const destPage = parsedIds.length > 1 ? 'conversion_vault_p4_convert_batch.html' : 'conversion_vault_p4a_convert_single.html';
+            if (window.VaultBridge) window.VaultBridge.navigateTo(destPage);
             else loadJobsFromNative();
           }, 200);
           return;

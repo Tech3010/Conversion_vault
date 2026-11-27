@@ -226,22 +226,26 @@
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 10px rgba(219, 10, 64, 0.18) !important;
       }
       @keyframes cvSwipeFromRight {
-        0% { opacity: 0; transform: translate3d(24px, 0, 0); }
+        0% { opacity: 0; transform: translate3d(16px, 0, 0); }
         100% { opacity: 1; transform: translate3d(0, 0, 0); }
       }
       @keyframes cvSwipeFromLeft {
-        0% { opacity: 0; transform: translate3d(-24px, 0, 0); }
+        0% { opacity: 0; transform: translate3d(-16px, 0, 0); }
         100% { opacity: 1; transform: translate3d(0, 0, 0); }
       }
-      main.content.cv-enter-right { animation: cvSwipeFromRight 0.18s cubic-bezier(0.22, 1, 0.36, 1) both !important; will-change: transform, opacity; }
-      main.content.cv-enter-left { animation: cvSwipeFromLeft 0.18s cubic-bezier(0.22, 1, 0.36, 1) both !important; will-change: transform, opacity; }
+      @keyframes cvPageEnter {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+      }
+      @keyframes cvPageExit {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      main.content.cv-enter-right { animation: cvSwipeFromRight 0.28s cubic-bezier(0.22, 1, 0.36, 1) both !important; will-change: transform, opacity; }
+      main.content.cv-enter-left { animation: cvSwipeFromLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1) both !important; will-change: transform, opacity; }
+      main.content.cv-exit-fade { animation: cvPageExit 0.13s ease-out both !important; will-change: opacity; }
       main.content.cv-enter-right > *, main.content.cv-enter-left > * { animation: none !important; }
       .bottom-nav .nav-item svg { width: 18px !important; height: 18px !important; }
-
-      @keyframes cvPageEnter {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: none; }
-      }
       @keyframes cvPulse {
         0%, 100% { transform: scale(1); opacity: 1; }
         50% { transform: scale(1.45); opacity: 0.55; }
@@ -254,7 +258,7 @@
         transform: none !important;
       }
       main.content {
-        animation: cvPageEnter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+        animation: cvPageEnter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
       }
       .pulse-dot {
         animation: cvPulse 1.8s ease-in-out infinite;
@@ -495,15 +499,16 @@
           if (!el || !el.classList) return;
           const cls = mode === 'swap' ? 'cv-swap-in' : 'cv-drop-in';
           el.classList.remove('cv-drop-in', 'cv-swap-in');
-          void el.offsetWidth;
-          el.classList.add(cls);
+          requestAnimationFrame(() => {
+            if (el && el.classList) el.classList.add(cls);
+          });
         };
 
+        // Exclude live/high-frequency lists (batch-queue-list, list-video/audio/image, queue-list, history-list)
+        // so file picking, probing, sorting, and live batch progress never flicker or stutter!
         const WATCH_LIST_IDS = [
-          'batch-queue-list', 'batch-failed-list', 'queue-list', 'history-list',
-          'rec-list', 'samples-list', 'device-cap-list',
-          'check-list', 'inspect-sections', 'picked-files-list',
-          'list-video', 'list-audio', 'list-image'
+          'batch-failed-list', 'rec-list', 'samples-list',
+          'check-list', 'inspect-sections'
         ];
         const WATCH_TEXT_IDS = [
           'now-file-eyebrow', 'now-file-idx', 'overall-eyebrow', 'overall-sub',
@@ -530,13 +535,7 @@
               const nextSig = getSig();
               if (nextSig === lastListSig[id]) return;
               lastListSig[id] = nextSig;
-              const kids = el.children;
-              const cap = Math.min(kids.length, 8);
-              for (let i = 0; i < cap; i++) {
-                const c = kids[i];
-                c.style.animationDelay = (i * 0.045) + 's';
-                window.cvAnimateUpdate(c, 'drop');
-              }
+              window.cvAnimateUpdate(el, 'drop');
             });
             obs.observe(el, { childList: true });
             el.__cvObs = obs;
@@ -1558,12 +1557,24 @@
           const btnLaunch = document.getElementById('btn-launch-workflow');
           const btnGoto = document.getElementById('btn-goto-workflows');
           if (savedWfs.length > 0 && selWf && btnLaunch) {
-            selWf.innerHTML = savedWfs.map(w => '<option value="' + w.id.replace(/"/g, '&quot;') + '">' + String(w.name || 'Workflow').replace(/</g, '&lt;') + '</option>').join('');
+            selWf.innerHTML = '<option value="" selected>— Select a Workflow (None) —</option>' +
+              savedWfs.map(w => '<option value="' + w.id.replace(/"/g, '&quot;') + '">' + String(w.name || 'Workflow').replace(/</g, '&lt;') + '</option>').join('');
+            selWf.value = '';
             selWf.classList.remove('hidden');
             btnLaunch.classList.remove('hidden');
+            btnLaunch.disabled = true;
             if (btnGoto) btnGoto.classList.add('hidden');
+            const cardEl = document.getElementById('workflow-launcher-card');
+            const badgeEl = document.getElementById('wf-launcher-badge');
+            selWf.addEventListener('change', () => {
+              const hasPick = !!selWf.value;
+              btnLaunch.disabled = !hasPick;
+              if (cardEl) cardEl.classList.toggle('is-picked', hasPick);
+              if (badgeEl) badgeEl.textContent = hasPick ? 'Workflow Selected · Ready to Launch' : 'Optional · No Workflow Selected';
+            });
             btnLaunch.addEventListener('click', () => {
-              const picked = savedWfs.find(w => w.id === selWf.value) || savedWfs[0];
+              if (!selWf.value) { toast('Choose a workflow first'); return; }
+              const picked = savedWfs.find(w => w.id === selWf.value);
               if (!picked) return;
               safeSet('cv_pending_workflow', JSON.stringify(picked));
               if (window.VaultPresets) window.VaultPresets.clearPendingPreset();
@@ -3782,10 +3793,18 @@
           e.stopImmediatePropagation();
           const targetPage = NAV_ROUTES[key];
           const targetIdx = TAB_ORDER.indexOf(targetPage);
+          if (targetPage === page) return;
           if (curTabIdx !== -1 && targetIdx !== -1 && targetIdx !== curTabIdx) {
             try { sessionStorage.setItem('cv_tab_slide_dir', targetIdx > curTabIdx ? 'right' : 'left'); } catch (_) {}
           }
-          navigateTo(targetPage);
+          const mainOut = document.querySelector('main.content');
+          if (mainOut) {
+            mainOut.classList.remove('cv-enter-right', 'cv-enter-left');
+            mainOut.classList.add('cv-exit-fade');
+            setTimeout(() => navigateTo(targetPage), 105);
+          } else {
+            navigateTo(targetPage);
+          }
         }
       }, true);
     });

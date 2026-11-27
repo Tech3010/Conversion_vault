@@ -112,6 +112,44 @@
       background: var(--crimson); color: #ffffff; font-size: 13px; font-weight: 800; cursor: pointer;
     }
     .btn-run:disabled { opacity: 0.45; cursor: not-allowed; }
+    
+    .frame-stage {
+      position: relative; width: 100%; aspect-ratio: 16 / 9;
+      background: #05070d; border: 1px solid var(--border-strong); border-radius: 10px;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+    }
+    .frame-stage img {
+      width: 100%; height: 100%; object-fit: contain; display: block;
+    }
+    .frame-placeholder {
+      font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; padding: 14px;
+    }
+    .frame-overlay-pill {
+      position: absolute; bottom: 8px; right: 8px;
+      padding: 3px 8px; border-radius: 6px;
+      background: rgba(9, 13, 22, 0.82); border: 1px solid rgba(252, 209, 22, 0.45);
+      color: var(--gold-text); font-family: var(--mono); font-size: 10.5px; font-weight: 800;
+    }
+    .frame-res-pill {
+      position: absolute; top: 8px; left: 8px;
+      padding: 2px 7px; border-radius: 5px;
+      background: rgba(9, 13, 22, 0.8); border: 1px solid var(--border-strong);
+      color: var(--muted); font-family: var(--mono); font-size: 10px; font-weight: 700;
+    }
+    .frame-scrub-row { display: flex; flex-direction: column; gap: 6px; }
+    .frame-scrub-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+    }
+    .frame-scrub-slider { width: 100%; accent-color: var(--crimson); cursor: pointer; }
+    .frame-step-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+    .btn-step {
+      padding: 6px 4px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 10px; font-weight: 800; cursor: pointer;
+    }
+    .btn-step:hover { border-color: var(--crimson); color: var(--crimson); }
+
     .hidden { display: none !important; }
     .toast {
       position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
@@ -157,6 +195,35 @@
           <button type="button" id="btn-cm-pick-multi" class="btn-pick">+ Pick Multiple</button>
         </div>
         <div class="file-list" id="cm-files-list"></div>
+      </section>
+
+
+      <section class="card red-accent hidden" id="cm-frame-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="card-k">Live Frame Preview</div>
+          <span style="font-family:var(--mono); font-size:10px; color:var(--gold-text);" id="cm-frame-status">Pick a video to preview frames</span>
+        </div>
+        <div class="frame-stage">
+          <img id="cm-frame-img" class="hidden" alt="Selected video frame">
+          <div id="cm-frame-empty" class="frame-placeholder">Select a video above to scrub and preview the exact frame</div>
+          <span class="frame-res-pill hidden" id="cm-frame-res">—</span>
+          <span class="frame-overlay-pill" id="cm-frame-ts">00:00:01.000</span>
+        </div>
+        <div class="frame-scrub-row">
+          <div class="frame-scrub-meta">
+            <span id="cm-scrub-cur">00:00:01.000</span>
+            <span id="cm-scrub-dur">00:00:00.000</span>
+          </div>
+          <input type="range" id="cm-frame-slider" class="frame-scrub-slider" min="0" max="10000" step="50" value="1000">
+        </div>
+        <div class="frame-step-row">
+          <button type="button" class="btn-step" data-step-ms="-5000">-5s</button>
+          <button type="button" class="btn-step" data-step-ms="-1000">-1s</button>
+          <button type="button" class="btn-step" data-step-ms="-100">-0.1s</button>
+          <button type="button" class="btn-step" data-step-ms="100">+0.1s</button>
+          <button type="button" class="btn-step" data-step-ms="1000">+1s</button>
+          <button type="button" class="btn-step" data-step-ms="5000">+5s</button>
+        </div>
       </section>
 
       <section class="card hidden" id="cm-inputs-card">
@@ -261,6 +328,99 @@
         updatePreview();
       }
 
+
+      let frameDurMs = 0;
+      let frameCurMs = 1000;
+      let frameDebounce = null;
+
+      function fmtTimestampMs(ms) {
+        const safe = Math.max(0, Math.round(ms || 0));
+        const h = Math.floor(safe / 3600000);
+        const m = Math.floor((safe % 3600000) / 60000);
+        const s = Math.floor((safe % 60000) / 1000);
+        const rem = safe % 1000;
+        return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0') + '.' + String(rem).padStart(3, '0');
+      }
+
+      function syncFrameTsToInput(ms) {
+        frameCurMs = Math.max(0, frameDurMs > 0 ? Math.min(frameDurMs, ms) : ms);
+        const tsStr = fmtTimestampMs(frameCurMs);
+        const tsEl = document.getElementById('cm-frame-ts');
+        const curEl = document.getElementById('cm-scrub-cur');
+        const sl = document.getElementById('cm-frame-slider');
+        if (tsEl) tsEl.textContent = tsStr;
+        if (curEl) curEl.textContent = tsStr;
+        if (sl) sl.value = String(Math.round(frameCurMs));
+        if (mod && (mod.inputs || []).some(i => i.key === 'TIMESTAMP')) {
+          inputValues.TIMESTAMP = tsStr;
+          const inpEl = document.querySelector('[data-inp-key="TIMESTAMP"]');
+          if (inpEl) inpEl.value = tsStr;
+          updatePreview();
+        }
+      }
+
+      function requestNativeFrame(ms) {
+        if (!mod || !mod.framePreview || !pickedFiles.length) return;
+        const firstPath = pickedFiles[0].path || '';
+        if (!firstPath) return;
+        const stEl = document.getElementById('cm-frame-status');
+        if (stEl) stEl.textContent = 'Decoding frame...';
+        if (window.AndroidBridge && typeof window.AndroidBridge.extractVideoFrameBase64 === 'function') {
+          try {
+            const res = JSON.parse(window.AndroidBridge.extractVideoFrameBase64(firstPath, Math.round(ms)) || '{}');
+            if (res && res.ok && res.dataUrl) {
+              if (res.durationMs && res.durationMs > 0) {
+                frameDurMs = res.durationMs;
+                const sl = document.getElementById('cm-frame-slider');
+                const durEl = document.getElementById('cm-scrub-dur');
+                if (sl) sl.max = String(frameDurMs);
+                if (durEl) durEl.textContent = fmtTimestampMs(frameDurMs);
+              }
+              const img = document.getElementById('cm-frame-img');
+              const emp = document.getElementById('cm-frame-empty');
+              const resPill = document.getElementById('cm-frame-res');
+              if (img) { img.src = res.dataUrl; img.classList.remove('hidden'); }
+              if (emp) emp.classList.add('hidden');
+              if (resPill && res.width && res.height) {
+                resPill.textContent = res.width + ' × ' + res.height;
+                resPill.classList.remove('hidden');
+              }
+              if (stEl) stEl.textContent = 'Live Frame Ready';
+              return;
+            }
+            if (stEl) stEl.textContent = (res && res.error) || 'Frame preview unavailable';
+          } catch (_) {
+            if (stEl) stEl.textContent = 'Frame decode error';
+          }
+        } else {
+          if (stEl) stEl.textContent = 'Live frame preview runs inside Android APK';
+        }
+      }
+
+      if (mod && mod.framePreview) {
+        const fc = document.getElementById('cm-frame-card');
+        if (fc) fc.classList.remove('hidden');
+        const sl = document.getElementById('cm-frame-slider');
+        if (sl) {
+          sl.addEventListener('input', () => {
+            syncFrameTsToInput(Number(sl.value || 0));
+            clearTimeout(frameDebounce);
+            frameDebounce = setTimeout(() => requestNativeFrame(frameCurMs), 120);
+          });
+          sl.addEventListener('change', () => {
+            clearTimeout(frameDebounce);
+            requestNativeFrame(frameCurMs);
+          });
+        }
+        document.querySelectorAll('[data-step-ms]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const delta = parseInt(btn.getAttribute('data-step-ms'), 10) || 0;
+            syncFrameTsToInput(frameCurMs + delta);
+            requestNativeFrame(frameCurMs);
+          });
+        });
+      }
+
       window.onVaultCustomModuleFilesPicked = function (files) {
         if (!Array.isArray(files) || !files.length) return;
         const seen = new Set(pickedFiles.map(x => x.path || x.name));
@@ -270,6 +430,7 @@
           if (!seen.has(key)) { seen.add(key); pickedFiles.push(f); added++; }
         });
         renderFiles();
+        if (mod && mod.framePreview && pickedFiles.length > 0) { syncFrameTsToInput(frameCurMs); setTimeout(() => requestNativeFrame(frameCurMs), 40); }
         toast('Added ' + added + ' file' + (added === 1 ? '' : 's'));
       };
 
@@ -309,7 +470,7 @@
           mediaType: mType,
           inputPath: f.path,
           outputBaseName: '',
-          outputExt: mod.outputExt || 'mp4',
+          outputExt: (mod.outputExtInputKey && inputValues[mod.outputExtInputKey]) ? String(inputValues[mod.outputExtInputKey]).replace(/^\./, '').toLowerCase() : (mod.outputExt || 'mp4'),
           durationMs: 0,
           commandArgs: cmdArgs
         }));

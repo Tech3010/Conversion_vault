@@ -309,6 +309,53 @@
     }
     .oled-overlay.is-done .oled-label { color: #10b981; }
     .oled-overlay.is-failed .oled-label { color: #db0a40; }
+    
+    .oled-bars-wrap {
+      width: 232px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      margin-top: 6px;
+    }
+    .oled-bar-block {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .oled-bar-track {
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      background: #141820;
+      overflow: hidden;
+    }
+    .oled-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #b91c3c, #d4a017);
+      transition: width 0.35s linear;
+    }
+    .oled-bar-fill.is-file {
+      background: #c89b1e;
+    }
+    .oled-overlay.is-done .oled-bar-fill { background: #0d9468; }
+    .oled-overlay.is-failed .oled-bar-fill { background: #b91c3c; }
+    .oled-bar-sub {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: #8b95a5;
+      letter-spacing: 0.03em;
+    }
+    .oled-bar-num {
+      color: #d1d5db;
+      font-weight: 800;
+    }
+
     .oled-wake {
       position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
       font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
@@ -532,7 +579,23 @@
           <div class="oled-pct" id="oled-pct">0%</div>
         </div>
       </div>
-      <div class="oled-label" id="oled-label">CONVERTING</div>
+      <div class="oled-label" id="oled-label">BATCH CONVERTING</div>
+      <div class="oled-bars-wrap">
+        <div class="oled-bar-block">
+          <div class="oled-bar-track"><div class="oled-bar-fill" id="oled-batch-fill"></div></div>
+          <div class="oled-bar-sub">
+            <span>Batch Progress</span>
+            <span class="oled-bar-num" id="oled-batch-count">0 / 0</span>
+          </div>
+        </div>
+        <div class="oled-bar-block">
+          <div class="oled-bar-track"><div class="oled-bar-fill is-file" id="oled-file-fill"></div></div>
+          <div class="oled-bar-sub">
+            <span>Current File</span>
+            <span class="oled-bar-num" id="oled-file-pct">0%</span>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="oled-wake">Tap anywhere to wake</div>
   </div>
@@ -551,7 +614,7 @@
     const OLED_CIRC = 578.05;
     let oledShiftTimer = null;
 
-    function updateOledOverlay(pct, label, stateKind) {
+    function updateOledOverlay(pct, label, stateKind, doneCnt, totalCnt, filePct) {
       const ov = document.getElementById('oled-overlay');
       const arc = document.getElementById('oled-arc');
       const pctEl = document.getElementById('oled-pct');
@@ -563,6 +626,20 @@
       if (label) lblEl.textContent = label;
       ov.classList.toggle('is-done', stateKind === 'done');
       ov.classList.toggle('is-failed', stateKind === 'failed');
+
+      const bFill = document.getElementById('oled-batch-fill');
+      const bCnt = document.getElementById('oled-batch-count');
+      const fFill = document.getElementById('oled-file-fill');
+      const fPctEl = document.getElementById('oled-file-pct');
+      if (bFill) bFill.style.width = p + '%';
+      if (bCnt && typeof totalCnt === 'number' && totalCnt > 0) {
+        bCnt.textContent = Math.max(0, doneCnt || 0) + ' / ' + totalCnt;
+      }
+      if (typeof filePct === 'number') {
+        const fp = Math.max(0, Math.min(100, Math.round(filePct)));
+        if (fFill) fFill.style.width = fp + '%';
+        if (fPctEl) fPctEl.textContent = stateKind === 'done' ? '100%' : (fp + '%');
+      }
     }
 
     const OLED_ORBIT = [
@@ -846,7 +923,7 @@
         if (ovEye) ovEye.textContent = allDone ? (failCnt > 0 ? 'BATCH FINISHED WITH ERRORS' : '✓ OVERALL BATCH COMPLETE') : 'OVERALL BATCH PROGRESS';
         if (ovCnt) ovCnt.textContent = doneCnt + ' / ' + total + ' Done' + (queuedCnt > 0 ? (' · ' + queuedCnt + ' Queued') : '') + (failCnt > 0 ? (' · ' + failCnt + ' Failed') : '');
         if (ovPctEl) ovPctEl.textContent = overallPct + '%';
-        updateOledOverlay(overallPct, allDone ? (failCnt > 0 && doneCnt === 0 ? 'BATCH FAILED' : 'BATCH COMPLETE') : 'BATCH CONVERTING', allDone ? (failCnt > 0 && doneCnt === 0 ? 'failed' : 'done') : 'running');
+        updateOledOverlay(overallPct, allDone ? (failCnt > 0 && doneCnt === 0 ? 'BATCH FAILED' : 'BATCH COMPLETE') : 'BATCH CONVERTING', allDone ? (failCnt > 0 && doneCnt === 0 ? 'failed' : 'done') : 'running', doneCnt, total, allDone ? 100 : liveFilePct);
         if (ovSubEl) ovSubEl.textContent = allDone
           ? ('Converted ' + doneCnt + ' of ' + total + ' files' + (failCnt > 0 ? (' (' + failCnt + ' failed)') : ''))
           : ('Processing file ' + curPos + ' of ' + total + ' · ' + queuedCnt + ' remaining');
@@ -985,7 +1062,19 @@
       if (!activeJobId) activeJobId = resolveActiveJobId();
       if (!activeJobId || !window.AndroidBridge || !window.AndroidBridge.getJobById) return;
       try {
-        const j = JSON.parse(window.AndroidBridge.getJobById(activeJobId) || '{}');
+        let j = JSON.parse(window.AndroidBridge.getJobById(activeJobId) || '{}');
+        // If current job finished and another job in this batch is now RUNNING, switch immediately
+        if (j && j.status && j.status !== 'RUNNING' && typeof window.AndroidBridge.getJobs === 'function') {
+          const allJobs = JSON.parse(window.AndroidBridge.getJobs() || '[]');
+          const bIds = getBatchJobIds();
+          const runningNext = allJobs.find(x => x && x.status === 'RUNNING' && (!bIds.length || bIds.includes(x.id)));
+          if (runningNext && runningNext.id && runningNext.id !== activeJobId) {
+            activeJobId = String(runningNext.id);
+            liveFilePct = parseInt(runningNext.progress, 10) || 0;
+            try { window.AndroidBridge.setAppState('cv_active_job_id', activeJobId); } catch (_) {}
+            j = runningNext;
+          }
+        }
         if (j && j.id) renderJobTelemetry(j);
       } catch (_) {}
       renderBatchQueue();
@@ -995,6 +1084,9 @@
       if (!ev) return;
       if (ev.type === 'job_started' && ev.jobId) {
         activeJobId = String(ev.jobId);
+        liveFilePct = 0;
+        const _oFF = document.getElementById('oled-file-fill'); if (_oFF) _oFF.style.width = '0%';
+        const _oFP = document.getElementById('oled-file-pct'); if (_oFP) _oFP.textContent = '0%';
         try { if (window.AndroidBridge && window.AndroidBridge.setAppState) window.AndroidBridge.setAppState('cv_active_job_id', activeJobId); } catch (_) {}
         pollJob();
         return;
@@ -1020,6 +1112,8 @@
           if (frEl) frEl.textContent = ((ev.timeMs || 0) / 1000).toFixed(1) + 's / ' + (ev.durationMs / 1000).toFixed(1) + 's';
         }
         liveFilePct = pct;
+        const _oFF = document.getElementById('oled-file-fill'); if (_oFF) _oFF.style.width = pct + '%';
+        const _oFP = document.getElementById('oled-file-pct'); if (_oFP) _oFP.textContent = pct + '%';
         if (!fileStartAtMap[activeJobId]) fileStartAtMap[activeJobId] = Date.now();
         const fElap = Math.max(1, Math.floor((Date.now() - fileStartAtMap[activeJobId]) / 1000));
         const elapEl = document.getElementById('pit-elapsed');

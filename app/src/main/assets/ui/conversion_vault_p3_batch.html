@@ -576,6 +576,7 @@
     body.workflow-mode .btn-open-modal,
     body.workflow-mode [data-dtab="format"] { display: none !important; }
     body.workflow-mode .drawer-tabs { grid-template-columns: repeat(2, 1fr) !important; }
+    body.workflow-mode #perf-device-card, body.workflow-mode #perf-cat-card { display: none !important; }
 
     .hidden { display: none !important; }
     .toast {
@@ -777,7 +778,7 @@
         </div>
       </section>
 
-      <section class="perf-card">
+      <section class="perf-card" id="perf-cat-card">
         <div class="perf-card-title">
           <span>Category Time &amp; Output Map</span>
           <span>Organized Subfolders</span>
@@ -785,7 +786,7 @@
         <div id="perf-cat-breakdown" style="display:flex; flex-direction:column; gap:8px;"></div>
       </section>
 
-      <section class="perf-card">
+      <section class="perf-card" id="perf-device-card">
         <div class="perf-card-title">
           <span>Device Load &amp; Thread Tuning</span>
           <span>System RAM · Storage</span>
@@ -2314,7 +2315,7 @@
       if (probeFn) {
         let idx = 0;
         const probeNext = () => {
-          if (idx >= state.files.length) { renderAll(); return; }
+          if (idx >= state.files.length) { renderAll(); if (!document.getElementById('page-perf').classList.contains('hidden') && typeof renderPerformance === 'function') renderPerformance(); return; }
           const item = state.files[idx++];
           if (item) {
             let ok = false;
@@ -2604,10 +2605,13 @@
         if (!pid || pid === '__skip__') return null;
         try {
           if (window.VaultPresets && window.VaultPresets.listActive) {
-            return (window.VaultPresets.listActive(cat) || []).find(p => p.id === pid) || null;
+            const list = window.VaultPresets.listActive(cat) || [];
+            const exact = list.find(p => String(p.id) === String(pid) || String(p.roomId) === String(pid));
+            if (exact) return exact;
+            if (list.length > 0) return list[0];
           }
         } catch (_) {}
-        return null;
+        return { id: String(pid), name: 'Workflow Default', cat: cat, cfg: {} };
       }
 
       const vP = findPreset('video', wf.video && wf.video.presetId);
@@ -2650,7 +2654,10 @@
           if (!vCfg) { it.skipped = true; }
           else {
             it.cfg = Object.assign({}, vCfg);
+            it.hasPreset = true;
+            it.preset = vP.name;
             it.presetName = vP.name;
+            it.isCustom = false;
             it.custom = false;
             if (skipRule === 'same_format' && ext === (vCfg.container || 'mp4')) it.skipped = true;
             if (skipRule === 'smaller_than' && (it.sizeMB || 0) > 0 && (it.sizeMB || 0) < skipMB) it.skipped = true;
@@ -2659,7 +2666,10 @@
           if (!aCfg) { it.skipped = true; }
           else {
             it.cfg = Object.assign({}, aCfg);
+            it.hasPreset = true;
+            it.preset = aP.name;
             it.presetName = aP.name;
+            it.isCustom = false;
             it.custom = false;
             if (skipRule === 'same_format' && ext === (aCfg.fmt || 'm4a')) it.skipped = true;
             if (skipRule === 'smaller_than' && (it.sizeMB || 0) > 0 && (it.sizeMB || 0) < skipMB) it.skipped = true;
@@ -2668,7 +2678,10 @@
           if (!iCfg) { it.skipped = true; }
           else {
             it.cfg = Object.assign({}, iCfg);
+            it.hasPreset = true;
+            it.preset = iP.name;
             it.presetName = iP.name;
+            it.isCustom = false;
             it.custom = false;
             const tExt = (iCfg.fmt || 'webp');
             const normExt = ext === 'jpeg' ? 'jpg' : ext;
@@ -2693,7 +2706,7 @@
       }
 
       const goBtn = document.getElementById('btn-go-convert');
-      if (goBtn) goBtn.innerHTML = 'Start Workflow ▶';
+      if (goBtn) { goBtn.innerHTML = 'Start Workflow ▶'; goBtn.disabled = !(state.files || []).some(f => f && !f.skipped); }
       const backFilesBtn = document.getElementById('btn-back-files');
       if (backFilesBtn) backFilesBtn.textContent = '← Review Files';
 
@@ -2716,7 +2729,7 @@
         path: f.path,
         cat: f.cat,
         sizeMB: f.sizeMB || 0,
-        durationSec: f.durationSec || 0,
+        durationSec: f.durSec || f.durationSec || 0,
         cfg: f.cfg || (state.globalCfg && state.globalCfg[f.cat]) || {}
       }));
     };
