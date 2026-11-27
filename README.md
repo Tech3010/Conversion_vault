@@ -1,10 +1,12 @@
 # Conversion Vault
 
-[https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white]
-[https://img.shields.io/badge/FFmpeg-8.1.9%20Full--GPL-007808?style=for-the-badge&logo=ffmpeg&logoColor=white]
-[https://img.shields.io/badge/Kotlin-Room%20%2B%20WorkManager-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white]
-[https://img.shields.io/badge/100%25%20Offline-Zero%20Ads-DB0A40?style=for-the-badge]
-[https://img.shields.io/badge/Vibe--Coded-FCD116?style=for-the-badge&logoColor=090D16]
+<p>
+  <img src="https://img.shields.io/badge/Android-8.0_and_up-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
+  <img src="https://img.shields.io/badge/FFmpeg-8.1.9_GPL-007808?style=for-the-badge&logo=ffmpeg&logoColor=white" alt="FFmpeg" />
+  <img src="https://img.shields.io/badge/Kotlin-Room_%26_WorkManager-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin" />
+  <img src="https://img.shields.io/badge/100%25_Offline-Zero_Ads-DB0A40?style=for-the-badge" alt="100% Offline" />
+  <img src="https://img.shields.io/badge/Built_With-Vibe_Coding-FCD116?style=for-the-badge&logoColor=090D16" alt="Vibe-Coded" />
+</p>
 
 100% offline Android media converter and studio combining **MediaCodec Hardware** and **Software CPU** encoding, smart file selection, pre-conversion time and size calculations, FFmpeg terminal command copying, and `.sh` script generation.
 
