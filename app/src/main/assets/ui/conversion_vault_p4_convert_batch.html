@@ -271,35 +271,41 @@
       animation: oledFadeIn 0.24s ease both;
     }
     @keyframes oledFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes oledBreathe {
+      0%, 100% { opacity: 0.76; }
+      50% { opacity: 1; }
+    }
     .oled-stage {
-      display: flex; flex-direction: column; align-items: center; gap: 22px;
-      transition: transform 1.2s ease;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+      transition: transform 3.6s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform;
+      animation: oledBreathe 6.5s ease-in-out infinite;
     }
     .oled-ring-wrap {
-      position: relative; width: 220px; height: 220px;
+      position: relative; width: 204px; height: 204px;
       display: flex; align-items: center; justify-content: center;
     }
-    .oled-svg { width: 220px; height: 220px; transform: rotate(-90deg); }
-    .oled-track { fill: none; stroke: #141821; stroke-width: 10; }
+    .oled-svg { width: 204px; height: 204px; transform: rotate(-90deg); }
+    .oled-track { fill: none; stroke: #0c0f15; stroke-width: 7; }
     .oled-arc {
-      fill: none; stroke: url(#oledGrad); stroke-width: 10; stroke-linecap: round;
+      fill: none; stroke: url(#oledGrad); stroke-width: 7; stroke-linecap: round;
       stroke-dasharray: 578.05; stroke-dashoffset: 578.05;
-      transition: stroke-dashoffset 0.35s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s ease;
+      transition: stroke-dashoffset 0.55s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.35s ease;
     }
-    .oled-overlay.is-done .oled-arc { stroke: #10b981; }
-    .oled-overlay.is-failed .oled-arc { stroke: #db0a40; }
+    .oled-overlay.is-done .oled-arc { stroke: #0d9468; }
+    .oled-overlay.is-failed .oled-arc { stroke: #b91c3c; }
     .oled-center {
       position: absolute; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center;
     }
     .oled-pct {
-      font-family: var(--mono); font-size: 46px; font-weight: 800; line-height: 1;
-      letter-spacing: -0.04em; color: #f8fafc;
+      font-family: var(--mono); font-size: 42px; font-weight: 700; line-height: 1;
+      letter-spacing: -0.04em; color: #cbd5e1;
     }
     .oled-overlay.is-done .oled-pct { color: #10b981; }
     .oled-label {
-      font-family: var(--mono); font-size: 13px; font-weight: 800; letter-spacing: 0.14em;
-      text-transform: uppercase; color: var(--gold-text); text-align: center;
+      font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: #d4a017; text-align: center;
     }
     .oled-overlay.is-done .oled-label { color: #10b981; }
     .oled-overlay.is-failed .oled-label { color: #db0a40; }
@@ -312,6 +318,11 @@
       background: var(--crimson-soft) !important;
       border-color: rgba(219, 10, 64, 0.55) !important;
       color: #fda4af !important;
+    }
+    .dest-delta.is-stopped {
+      background: var(--gold-soft) !important;
+      border-color: rgba(252, 209, 22, 0.50) !important;
+      color: var(--gold-text) !important;
     }
     .hidden { display: none !important; }
     .toast {
@@ -407,7 +418,7 @@
             <span class="tele-v c-emerald" id="tele-speed">—</span>
           </div>
           <div class="tele-cell">
-            <span class="tele-k">Source Duration</span>
+            <span class="tele-k">Timeline Progress</span>
             <span class="tele-v" id="tele-frames">—</span>
           </div>
           <div class="tele-cell">
@@ -510,8 +521,8 @@
         <svg class="oled-svg" viewBox="0 0 220 220" aria-hidden="true">
           <defs>
             <linearGradient id="oledGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#db0a40"/>
-              <stop offset="100%" stop-color="#fcd116"/>
+              <stop offset="0%" stop-color="#b91c3c"/>
+              <stop offset="100%" stop-color="#d4a017"/>
             </linearGradient>
           </defs>
           <circle class="oled-track" cx="110" cy="110" r="92"/>
@@ -554,24 +565,35 @@
       ov.classList.toggle('is-failed', stateKind === 'failed');
     }
 
+    const OLED_ORBIT = [
+      [0, -42], [24, -22], [26, 20], [0, 46], [-24, 22], [-26, -20]
+    ];
+    let oledOrbitIdx = 0;
+
     function openOledFocus() {
       const ov = document.getElementById('oled-overlay');
       const stg = document.getElementById('oled-stage');
       if (!ov) return;
       ov.classList.remove('hidden');
+      try { if (window.AndroidBridge && window.AndroidBridge.setOledImmersive) window.AndroidBridge.setOledImmersive(true); } catch (_) {}
       if (oledShiftTimer) clearInterval(oledShiftTimer);
-      oledShiftTimer = setInterval(() => {
+      const stepDrift = () => {
         if (!stg || ov.classList.contains('hidden')) return;
-        const dx = Math.round((Math.random() - 0.5) * 12);
-        const dy = Math.round((Math.random() - 0.5) * 12);
-        stg.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
-      }, 20000);
+        const pt = OLED_ORBIT[oledOrbitIdx % OLED_ORBIT.length];
+        oledOrbitIdx++;
+        stg.style.transform = 'translate3d(' + pt[0] + 'px, ' + pt[1] + 'px, 0)';
+      };
+      setTimeout(stepDrift, 2500);
+      oledShiftTimer = setInterval(stepDrift, 18000);
     }
 
     function closeOledFocus() {
       const ov = document.getElementById('oled-overlay');
       const stg = document.getElementById('oled-stage');
-      if (ov) ov.classList.add('hidden');
+      if (ov && !ov.classList.contains('hidden')) {
+        ov.classList.add('hidden');
+        try { if (window.AndroidBridge && window.AndroidBridge.setOledImmersive) window.AndroidBridge.setOledImmersive(false); } catch (_) {}
+      }
       if (stg) stg.style.transform = 'none';
       if (oledShiftTimer) { clearInterval(oledShiftTimer); oledShiftTimer = null; }
     }
@@ -678,7 +700,15 @@
       if (spdEl) spdEl.textContent = (j.fps ? Math.round(j.fps) + ' fps · ' : '') + (j.speed || (st === 'DONE' ? 'Complete' : st));
 
       const frEl = document.getElementById('tele-frames');
-      if (frEl) frEl.textContent = j.durationMs ? (j.durationMs / 1000).toFixed(1) + 's source' : 'Stream copy / auto';
+      if (frEl) {
+        const durMs = j.durationMs || (window.__cvLiveDurMs && window.__cvLiveDurMs[j.id]) || 0;
+        const curMs = (st === 'DONE') ? durMs : ((window.__cvLiveTimeMs && window.__cvLiveTimeMs[j.id]) || 0);
+        if (durMs > 0) {
+          frEl.textContent = (curMs / 1000).toFixed(1) + 's / ' + (durMs / 1000).toFixed(1) + 's';
+        } else {
+          frEl.textContent = st === 'DONE' ? 'Complete' : 'Stream copy / auto';
+        }
+      }
 
       const brEl = document.getElementById('tele-br');
       if (brEl) brEl.textContent = (j.commandArgs && j.commandArgs.startsWith('NATIVE_PHOTO:')) ? 'Native Photo Engine' : 'FFmpeg Engine';
@@ -695,7 +725,7 @@
       const doneSum = document.getElementById('done-summary');
       if (doneSum) {
         if (st === 'DONE') {
-          doneSum.classList.remove('hidden', 'is-err');
+          doneSum.classList.remove('hidden', 'is-err', 'is-stopped');
           doneSum.textContent = '✓ Saved (' + fmtMB(j.outputSizeBytes) + ') in ' + fmtClock(elapsedSec);
           try {
             if (!window.__cvAskedSourceIds) window.__cvAskedSourceIds = new Set();
@@ -711,15 +741,17 @@
               window.__cvPendingDeleteSrcJob = { id: j.id, path: j.inputPath, name: inName };
             }
           } catch (_) {}
-        } else if (st === 'FAILED' || st === 'CANCELLED') {
-          doneSum.classList.remove('hidden');
+        } else if (st === 'CANCELLED') {
+          doneSum.classList.remove('hidden', 'is-err');
+          doneSum.classList.add('is-stopped');
+          doneSum.textContent = '■ Conversion Stopped — tap Start Again below to run it again.';
+        } else if (st === 'FAILED') {
+          doneSum.classList.remove('hidden', 'is-stopped');
           doneSum.classList.add('is-err');
-          doneSum.textContent = st === 'CANCELLED'
-            ? '■ Stopped — tap Retry Failed below to run again.'
-            : ('✗ Conversion Failed: ' + (j.errorLog || 'Check FFmpeg console below').slice(0, 180));
+          doneSum.textContent = '✗ Conversion Failed: ' + (j.errorLog || 'Check FFmpeg console below').slice(0, 180);
         } else {
           doneSum.classList.add('hidden');
-          doneSum.classList.remove('is-err');
+          doneSum.classList.remove('is-err', 'is-stopped');
         }
       }
 
@@ -841,19 +873,24 @@
           pill.className = 'engine-state-pill ' + (allDone ? (failCnt > 0 && doneCnt === 0 ? 'state-paused' : 'state-done') : 'state-running');
           pillTxt.textContent = allDone ? (failCnt > 0 && doneCnt === 0 ? 'FAILED' : 'DONE') : 'RUNNING';
         }
+        const trueFailedCnt = batchJobs.filter(j => j.status === 'FAILED').length;
+        const stoppedCnt = batchJobs.filter(j => j.status === 'CANCELLED').length;
+        const onlyStopped = (trueFailedCnt === 0 && stoppedCnt > 0);
         window.__cvLastBatchFailedIds = batchJobs.filter(j => j.status === 'FAILED' || j.status === 'CANCELLED').map(j => String(j.id));
-        const allFailed = allDone && doneCnt === 0 && failCnt > 0;
-        const partialFailed = allDone && doneCnt > 0 && failCnt > 0;
-        if (ovEta && allFailed) ovEta.textContent = 'Conversion Failed';
-        if (ovEye && allFailed) ovEye.textContent = '✗ BATCH CONVERSION FAILED';
+        const allFailedOrStopped = allDone && doneCnt === 0 && failCnt > 0;
+        if (ovEta && allFailedOrStopped) ovEta.textContent = onlyStopped ? 'Stopped' : 'Conversion Failed';
+        if (ovEye && allFailedOrStopped) ovEye.textContent = onlyStopped ? '■ BATCH STOPPED' : '✗ BATCH CONVERSION FAILED';
+        if (pillTxt && allFailedOrStopped) pillTxt.textContent = onlyStopped ? 'STOPPED' : 'FAILED';
         const fRun = document.getElementById('footer-running');
         const fDone = document.getElementById('footer-done');
         const fFail = document.getElementById('footer-failed');
-        const bRetryPartial = document.getElementById('btn-retry-partial');
+        const bRetryBatch = document.getElementById('btn-retry-batch');
+        const bCopyErr = document.getElementById('btn-copy-err');
         if (fRun) fRun.classList.toggle('hidden', allDone);
-        if (fDone) fDone.classList.toggle('hidden', !(allDone && !allFailed));
-        if (fFail) fFail.classList.toggle('hidden', !allFailed);
-        if (bRetryPartial) bRetryPartial.classList.toggle('hidden', !partialFailed);
+        if (fDone) fDone.classList.toggle('hidden', !(allDone && !allFailedOrStopped));
+        if (fFail) fFail.classList.toggle('hidden', !allFailedOrStopped);
+        if (bRetryBatch) bRetryBatch.textContent = onlyStopped ? '▶ Start Again' : '↻ Retry Failed';
+        if (bCopyErr) bCopyErr.classList.toggle('hidden', onlyStopped);
         if (allDone && pollTimer) {
           clearInterval(pollTimer);
           pollTimer = null;
@@ -879,22 +916,41 @@
             failListEl.innerHTML = '';
           } else {
             failCard.classList.remove('hidden');
-            if (failCntEl) failCntEl.textContent = failedJobs.length + ' Failed';
+            const cardTitleEl = failCard.querySelector('span');
+            if (onlyStopped) {
+              failCard.style.borderColor = 'rgba(252,209,22,0.50)';
+              failCard.style.background = 'linear-gradient(145deg, rgba(252,209,22,0.09) 0%, var(--surface) 65%)';
+              if (cardTitleEl) { cardTitleEl.textContent = '■ Stopped Conversions'; cardTitleEl.style.color = 'var(--gold-text)'; }
+              if (failCntEl) { failCntEl.textContent = failedJobs.length + ' Stopped'; failCntEl.style.background = 'var(--gold-soft)'; failCntEl.style.color = 'var(--gold-text)'; }
+              if (retryAllBtn) { retryAllBtn.textContent = '▶ Start All Again'; retryAllBtn.style.borderColor = 'rgba(252,209,22,0.55)'; retryAllBtn.style.color = 'var(--gold-text)'; }
+            } else {
+              failCard.style.borderColor = 'rgba(219,10,64,0.55)';
+              failCard.style.background = 'linear-gradient(145deg, rgba(219,10,64,0.10) 0%, var(--surface) 65%)';
+              if (cardTitleEl) { cardTitleEl.textContent = '✗ Failed Conversions'; cardTitleEl.style.color = 'var(--crimson)'; }
+              if (failCntEl) { failCntEl.textContent = failedJobs.length + ' Failed'; failCntEl.style.background = 'var(--crimson-soft)'; failCntEl.style.color = 'var(--crimson)'; }
+              if (retryAllBtn) { retryAllBtn.textContent = '↻ Retry All'; retryAllBtn.style.borderColor = 'rgba(219,10,64,0.55)'; retryAllBtn.style.color = 'var(--crimson)'; }
+            }
             if (retryAllBtn) retryAllBtn.classList.toggle('hidden', failedJobs.length < 2);
             failListEl.innerHTML = failedJobs.map(j => {
               const nm = (j.inputPath || 'File').split('/').pop();
-              const errLine = j.status === 'CANCELLED'
-                ? 'Stopped before completion'
+              const isStop = (j.status === 'CANCELLED');
+              const errLine = isStop
+                ? 'Stopped before completion — tap Start Again to run'
                 : String(j.errorLog || 'Conversion failed — check console').replace(/\s+/g, ' ').slice(0, 120);
-              return '<div style="display:flex; flex-direction:column; gap:7px; padding:9px 10px; border-radius:8px; border:1px solid rgba(219,10,64,0.35); background:var(--card);">' +
+              const rowBorder = isStop ? 'rgba(252,209,22,0.35)' : 'rgba(219,10,64,0.35)';
+              const subColor = isStop ? 'var(--gold-text)' : '#fda4af';
+              const actBtn = isStop
+                ? '<button type="button" class="btn-cmd-act" data-bf-act="retry" data-id="' + esc(j.id) + '" style="flex:1; border-color:var(--gold); background:var(--gold); color:#090d16;">▶ Start Again</button>'
+                : '<button type="button" class="btn-cmd-act" data-bf-act="retry" data-id="' + esc(j.id) + '" style="flex:1; border-color:var(--crimson); background:var(--crimson); color:#ffffff;">↻ Retry</button>';
+              const copyBtn = isStop ? '' : '<button type="button" class="btn-cmd-act" data-bf-act="copy" data-id="' + esc(j.id) + '" style="flex:1;">Copy Error</button>';
+              return '<div style="display:flex; flex-direction:column; gap:7px; padding:9px 10px; border-radius:8px; border:1px solid ' + rowBorder + '; background:var(--card);">' +
                 '<div style="min-width:0;">' +
                   '<div style="font-size:12px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(nm) + '</div>' +
-                  '<div style="font-size:10.5px; font-family:var(--mono); color:#fda4af; margin-top:2px; word-break:break-word;">' + esc(errLine) + '</div>' +
+                  '<div style="font-size:10.5px; font-family:var(--mono); color:' + subColor + '; margin-top:2px; word-break:break-word;">' + esc(errLine) + '</div>' +
                 '</div>' +
                 '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
-                  '<button type="button" class="btn-cmd-act" data-bf-act="retry" data-id="' + esc(j.id) + '" style="flex:1; border-color:var(--crimson); background:var(--crimson); color:#ffffff;">↻ Retry</button>' +
-                  '<button type="button" class="btn-cmd-act" data-bf-act="copy" data-id="' + esc(j.id) + '" style="flex:1;">Copy Error</button>' +
-                  '<button type="button" class="btn-cmd-act" data-bf-act="remove" data-id="' + esc(j.id) + '" style="flex:0.85; border-color:rgba(219,10,64,0.45); color:var(--crimson);">Remove</button>' +
+                  actBtn + copyBtn +
+                  '<button type="button" class="btn-cmd-act" data-bf-act="remove" data-id="' + esc(j.id) + '" style="flex:0.85; border-color:var(--border-strong); color:var(--muted);">Remove</button>' +
                 '</div>' +
               '</div>';
             }).join('');
@@ -956,7 +1012,13 @@
         if (fillEl) fillEl.style.width = Math.max(3, pct) + '%';
         if (spdEl) spdEl.textContent = (ev.fps > 0 ? (Math.round(ev.fps) + ' fps · ') : '') + (ev.speed || 'Running');
         if (szEl && ev.outBytes > 0 && lastJob) szEl.textContent = fmtMB(lastJob.inputSizeBytes) + ' → ' + fmtMB(ev.outBytes);
-        if (frEl && ev.durationMs > 0) frEl.textContent = (ev.timeMs / 1000).toFixed(1) + 's / ' + (ev.durationMs / 1000).toFixed(1) + 's';
+        if (ev.durationMs > 0) {
+          window.__cvLiveTimeMs = window.__cvLiveTimeMs || {};
+          window.__cvLiveDurMs = window.__cvLiveDurMs || {};
+          window.__cvLiveTimeMs[activeJobId] = ev.timeMs || 0;
+          window.__cvLiveDurMs[activeJobId] = ev.durationMs;
+          if (frEl) frEl.textContent = ((ev.timeMs || 0) / 1000).toFixed(1) + 's / ' + (ev.durationMs / 1000).toFixed(1) + 's';
+        }
         liveFilePct = pct;
         if (!fileStartAtMap[activeJobId]) fileStartAtMap[activeJobId] = Date.now();
         const fElap = Math.max(1, Math.floor((Date.now() - fileStartAtMap[activeJobId]) / 1000));
@@ -1040,7 +1102,7 @@
         else showToast('Copied error details');
       } else if (act === 'remove') {
         try {
-          if (window.AndroidBridge && window.AndroidBridge.deleteJob) window.AndroidBridge.deleteJob(jid);
+          if (window.AndroidBridge && window.AndroidBridge.deleteJob) window.AndroidBridge.deleteJob(jid, false);
           if (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.setAppState) {
             const raw = window.AndroidBridge.getAppState('cv_batch_job_ids') || '[]';
             const ids = JSON.parse(raw).filter(x => String(x) !== String(jid));
@@ -1096,6 +1158,7 @@
     pollJob();
     pollTimer = setInterval(() => { if (!document.hidden) pollJob(); }, 1000);
     window.addEventListener('pagehide', () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } });
+    window.onVaultAppResumed = () => { pollJob(); };
 
     document.getElementById('btn-ask-keep-src')?.addEventListener('click', () => {
       const p = window.__cvPendingDeleteSrcJob;

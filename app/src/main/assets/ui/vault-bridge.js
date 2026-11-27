@@ -3,11 +3,32 @@
   function isPresetFlowMode() {
     try { return window.location.search.indexOf('mode=preset') !== -1; } catch (_) { return false; }
   }
+  function isWorkflowFlowMode() {
+    try { return window.location.search.indexOf('mode=workflow') !== -1; } catch (_) { return false; }
+  }
+  function getSavedWorkflows() {
+    try {
+      const arr = JSON.parse(safeGet('cv_workflows_v1', '[]') || '[]');
+      return Array.isArray(arr) ? arr.filter(w => w && !w.deleted) : [];
+    } catch (_) { return []; }
+  }
+  function getPendingWorkflow() {
+    try {
+      const raw = safeGet('cv_pending_workflow', '') || '';
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return (obj && obj.id) ? obj : null;
+    } catch (_) { return null; }
+  }
+  function clearPendingWorkflow() {
+    safeSet('cv_pending_workflow', '');
+  }
 
   const NAV_ROUTES = {
     home: 'conversion_vault_p1_home.html',
     queue: 'conversion_vault_p5_queue_history.html',
     presets: 'conversion_vault_p7_presets.html',
+    workflows: 'conversion_vault_p9_workflows.html',
     settings: 'conversion_vault_p6_settings.html'
   };
 
@@ -186,13 +207,13 @@
       .bottom-nav {
         position: fixed !important; bottom: 0 !important; left: 50% !important; transform: translateX(-50%) !important;
         width: 100% !important; max-width: 540px !important; height: 66px !important;
-        padding: 6px 8px !important; gap: 6px !important;
-        display: grid !important; grid-template-columns: repeat(4, 1fr) !important; z-index: 40 !important;
+        padding: 6px 4px !important; gap: 4px !important;
+        display: grid !important; grid-template-columns: repeat(5, 1fr) !important; z-index: 40 !important;
       }
       .bottom-nav .nav-item {
         background: transparent !important; border: 1px solid transparent !important; border-radius: 11px !important;
         display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;
-        gap: 3px !important; padding: 4px 2px !important; font-size: 10.5px !important; font-weight: 700 !important;
+        gap: 3px !important; padding: 4px 2px !important; font-size: 9.8px !important; font-weight: 700 !important;
         transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.14s cubic-bezier(0.22,1,0.36,1) !important;
       }
       .bottom-nav .nav-item.active {
@@ -202,15 +223,15 @@
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 10px rgba(219, 10, 64, 0.18) !important;
       }
       @keyframes cvSwipeFromRight {
-        0% { opacity: 0; transform: translate3d(32px, 0, 0); }
+        0% { opacity: 0; transform: translate3d(24px, 0, 0); }
         100% { opacity: 1; transform: translate3d(0, 0, 0); }
       }
       @keyframes cvSwipeFromLeft {
-        0% { opacity: 0; transform: translate3d(-32px, 0, 0); }
+        0% { opacity: 0; transform: translate3d(-24px, 0, 0); }
         100% { opacity: 1; transform: translate3d(0, 0, 0); }
       }
-      main.content.cv-enter-right { animation: cvSwipeFromRight 0.22s cubic-bezier(0.22, 1, 0.36, 1) both !important; will-change: transform, opacity; }
-      main.content.cv-enter-left { animation: cvSwipeFromLeft 0.22s cubic-bezier(0.22, 1, 0.36, 1) both !important; will-change: transform, opacity; }
+      main.content.cv-enter-right { animation: cvSwipeFromRight 0.18s cubic-bezier(0.22, 1, 0.36, 1) both !important; will-change: transform, opacity; }
+      main.content.cv-enter-left { animation: cvSwipeFromLeft 0.18s cubic-bezier(0.22, 1, 0.36, 1) both !important; will-change: transform, opacity; }
       main.content.cv-enter-right > *, main.content.cv-enter-left > * { animation: none !important; }
       .bottom-nav .nav-item svg { width: 18px !important; height: 18px !important; }
 
@@ -477,7 +498,7 @@
 
         const WATCH_LIST_IDS = [
           'batch-queue-list', 'batch-failed-list', 'queue-list', 'history-list',
-          'tpl-list', 'rec-list', 'samples-list', 'device-cap-list',
+          'rec-list', 'samples-list', 'device-cap-list',
           'check-list', 'inspect-sections', 'picked-files-list',
           'list-video', 'list-audio', 'list-image'
         ];
@@ -725,6 +746,84 @@
           v.textContent = supported.length ? supported.join(' · ') : 'Software Decode';
         }
       });
+
+      // Hydrate Home green box expandable "Supported Formats on This Device" drawer
+      const hfDrawer = document.getElementById('home-formats-drawer');
+      if (hfDrawer) {
+        let bench = null;
+        try {
+          if (typeof window.AndroidBridge.getSettings === 'function') {
+            const st = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+            if (st && st.hwTestJson) bench = JSON.parse(st.hwTestJson);
+          }
+        } catch (_) {}
+        const c = (bench && bench.codecs) || t.codecs || {};
+        const enc = (bench && bench.ffmpegEncoders) || null;
+        const hasSwAv1 = enc ? Boolean(enc['libsvtav1'] || enc['libaom-av1'] || enc['librav1e']) : false;
+        const av1CanEnc = Boolean(c.av1HwEncode) || hasSwAv1;
+        const fpsTxt = (bench && bench.ok && bench.fps > 0) ? (' · ~' + Number(bench.fps).toFixed(1) + ' fps') : '';
+
+        const rows = [
+          {
+            name: 'H.264 8-bit (.mp4)',
+            sub: (c.h264HwDecode ? 'HW Decode ✓' : 'SW Decode') + ' · ' + (c.h264HwEncode ? 'HW Encode ✓' : 'CPU x264') + fpsTxt,
+            badge: c.h264HwDecode ? 'SUPPORTED ✓' : 'CPU SAFE',
+            cls: 'hf-ok'
+          },
+          {
+            name: 'HEVC / H.265 10-bit (.mkv / .mp4)',
+            sub: (c.hevc10bitHwDecode ? '10-bit HW Decode ✓' : 'No 10-bit HW Decode') + ' · ' + (c.hevcHwEncode ? 'HW Encode ✓' : 'CPU x265'),
+            badge: c.hevc10bitHwDecode ? '10-BIT HW ✓' : 'SW ONLY',
+            cls: c.hevc10bitHwDecode ? 'hf-ok' : 'hf-warn'
+          },
+          {
+            name: 'AV1 (.mp4 / .mkv)',
+            sub: (c.av1HwDecode ? 'HW Decode ✓' : 'No HW Decode') + ' · ' + (c.av1HwEncode ? 'HW Encode ✓' : (hasSwAv1 ? 'CPU Encode' : 'No Encoder Detected')),
+            badge: c.av1HwEncode ? 'FULL HW ✓' : (av1CanEnc ? 'SW ENC' : 'LIMITED'),
+            cls: c.av1HwEncode ? 'hf-ok' : (av1CanEnc ? 'hf-warn' : 'hf-no')
+          },
+          {
+            name: 'H.264 10-bit (Hi10P)',
+            sub: c.h264_10bitHwDecode ? 'Hardware 10-bit AVC decoder reported' : 'No hardware Hi10P decoder on this SoC',
+            badge: c.h264_10bitHwDecode ? 'HW DEC ✓' : 'NOT HW',
+            cls: c.h264_10bitHwDecode ? 'hf-ok' : 'hf-warn'
+          },
+          {
+            name: 'Audio & Photos',
+            sub: 'Opus · FLAC · AAC · MP3 · WAV · WebP · JPG · PNG' + (av1CanEnc ? ' · AVIF' : ''),
+            badge: 'READY ✓',
+            cls: 'hf-ok'
+          }
+        ];
+
+        hfDrawer.innerHTML = rows.map(r =>
+          '<div class="hf-row">' +
+            '<div class="hf-left">' +
+              '<span class="hf-name">' + r.name + '</span>' +
+              '<span class="hf-sub">' + r.sub + '</span>' +
+            '</div>' +
+            '<span class="hf-badge ' + r.cls + '">' + r.badge + '</span>' +
+          '</div>'
+        ).join('');
+      }
+
+      const bHomeFmt = document.getElementById('btn-home-formats');
+      if (bHomeFmt && !bHomeFmt.__cvWired) {
+        bHomeFmt.__cvWired = true;
+        bHomeFmt.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const dr = document.getElementById('home-formats-drawer');
+          const lbl = document.getElementById('lbl-home-formats');
+          const ico = document.getElementById('ico-home-formats');
+          if (!dr) return;
+          const willOpen = dr.classList.contains('hidden');
+          dr.classList.toggle('hidden', !willOpen);
+          bHomeFmt.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+          if (lbl) lbl.textContent = willOpen ? 'Hide Supported Formats' : 'More · Supported Formats on This Device';
+          if (ico) ico.textContent = willOpen ? '▴' : '▾';
+          if (willOpen && typeof window.cvAnimateUpdate === 'function') window.cvAnimateUpdate(dr, 'drop');
+        });
+      }
     } catch (_) {}
   }
 
@@ -962,6 +1061,11 @@
           window.AndroidBridge.saveSettings(JSON.stringify({ defaultVaultFolder: folderPath }));
         }
         toast('Default Vault Folder saved: ' + folderPath);
+        return;
+      }
+      if (window.__pickingWorkflowDir) {
+        window.__pickingWorkflowDir = false;
+        if (typeof window.onVaultWorkflowDirPicked === 'function') window.onVaultWorkflowDirPicked(payload);
         return;
       }
       if (page === 'conversion_vault_p3b_output.html' || page === 'conversion_vault_p3b_output_single.html') {
@@ -1390,10 +1494,63 @@
         }
         if (!sorted.length) { toast('Add at least one file first'); return; }
         setActiveFiles(sorted.length > 1 ? 'multi' : 'single', sorted);
+        if (isWorkflowFlowMode() && getPendingWorkflow()) {
+          navigateTo('conversion_vault_p3_batch.html?mode=workflow');
+          return;
+        }
         const qSuffix = (isPresetFlowMode() && pending && pending.cat) ? '?mode=preset' : '';
         if (sorted.length === 1) navigateTo('conversion_vault_p2a_single.html' + qSuffix);
         else navigateTo('conversion_vault_p3_batch.html' + qSuffix);
       }, true);
+
+      // Wire Workflow Launcher Card (normal mode) vs Active Workflow Banner (?mode=workflow)
+      const wfModeActive = isWorkflowFlowMode();
+      if (!wfModeActive) clearPendingWorkflow();
+      const activeWf = wfModeActive ? getPendingWorkflow() : null;
+      const wfBanner = document.getElementById('active-workflow-banner');
+      const wfLauncherWrap = document.getElementById('workflow-launcher-wrap');
+      if (activeWf && wfBanner) {
+        if (wfLauncherWrap) wfLauncherWrap.classList.add('hidden');
+        wfBanner.classList.remove('hidden');
+        const bt = document.getElementById('wf-banner-title');
+        const br = document.getElementById('wf-banner-routes');
+        if (bt) bt.textContent = 'Workflow: ' + activeWf.name;
+        if (br) {
+          const vDir = (activeWf.video && activeWf.video.outputDir) || 'Vault_Core/Videos';
+          const aDir = (activeWf.audio && activeWf.audio.outputDir) || 'Vault_Core/Audios';
+          const iDir = (activeWf.image && activeWf.image.outputDir) || 'Vault_Core/Images';
+          br.textContent = 'Video → ' + vDir + ' · Audio → ' + aDir + ' · Image → ' + iDir + ' (Select files below, then press Continue)';
+        }
+        const exitBtn = document.getElementById('btn-wf-exit');
+        if (exitBtn) exitBtn.addEventListener('click', () => {
+          clearPendingWorkflow();
+          navigateTo('conversion_vault_p2_select.html');
+        });
+      } else if (wfLauncherWrap) {
+        if (isPresetFlowMode()) {
+          wfLauncherWrap.classList.add('hidden');
+        } else {
+          const savedWfs = getSavedWorkflows();
+          const selWf = document.getElementById('sel-quick-workflow');
+          const btnLaunch = document.getElementById('btn-launch-workflow');
+          const btnGoto = document.getElementById('btn-goto-workflows');
+          if (savedWfs.length > 0 && selWf && btnLaunch) {
+            selWf.innerHTML = savedWfs.map(w => '<option value="' + w.id.replace(/"/g, '&quot;') + '">' + String(w.name || 'Workflow').replace(/</g, '&lt;') + '</option>').join('');
+            selWf.classList.remove('hidden');
+            btnLaunch.classList.remove('hidden');
+            if (btnGoto) btnGoto.classList.add('hidden');
+            btnLaunch.addEventListener('click', () => {
+              const picked = savedWfs.find(w => w.id === selWf.value) || savedWfs[0];
+              if (!picked) return;
+              safeSet('cv_pending_workflow', JSON.stringify(picked));
+              if (window.VaultPresets) window.VaultPresets.clearPendingPreset();
+              navigateTo('conversion_vault_p2_select.html?mode=workflow');
+            });
+          } else if (btnGoto) {
+            btnGoto.addEventListener('click', () => navigateTo('conversion_vault_p9_workflows.html'));
+          }
+        }
+      }
 
       renderUnifiedPickBasket();
     }
@@ -2086,9 +2243,178 @@
 
     if (page === 'conversion_vault_p3_batch.html') {
       if (typeof window.setBatchFilesFromNative === 'function') window.setBatchFilesFromNative(getActiveFiles());
+      const activeWf = isWorkflowFlowMode() ? getPendingWorkflow() : null;
+      if (activeWf && typeof window.applyVaultWorkflowMode === 'function') {
+        window.applyVaultWorkflowMode(activeWf);
+      }
       const bGo = document.getElementById('btn-go-convert');
       if (bGo) bGo.addEventListener('click', (e) => {
         e.preventDefault(); e.stopImmediatePropagation();
+        if (activeWf) {
+          if (!hasBridge) { toast('Native engine runs inside Android APK'); return; }
+          const wfFiles = (typeof window.getVaultActiveWorkflowFiles === 'function') ? window.getVaultActiveWorkflowFiles() : [];
+          if (!wfFiles.length) { toast('No active files to convert (all skipped)'); return; }
+          let savedSettings = {};
+          try {
+            if (typeof window.AndroidBridge.getSettings === 'function') {
+              savedSettings = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+            }
+          } catch (_) {}
+          const rules = activeWf.rules || {};
+          const wfMetaPolicy = rules.metaPolicy || 'preset';
+          const fnRule = rules.filenameRule || 'keep';
+          const customSuf = String(rules.customSuffix || '').trim().replace(/[\\/:*?"<>|]/g, '_');
+          const safeWfSlug = String(activeWf.name || 'workflow').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 20) || 'wf';
+          const nowD = new Date();
+          const dateTag = String(nowD.getFullYear()) + String(nowD.getMonth() + 1).padStart(2, '0') + String(nowD.getDate()).padStart(2, '0');
+
+          function buildWfBaseName(origName) {
+            const dot = String(origName || 'file').lastIndexOf('.');
+            const stem = dot > 0 ? origName.substring(0, dot) : String(origName || 'file');
+            if (fnRule === 'suffix_converted') return stem + '_converted';
+            if (fnRule === 'append_date') return stem + '_' + dateTag;
+            if (fnRule === 'prefix_workflow') return safeWfSlug + '_' + stem;
+            if (fnRule === 'suffix_custom' && customSuf) return stem + customSuf;
+            return '';
+          }
+
+          const jobSpecs = [];
+          wfFiles.forEach(f => {
+            const c = f.cat === 'audio' ? 'a' : (f.cat === 'image' ? 'i' : 'v');
+            const bucket = c === 'a' ? 'Audios' : (c === 'i' ? 'Images' : 'Videos');
+            const mType = c === 'a' ? 'Audio' : (c === 'i' ? 'Image' : 'Video');
+            let ext = c === 'a' ? 'm4a' : (c === 'i' ? 'webp' : 'mp4');
+            let args = '';
+            let outDir = '';
+
+            if (c === 'i') {
+              const pCfg = f.cfg || {};
+              ext = (pCfg.format || pCfg.fmt || 'webp').replace(/^\./, '').toLowerCase();
+              const effMeta = wfMetaPolicy !== 'preset' ? wfMetaPolicy : (pCfg.meta || (savedSettings.defaultMetadataPolicy === 'forensic' ? 'deep' : (savedSettings.defaultMetadataPolicy || 'wipe')));
+              const photoSpec = {
+                format: ext,
+                quality: parseInt(pCfg.quality || pCfg.qual || 88, 10) || 88,
+                scale: String(pCfg.scale || 'original'),
+                orient: String(pCfg.orient || 'auto'),
+                meta: String(effMeta),
+                colorSpace: String(pCfg.colorSpace || 'srgb_444'),
+                crop: String(pCfg.crop || 'original'),
+                filter: String(pCfg.filter || 'none'),
+                brightness: parseInt(pCfg.brightness || 0, 10) || 0
+              };
+              args = 'NATIVE_PHOTO:' + JSON.stringify(photoSpec);
+              outDir = (activeWf.image && activeWf.image.outputDir) || '';
+            } else if (c === 'a') {
+              const aCfg = f.cfg || {};
+              ext = (aCfg.fmt || 'm4a').replace(/^\./, '').toLowerCase();
+              const br = aCfg.br || '192k';
+              const arFlag = (aCfg.ar && aCfg.ar !== 'keep') ? (' -ar ' + aCfg.ar) : '';
+              const chRaw = aCfg.ch || aCfg.channels || 'keep';
+              const chFlag = chRaw === '1' || chRaw === 'mono' ? ' -ac 1' : (chRaw === '2' || chRaw === 'stereo' ? ' -ac 2' : '');
+              const afList = [];
+              const filt = aCfg.filter || aCfg.af || 'none';
+              if (filt === 'loudnorm') afList.push('loudnorm=I=-14:TP=-1.5:LRA=11');
+              else if (filt === 'bass') afList.push('bass=g=5');
+              else if (filt === 'trim_silence' || filt === 'silence') afList.push('silenceremove=start_periods=1:start_threshold=-50dB');
+              if (aCfg.gain && aCfg.gain !== '0dB') afList.push('volume=' + aCfg.gain);
+              if (aCfg.speed && aCfg.speed !== '1.0') afList.push('atempo=' + aCfg.speed);
+              if (aCfg.fade === 'in2' || aCfg.fade === 'both2') afList.push('afade=t=in:d=2');
+              const afFlag = afList.length ? (' -af "' + afList.join(',') + '"') : '';
+              const effAudMeta = wfMetaPolicy !== 'preset' ? wfMetaPolicy : (aCfg.meta || (savedSettings.defaultMetadataPolicy === 'forensic' ? 'deep' : (savedSettings.defaultMetadataPolicy === 'keep' ? 'keep' : 'wipe')));
+              const metaFlag = effAudMeta === 'deep' ? ' -map_metadata -1 -map_chapters -1 -fflags +bitexact' : (effAudMeta === 'wipe' ? ' -map_metadata -1' : '');
+              const codecPart = ext === 'flac' ? '-c:a flac'
+                : (ext === 'wav' ? '-c:a pcm_s16le'
+                : (ext === 'mp3' ? '-c:a libmp3lame -b:a ' + br
+                : (ext === 'opus' ? '-c:a libopus -b:a ' + br
+                : '-c:a aac -b:a ' + br)));
+              args = '-y -i {INPUT} -vn ' + codecPart + arFlag + chFlag + afFlag + metaFlag + ' {OUTPUT}';
+              outDir = (activeWf.audio && activeWf.audio.outputDir) || '';
+            } else {
+              const vCfg = f.cfg || {};
+              ext = (vCfg.container || 'mp4').replace(/^\./, '').toLowerCase();
+              const vCodec = vCfg.codec || 'libx264';
+              const crf = vCfg.crf != null ? vCfg.crf : 20;
+              const preset = vCfg.preset || 'fast';
+              const aCodec = vCfg.audioCodec || 'aac';
+              const aBr = vCfg.audioBr || '192k';
+              const vfList = [];
+              if (vCfg.scale === '720') vfList.push('scale=-2:720');
+              else if (vCfg.scale === '480') vfList.push('scale=-2:480');
+              else if (vCfg.scale === '1080_v') vfList.push('scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2');
+              if (vCfg.orient === '90cw') vfList.push('transpose=1');
+              else if (vCfg.orient === '90ccw') vfList.push('transpose=2');
+              else if (vCfg.orient === '180') vfList.push('transpose=1,transpose=1');
+              else if (vCfg.orient === 'hflip') vfList.push('hflip');
+              const vfFlag = vfList.length ? (' -vf "' + vfList.join(',') + '"') : '';
+              const fpsFlag = (vCfg.fps && vCfg.fps !== 'original') ? (' -r ' + vCfg.fps) : '';
+              const aPart = aCodec === 'none' ? '-an' : (aCodec === 'copy' ? '-c:a copy' : (aCodec === 'flac' ? '-c:a flac' : ('-c:a ' + aCodec + ' -b:a ' + aBr)));
+              const subFlag = vCfg.subMode === 'strip' ? ' -sn' : (vCfg.subMode === 'copy' ? ' -c:s copy' : '');
+              const effVidMeta = wfMetaPolicy !== 'preset' ? wfMetaPolicy : (vCfg.meta || (savedSettings.defaultMetadataPolicy === 'forensic' ? 'deep' : (savedSettings.defaultMetadataPolicy || 'wipe')));
+              const metaFlag = effVidMeta === 'deep' ? ' -map_metadata -1 -map_chapters -1 -fflags +bitexact'
+                : (effVidMeta === 'wipe' ? ' -map_metadata -1'
+                : (effVidMeta === 'gps' ? ' -metadata location= -metadata location-eng= -metadata com.apple.quicktime.location.ISO6709=' : ''));
+              const fastPart = (ext === 'mp4' && vCfg.faststart !== 'standard') ? ' -movflags +faststart' : '';
+              args = vCodec === 'copy'
+                ? ('-y -i {INPUT} -c copy' + subFlag + metaFlag + fastPart + ' {OUTPUT}')
+                : ('-y -i {INPUT} -c:v ' + vCodec + ' -pix_fmt ' + (vCfg.pixfmt || 'yuv420p') + ' -crf ' + crf + ' -preset ' + preset + vfFlag + fpsFlag + ' ' + aPart + subFlag + metaFlag + fastPart + ' {OUTPUT}');
+              outDir = (activeWf.video && activeWf.video.outputDir) || '';
+            }
+
+            jobSpecs.push({
+              module: 'Vault_Core',
+              outputDir: outDir,
+              subBucket: outDir ? '' : bucket,
+              mediaType: mType,
+              inputPath: f.path,
+              outputBaseName: buildWfBaseName(f.name),
+              outputExt: ext,
+              durationMs: Math.round((f.durationSec || 0) * 1000),
+              commandArgs: args
+            });
+          });
+
+          let queuedCount = 0;
+          let lastErr = '';
+          if (typeof window.AndroidBridge.enqueueBatchJobs === 'function') {
+            const res = JSON.parse(window.AndroidBridge.enqueueBatchJobs(JSON.stringify(jobSpecs)) || '{}');
+            if (res && res.ok) {
+              queuedCount = res.count || jobSpecs.length;
+              if (res.firstJobId) safeSet('cv_active_job_id', res.firstJobId);
+              const jIds = res.jobIds || [];
+              safeSet('cv_batch_job_ids', JSON.stringify(jIds));
+              if (jIds.length > 1) {
+                try {
+                  const reg = JSON.parse(safeGet('cv_batches_meta', '[]') || '[]');
+                  reg.unshift({ batchId: 'wf_' + Date.now(), createdAt: Date.now(), total: jIds.length, jobIds: jIds });
+                  safeSet('cv_batches_meta', JSON.stringify(reg.slice(0, 30)));
+                } catch (_) {}
+              }
+            } else {
+              lastErr = (res && res.error) || 'Failed to queue workflow';
+            }
+          } else {
+            const fallbackIds = [];
+            jobSpecs.forEach((spec, idx) => {
+              const res = JSON.parse(window.AndroidBridge.enqueueJob(JSON.stringify(spec)) || '{}');
+              if (res && res.ok) {
+                queuedCount++;
+                if (idx === 0) safeSet('cv_active_job_id', res.jobId);
+                if (res.jobId) fallbackIds.push(res.jobId);
+              } else {
+                lastErr = (res && res.error) || 'Failed to queue job';
+              }
+            });
+            safeSet('cv_batch_job_ids', JSON.stringify(fallbackIds));
+          }
+          if (queuedCount === 0) {
+            toast('Workflow failed: ' + (lastErr || 'No valid input files'));
+            return;
+          }
+          clearPendingWorkflow();
+          if (queuedCount === 1) navigateTo('conversion_vault_p4a_convert_single.html');
+          else navigateTo('conversion_vault_p4_convert_batch.html');
+          return;
+        }
         if (typeof window.getVaultBatchConfigs === 'function') {
           try {
             safeSet('cv_pending_convert_cfg', JSON.stringify({ mode: 'batch', batch: window.getVaultBatchConfigs() }));
@@ -2722,6 +3048,42 @@
           if (cLblInit && typeof s.cacheSizeBytes === 'number') {
             cLblInit.textContent = (s.cacheSizeBytes > 0) ? (fmtCacheBytes(s.cacheSizeBytes) + ' cached temp files') : '0 B cached (Clean)';
           }
+          const refreshBatteryOptUi = () => {
+            const lbl = document.getElementById('lbl-battery-opt');
+            const btn = document.getElementById('btn-battery-opt');
+            if (!lbl || !btn || !hasBridge || typeof window.AndroidBridge.getBatteryOptimizationStatus !== 'function') return;
+            try {
+              const b = JSON.parse(window.AndroidBridge.getBatteryOptimizationStatus() || '{}');
+              if (b && b.unrestricted) {
+                lbl.textContent = 'No Restrictions ✓ — conversions keep running when you leave the app';
+                lbl.style.color = 'var(--emerald)';
+                btn.textContent = 'Settings ↗';
+                btn.style.borderColor = 'var(--emerald)';
+                btn.style.color = 'var(--emerald)';
+              } else {
+                lbl.textContent = 'Battery Saver active — tap Allow so conversions do not pause in background';
+                lbl.style.color = 'var(--gold-text)';
+                btn.textContent = 'Allow ↗';
+                btn.style.borderColor = 'var(--gold)';
+                btn.style.color = 'var(--gold-text)';
+              }
+            } catch (_) {}
+          };
+          refreshBatteryOptUi();
+          window.onVaultAppResumed = refreshBatteryOptUi;
+          const bBattOpt = document.getElementById('btn-battery-opt');
+          if (bBattOpt && !bBattOpt.__cvWired) {
+            bBattOpt.__cvWired = true;
+            bBattOpt.addEventListener('click', (e) => {
+              e.preventDefault(); e.stopImmediatePropagation();
+              if (hasBridge && typeof window.AndroidBridge.requestBatteryUnrestricted === 'function') {
+                window.AndroidBridge.requestBatteryUnrestricted();
+              } else {
+                toast('Open App Info → Battery → No restrictions');
+              }
+            }, true);
+          }
+
           const chkTherm = document.getElementById('chk-thermal-guard');
           if (chkTherm) {
             if (typeof s.thermalGuard === 'boolean') chkTherm.checked = s.thermalGuard;
@@ -2847,6 +3209,237 @@
             cachedSettingsPresets.forEach(p => { if (p.id) selectedPresetIds.add(p.id); });
           }
           renderSettingsSavedPresets();
+
+      // 6. Workflows Settings Library (mirrors Presets Settings Library exactly)
+      const selWfTtl = document.getElementById('sel-workflow-ttl');
+      if (selWfTtl) {
+        const savedWfTtl = safeGet('cv_workflow_trash_ttl', '30') || '30';
+        if (Array.from(selWfTtl.options).some(o => o.value === savedWfTtl)) selWfTtl.value = savedWfTtl;
+        selWfTtl.addEventListener('change', () => {
+          safeSet('cv_workflow_trash_ttl', selWfTtl.value || '30');
+          toast('Saved workflow trash retention');
+        });
+      }
+
+      const selectedWorkflowIds = new Set();
+      let cachedSettingsWorkflows = [];
+
+      function readAllWorkflowsRaw() {
+        try {
+          const arr = JSON.parse(safeGet('cv_workflows_v1', '[]') || '[]');
+          return Array.isArray(arr) ? arr : [];
+        } catch (_) { return []; }
+      }
+      function writeAllWorkflowsRaw(list) {
+        safeSet('cv_workflows_v1', JSON.stringify(list || []));
+      }
+
+      function updateWorkflowSelectionUI() {
+        const cntEl = document.getElementById('lbl-wf-settings-sel-count');
+        const btnAll = document.getElementById('btn-wf-settings-sel-all');
+        const btnExpSel = document.getElementById('btn-export-selected-workflows');
+        const total = cachedSettingsWorkflows.length;
+        const selCount = selectedWorkflowIds.size;
+        if (cntEl) cntEl.textContent = selCount + ' selected';
+        if (btnAll) btnAll.textContent = (total > 0 && selCount === total) ? 'Clear All' : 'Select All';
+        if (btnExpSel) btnExpSel.textContent = 'Export Selected (' + selCount + ')';
+      }
+
+      function renderSettingsSavedWorkflows() {
+        const listEl = document.getElementById('settings-saved-workflows-list');
+        const subEl = document.getElementById('lbl-saved-workflows-sub');
+        const badgeEl = document.getElementById('badge-saved-workflows');
+        if (!listEl) return;
+
+        const all = readAllWorkflowsRaw();
+        const active = all.filter(w => w && !w.deleted);
+        const activeIds = new Set(active.map(w => String(w.id || '')));
+        cachedSettingsWorkflows = active;
+        Array.from(selectedWorkflowIds).forEach(id => { if (!activeIds.has(id)) selectedWorkflowIds.delete(id); });
+
+        const count = active.length;
+        if (subEl) subEl.textContent = count === 0
+          ? 'No active workflows · Open Workflows tab to create or import'
+          : (count + ' saved workflow' + (count === 1 ? '' : 's') + ' · Select to export');
+        if (badgeEl) badgeEl.textContent = count + ' WORKFLOWS';
+
+        const esc = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        function wfSubSummary(w) {
+          const v = (w.video && w.video.presetId && w.video.presetId !== '__skip__') ? 'Video' : null;
+          const a = (w.audio && w.audio.presetId && w.audio.presetId !== '__skip__') ? 'Audio' : null;
+          const i = (w.image && w.image.presetId && w.image.presetId !== '__skip__') ? 'Image' : null;
+          const routes = [v, a, i].filter(Boolean).join(' · ') || 'No active routes';
+          return routes + (w.desc ? (' · ' + w.desc) : '');
+        }
+
+        listEl.innerHTML = count === 0
+          ? '<div class="cap-row"><div class="cap-l"><span class="cap-name">No saved workflows</span><span class="cap-sub">Open the Workflows tab to create or import workflows.</span></div></div>'
+          : active.map(w => {
+              const wid = String(w.id || '');
+              const checked = selectedWorkflowIds.has(wid);
+              return '<label class="cap-row" style="cursor:pointer; align-items:flex-start; gap:10px;' + (checked ? ' border-color:var(--gold); background:rgba(252,209,22,0.06);' : '') + '">' +
+                '<input type="checkbox" class="wf-settings-sel-chk" data-wf-id="' + esc(wid) + '" ' + (checked ? 'checked' : '') + ' style="margin-top:3px; accent-color:var(--gold); width:16px; height:16px; flex-shrink:0;">' +
+                '<div class="cap-l" style="flex:1; min-width:0;">' +
+                  '<span class="cap-name">' + esc(w.name || 'Workflow') + ' <span style="font-size:9.5px; font-family:var(--mono); padding:1px 5px; border-radius:4px; margin-left:4px; background:var(--gold-soft); color:var(--gold-text);">WORKFLOW</span></span>' +
+                  '<span class="cap-sub">' + esc(wfSubSummary(w)) + '</span>' +
+                '</div>' +
+              '</label>';
+            }).join('');
+
+        updateWorkflowSelectionUI();
+      }
+
+      const wfListWrap = document.getElementById('settings-saved-workflows-list');
+      if (wfListWrap) {
+        wfListWrap.addEventListener('change', (e) => {
+          const chk = e.target.closest('.wf-settings-sel-chk');
+          if (!chk) return;
+          const wid = chk.getAttribute('data-wf-id') || '';
+          if (!wid) return;
+          if (chk.checked) selectedWorkflowIds.add(wid); else selectedWorkflowIds.delete(wid);
+          const row = chk.closest('.cap-row');
+          if (row) {
+            row.style.borderColor = chk.checked ? 'var(--gold)' : '';
+            row.style.background = chk.checked ? 'rgba(252,209,22,0.06)' : '';
+          }
+          updateWorkflowSelectionUI();
+        });
+      }
+
+      const bSelAllWfs = document.getElementById('btn-wf-settings-sel-all');
+      if (bSelAllWfs) {
+        bSelAllWfs.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          if (cachedSettingsWorkflows.length === 0) return;
+          if (selectedWorkflowIds.size === cachedSettingsWorkflows.length) selectedWorkflowIds.clear();
+          else cachedSettingsWorkflows.forEach(w => { if (w.id) selectedWorkflowIds.add(String(w.id)); });
+          renderSettingsSavedWorkflows();
+        }, true);
+      }
+
+      const bDedupeWfs = document.getElementById('btn-dedupe-workflows');
+      if (bDedupeWfs) {
+        bDedupeWfs.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          const all = readAllWorkflowsRaw();
+          const seen = new Set();
+          let removed = 0;
+          const kept = [];
+          all.forEach(w => {
+            if (!w || w.deleted) { kept.push(w); return; }
+            const sig = [
+              String(w.name || '').trim().toLowerCase(),
+              w.video && w.video.presetId, w.video && w.video.outputDir,
+              w.audio && w.audio.presetId, w.audio && w.audio.outputDir,
+              w.image && w.image.presetId, w.image && w.image.outputDir
+            ].join('|');
+            if (seen.has(sig)) {
+              removed++;
+              selectedWorkflowIds.delete(String(w.id || ''));
+            } else {
+              seen.add(sig);
+              kept.push(w);
+            }
+          });
+          if (removed > 0) writeAllWorkflowsRaw(kept);
+          renderSettingsSavedWorkflows();
+          toast(removed > 0 ? ('Removed ' + removed + ' duplicate workflow' + (removed === 1 ? '' : 's') + ' ✓') : 'No duplicate workflows found');
+        }, true);
+      }
+
+      function exportWfJsonFromSettings(items, baseName) {
+        const str = JSON.stringify(items.length === 1 ? items[0] : items, null, 2);
+        if (hasBridge && typeof window.AndroidBridge.exportWorkflowJson === 'function') {
+          try {
+            const res = JSON.parse(window.AndroidBridge.exportWorkflowJson(baseName, str) || '{}');
+            if (res && res.ok) {
+              toast('Exported ' + items.length + ' workflow' + (items.length === 1 ? '' : 's') + ' → ' + (res.path || 'Workflows'));
+              return;
+            }
+            toast('Export failed: ' + ((res && res.error) || 'Unknown error'));
+            return;
+          } catch (_) {}
+        }
+        try {
+          const blob = new Blob([str], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = baseName + '.json';
+          a.click();
+          toast('Exported ' + items.length + ' workflow' + (items.length === 1 ? '' : 's'));
+        } catch (_) { toast('Export failed'); }
+      }
+
+      const bExportAllWfs = document.getElementById('btn-export-workflows');
+      if (bExportAllWfs) {
+        bExportAllWfs.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          if (!cachedSettingsWorkflows.length) { toast('No workflows to export'); return; }
+          exportWfJsonFromSettings(cachedSettingsWorkflows, 'conversion_vault_workflows');
+        }, true);
+      }
+
+      const bExportSelWfs = document.getElementById('btn-export-selected-workflows');
+      if (bExportSelWfs) {
+        bExportSelWfs.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          const picked = cachedSettingsWorkflows.filter(w => selectedWorkflowIds.has(String(w.id || '')));
+          if (!picked.length) { toast('Select at least 1 workflow to export'); return; }
+          exportWfJsonFromSettings(picked, picked.length === 1 ? String(picked[0].name || 'workflow').replace(/[^a-zA-Z0-9_-]/g, '_') : 'conversion_vault_selected_workflows');
+        }, true);
+      }
+
+      const bImpWfs = document.getElementById('btn-import-workflows');
+      const inpImpWfs = document.getElementById('inp-import-workflows-file');
+      if (bImpWfs && inpImpWfs) {
+        bImpWfs.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          inpImpWfs.value = '';
+          inpImpWfs.click();
+        }, true);
+        inpImpWfs.addEventListener('change', () => {
+          const file = inpImpWfs.files && inpImpWfs.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const parsed = JSON.parse(String(reader.result || ''));
+              const items = Array.isArray(parsed) ? parsed : [parsed];
+              const valid = items.filter(x => x && typeof x === 'object' && x.name && (x.video || x.audio || x.image));
+              if (!valid.length) { toast('Invalid workflow JSON file'); return; }
+              const all = readAllWorkflowsRaw();
+              const existingIds = new Set(all.map(x => x.id));
+              let added = 0;
+              valid.forEach(v => {
+                const id = (v.id && !existingIds.has(v.id)) ? v.id : ('wf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+                existingIds.add(id);
+                all.unshift({
+                  id: id,
+                  name: String(v.name).trim(),
+                  desc: String(v.desc || '').trim(),
+                  video: { presetId: (v.video && v.video.presetId) || '__skip__', outputDir: (v.video && v.video.outputDir) || '' },
+                  audio: { presetId: (v.audio && v.audio.presetId) || '__skip__', outputDir: (v.audio && v.audio.outputDir) || '' },
+                  image: { presetId: (v.image && v.image.presetId) || '__skip__', outputDir: (v.image && v.image.outputDir) || '' },
+                  rules: Object.assign({ filenameRule: 'keep', customSuffix: '', metaPolicy: 'preset', skipRule: 'none', skipSmallerMB: 5, sourceAction: 'keep' }, v.rules || {}),
+                  deleted: false,
+                  createdAt: v.createdAt || Date.now(),
+                  updatedAt: Date.now()
+                });
+                added++;
+              });
+              writeAllWorkflowsRaw(all);
+              renderSettingsSavedWorkflows();
+              toast('Imported ' + added + ' workflow' + (added === 1 ? '' : 's') + ' ✓');
+            } catch (_) {
+              toast('Could not parse workflow JSON');
+            }
+          };
+          reader.readAsText(file);
+        });
+      }
+
+      renderSettingsSavedWorkflows();
+
         }, true);
       }
 
@@ -3135,6 +3728,7 @@
       'conversion_vault_p1_home.html',
       'conversion_vault_p5_queue_history.html',
       'conversion_vault_p7_presets.html',
+      'conversion_vault_p9_workflows.html',
       'conversion_vault_p6_settings.html'
     ];
     const curTabIdx = TAB_ORDER.indexOf(page);
@@ -3178,9 +3772,20 @@
       document.addEventListener('touchstart', (e) => {
         if (swNavigating || !e.touches || e.touches.length !== 1) return;
         const tgt = e.target;
-        if (tgt && tgt.closest && tgt.closest('input, select, textarea, .modal-backdrop, .modal-sheet, .confirm-card, .chip-row')) {
+        if (tgt && tgt.closest && tgt.closest('input, select, textarea, .modal-backdrop, .modal-sheet, .confirm-card, .chip-row, .filter-row, .subfilter-row, .chip-wrap, .encyc-cats, .seg-tabs, .type-tabs, .f-chip, .sf-chip')) {
           swActive = false;
           return;
+        }
+        let curNode = tgt && tgt.nodeType === 1 ? tgt : (tgt ? tgt.parentElement : null);
+        while (curNode && curNode !== document.body) {
+          if (curNode.scrollWidth > curNode.clientWidth + 4) {
+            const ox = window.getComputedStyle(curNode).overflowX;
+            if (ox === 'auto' || ox === 'scroll') {
+              swActive = false;
+              return;
+            }
+          }
+          curNode = curNode.parentElement;
         }
         swStartX = e.touches[0].clientX;
         swStartY = e.touches[0].clientY;
@@ -3239,24 +3844,14 @@
           swNavigating = true;
           if (typeof window.cvHaptic === 'function') window.cvHaptic('tap');
           try { sessionStorage.setItem('cv_tab_slide_dir', 'right'); } catch (_) {}
-          if (mainEl) {
-            mainEl.style.transition = 'transform 0.12s ease-out, opacity 0.12s ease-out';
-            mainEl.style.transform = 'translate3d(-64px, 0, 0)';
-            mainEl.style.opacity = '0';
-          }
-          setTimeout(() => navigateTo(TAB_ORDER[curTabIdx + 1]), 105);
+          navigateTo(TAB_ORDER[curTabIdx + 1]);
           return;
         }
         if (triggered && dx > 0 && curTabIdx > 0) {
           swNavigating = true;
           if (typeof window.cvHaptic === 'function') window.cvHaptic('tap');
           try { sessionStorage.setItem('cv_tab_slide_dir', 'left'); } catch (_) {}
-          if (mainEl) {
-            mainEl.style.transition = 'transform 0.12s ease-out, opacity 0.12s ease-out';
-            mainEl.style.transform = 'translate3d(64px, 0, 0)';
-            mainEl.style.opacity = '0';
-          }
-          setTimeout(() => navigateTo(TAB_ORDER[curTabIdx - 1]), 105);
+          navigateTo(TAB_ORDER[curTabIdx - 1]);
           return;
         }
         if (swLocked) resetSwipePos();

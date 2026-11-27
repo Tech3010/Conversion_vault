@@ -213,6 +213,7 @@
       } catch(e) {}
     })();
   </script>
+  <script src="vault-presets.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -260,6 +261,8 @@
             <span id="sample-prog-time">0.0s</span>
           </div>
         </div>
+
+        <div id="sample-compat-note"></div>
 
         <div class="cmd-wrap">
           <div class="cmd-head">
@@ -642,6 +645,12 @@
       }
 
       document.getElementById('cmd-preview').textContent = '$ ' + buildCommand();
+      const scNote = document.getElementById('sample-compat-note');
+      if (scNote && window.VaultPresets && window.VaultPresets.getCodecCompatNote) {
+        const cfgObj = state.type === 'video' ? { cat: 'video', codec: state.v.codec, container: state.v.container, pixfmt: state.v.pixfmt, acodec: state.v.audio }
+          : (state.type === 'audio' ? { cat: 'audio', container: state.a.fmt } : { cat: 'image', container: state.i.fmt });
+        scNote.innerHTML = window.VaultPresets.renderCompatNoteHtml(window.VaultPresets.getCodecCompatNote(cfgObj));
+      }
       renderSaved();
     }
 

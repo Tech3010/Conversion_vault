@@ -202,6 +202,22 @@ class AndroidBridge(
     }
 
     @JavascriptInterface
+    fun setOledImmersive(enabled: Boolean) {
+        activity.setOledImmersive(enabled)
+    }
+
+    @JavascriptInterface
+    fun getBatteryOptimizationStatus(): String {
+        return JSONObject().put("unrestricted", activity.isBatteryUnrestricted()).toString()
+    }
+
+    @JavascriptInterface
+    fun requestBatteryUnrestricted(): String {
+        activity.requestBatteryUnrestricted()
+        return JSONObject().put("ok", true).toString()
+    }
+
+    @JavascriptInterface
     fun copyToClipboard(text: String) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
         cm.setPrimaryClip(android.content.ClipData.newPlainText("ConversionVault", text))
@@ -1444,8 +1460,20 @@ class AndroidBridge(
         } catch (_: Throwable) {}
     }
 
+    @Volatile
+    private var cachedActivePresetsJson: String? = null
+    @Volatile
+    private var cachedDeletedPresetsJson: String? = null
+
+    private fun invalidatePresetsCache() {
+        cachedActivePresetsJson = null
+        cachedDeletedPresetsJson = null
+    }
+
     @JavascriptInterface
     fun getPresets(includeDeleted: Boolean): String {
+        val hit = if (includeDeleted) cachedDeletedPresetsJson else cachedActivePresetsJson
+        if (hit != null) return hit
         ensureBuiltInPresetsSeeded()
         return try {
             val list = runBlocking {
@@ -1469,7 +1497,9 @@ class AndroidBridge(
                     put("isDeleted", p.isDeleted)
                 })
             }
-            arr.toString()
+            val outStr = arr.toString()
+            if (includeDeleted) cachedDeletedPresetsJson = outStr else cachedActivePresetsJson = outStr
+            outStr
         } catch (_: Throwable) {
             "[]"
         }
@@ -1477,6 +1507,7 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun savePreset(presetJsonStr: String): String {
+        invalidatePresetsCache()
         return try {
             val o = JSONObject(presetJsonStr)
             val resolvedId = o.optString("id", "").ifBlank { UUID.randomUUID().toString() }
@@ -1501,6 +1532,7 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun softDeletePreset(id: String): String {
+        invalidatePresetsCache()
         return try {
             runBlocking { db.presetDao().softDeletePreset(id) }
             JSONObject().put("ok", true).toString()
@@ -1511,6 +1543,7 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun restorePreset(id: String): String {
+        invalidatePresetsCache()
         return try {
             runBlocking { db.presetDao().restorePreset(id) }
             JSONObject().put("ok", true).toString()
@@ -1521,6 +1554,7 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun permanentlyDeletePreset(id: String): String {
+        invalidatePresetsCache()
         return try {
             runBlocking { db.presetDao().permanentlyDeletePreset(id) }
             JSONObject().put("ok", true).toString()
@@ -1574,7 +1608,7 @@ class AndroidBridge(
             put("theme", prefs.getString("theme", "dark"))
             put("defaultVaultFolder", prefs.getString("default_vault_folder", VaultStorageManager.getRootDir(context).absolutePath))
             put("originalSourcePolicy", prefs.getString("original_source_policy", "keep"))
-            put("defaultSubfolderStyle", prefs.getString("default_subfolder_style", "numbered"))
+            put("defaultSubfolderStyle", prefs.getString("default_subfolder_style", "none"))
             put("defaultSuffixRule", prefs.getString("default_suffix_rule", "_converted"))
             put("separateByType", prefs.getBoolean("separate_by_type", true))
             put("defaultThreads", prefs.getString("default_threads", "8"))
@@ -2629,6 +2663,21 @@ class AndroidBridge(
             val safeBase = baseName.replace(Regex("[^a-zA-Z0-9_-]"), "_").ifBlank { "inspect_report" }.take(48)
             val dir = VaultStorageManager.getModuleDir(context, "Reports")
             val target = VaultStorageManager.resolveNonConflictingFile(dir, safeBase, safeExt)
+            target.writeText(content)
+            try { MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), null, null) } catch (_: Throwable) {}
+            JSONObject().put("ok", true).put("path", target.absolutePath).put("name", target.name).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", "${t.javaClass.simpleName}: ${t.message}").toString()
+        }
+    }
+
+
+    @JavascriptInterface
+    fun exportWorkflowJson(baseName: String, content: String): String {
+        return try {
+            val safeBase = baseName.replace(Regex("[^a-zA-Z0-9_-]"), "_").ifBlank { "conversion_vault_workflow" }.take(48)
+            val dir = VaultStorageManager.getModuleDir(context, "Workflows")
+            val target = VaultStorageManager.resolveNonConflictingFile(dir, safeBase, "json")
             target.writeText(content)
             try { MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), null, null) } catch (_: Throwable) {}
             JSONObject().put("ok", true).put("path", target.absolutePath).put("name", target.name).toString()

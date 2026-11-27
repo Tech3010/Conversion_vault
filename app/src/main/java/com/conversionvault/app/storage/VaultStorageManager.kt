@@ -26,13 +26,17 @@ object VaultStorageManager {
         "Vault_Core",
         "Metadata_Modifier",
         "Target_Compressor",
-        "Audio_Extract_Mute",
-        "Trim_GIF",
-        "Thumbnail_Capturer",
         "Samples",
         "Presets",
+        "Workflows",
         "Reports",
         "SH_Scripts"
+    )
+
+    private val LEGACY_UNUSED_FOLDERS = listOf(
+        "Audio_Extract_Mute",
+        "Trim_GIF",
+        "Thumbnail_Capturer"
     )
 
     fun getRootDir(context: Context, customRootPath: String? = null): File {
@@ -55,9 +59,15 @@ object VaultStorageManager {
 
     fun ensureVaultFolders(context: Context, customRootPath: String? = null): File {
         val root = getRootDir(context, customRootPath)
-        MODULE_SUBFOLDERS.forEach { sub ->
-            val dir = File(root, sub)
-            if (!dir.exists()) dir.mkdirs()
+        if (!root.exists()) root.mkdirs()
+        // Remove empty legacy folders from retired modules without touching any user files
+        LEGACY_UNUSED_FOLDERS.forEach { legacy ->
+            try {
+                val dir = File(root, legacy)
+                if (dir.exists() && dir.isDirectory && (dir.listFiles()?.isEmpty() == true)) {
+                    dir.delete()
+                }
+            } catch (_: Throwable) {}
         }
         return root
     }
@@ -76,10 +86,10 @@ object VaultStorageManager {
      */
     fun resolveNextNumberedSubfolder(baseDir: File): String {
         var idx = 1
-        while (File(baseDir, String.format("Conversion_%02d", idx)).exists() && idx < 999) {
+        while (File(baseDir, String.format("Batch_Conversion_%02d", idx)).exists() && idx < 999) {
             idx++
         }
-        return String.format("Conversion_%02d", idx)
+        return String.format("Batch_Conversion_%02d", idx)
     }
 
     fun resolveNonConflictingFile(dir: File, baseName: String, extension: String): File {

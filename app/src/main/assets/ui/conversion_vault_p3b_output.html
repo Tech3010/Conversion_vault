@@ -293,8 +293,8 @@
         <div class="field" style="padding-top:0; border-top:none;">
           <label>Create Subfolder Style</label>
           <div class="sub-pills" id="sub-mode-pills">
-            <button type="button" class="sub-pill active" data-submode="numbered">
-              <span>Conversion_01</span>
+            <button type="button" class="sub-pill" data-submode="numbered">
+              <span>Batch_Conversion_01</span>
               <small>Auto-numbered folder</small>
             </button>
             <button type="button" class="sub-pill" data-submode="date">
@@ -305,7 +305,7 @@
               <span>Custom Name</span>
               <small>Your own folder</small>
             </button>
-            <button type="button" class="sub-pill" data-submode="none">
+            <button type="button" class="sub-pill active" data-submode="none">
               <span>None (Direct)</span>
               <small>No extra subfolder</small>
             </button>
@@ -314,7 +314,7 @@
 
         <div class="field hidden" id="run-name-wrap">
           <label for="inp-run-name">Custom Subfolder Name</label>
-          <input type="text" id="inp-run-name" value="Conversion_01" placeholder="Enter folder name...">
+          <input type="text" id="inp-run-name" value="Batch_Conversion" placeholder="Enter folder name...">
         </div>
 
         <div class="toggle-row" style="padding-top:8px; border-top:1px solid var(--border);">
@@ -360,8 +360,8 @@
     const state = {
       mode: 'vault',
       customPath: '/storage/emulated/0/Documents/Exports/',
-      subMode: 'numbered',
-      customSubName: 'Conversion_01',
+      subMode: 'none',
+      customSubName: 'Batch_Conversion',
       separate: true,
       conflict: 'rename'
     };
@@ -380,7 +380,7 @@
     }
 
     function getSubfolderName() {
-      if (state.subMode === 'numbered') return 'Conversion_01';
+      if (state.subMode === 'numbered') return 'Batch_Conversion_01';
       if (state.subMode === 'date') return 'Nov_23';
       if (state.subMode === 'custom') {
         return (state.customSubName || 'Custom_Run').trim().replace(/\/+$/, '') || 'Custom_Run';

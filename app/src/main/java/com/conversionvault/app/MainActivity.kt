@@ -47,6 +47,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var assetLoader: WebViewAssetLoader
     private var currentPickerMode: String = "single"
     private var webFileChooserCallback: ValueCallback<Array<Uri>>? = null
+    @Volatile
+    private var isOledImmersive: Boolean = false
 
     private val webChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
@@ -133,6 +135,7 @@ class MainActivity : AppCompatActivity() {
             .remove("cv_last_probe")
             .remove("cv_pending_convert_cfg")
             .remove("cv_pending_preset")
+            .remove("cv_pending_workflow")
             .apply()
         VaultStorageManager.ensureVaultFolders(this)
         val sampleRetDays = getSharedPreferences("vault_settings", Context.MODE_PRIVATE).getInt("sample_retention_days", 15)
@@ -212,10 +215,14 @@ class MainActivity : AppCompatActivity() {
 
         val extraGestureGapPx = (8 * resources.displayMetrics.density).toInt()
         ViewCompat.setOnApplyWindowInsetsListener(rootContainer) { v, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom + extraGestureGapPx)
+            if (isOledImmersive) {
+                v.setPadding(0, 0, 0, 0)
+            } else {
+                val bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+                )
+                v.setPadding(bars.left, bars.top, bars.right, bars.bottom + extraGestureGapPx)
+            }
             insets
         }
         ViewCompat.requestApplyInsets(rootContainer)
@@ -265,6 +272,7 @@ class MainActivity : AppCompatActivity() {
             addAction(ConversionForegroundService.ACTION_FINISH_APP)
         }
         ContextCompat.registerReceiver(this, progressReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        evalJs("window.onVaultAppResumed && window.onVaultAppResumed();")
     }
 
     override fun onPause() {
@@ -275,6 +283,66 @@ class MainActivity : AppCompatActivity() {
     fun clearWebViewCache() {
         runOnUiThread {
             try { webView.clearCache(true) } catch (_: Throwable) {}
+        }
+    }
+
+    fun isBatteryUnrestricted(): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                pm.isIgnoringBatteryOptimizations(packageName)
+            } else true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    fun requestBatteryUnrestricted() {
+        runOnUiThread {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isBatteryUnrestricted()) {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                    return@runOnUiThread
+                }
+            } catch (_: Throwable) {}
+            try {
+                val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(fallback)
+            } catch (_: Throwable) {}
+        }
+    }
+
+    fun setOledImmersive(enabled: Boolean) {
+        isOledImmersive = enabled
+        runOnUiThread {
+            try {
+                val ctrl = WindowInsetsControllerCompat(window, window.decorView)
+                val lp = window.attributes
+                if (enabled) {
+                    ctrl.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    ctrl.hide(WindowInsetsCompat.Type.systemBars())
+                    @Suppress("DEPRECATION")
+                    window.statusBarColor = Color.BLACK
+                    @Suppress("DEPRECATION")
+                    window.navigationBarColor = Color.BLACK
+                    rootContainer.setPadding(0, 0, 0, 0)
+                    lp.screenBrightness = 0.12f
+                    window.attributes = lp
+                } else {
+                    ctrl.show(WindowInsetsCompat.Type.systemBars())
+                    lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                    window.attributes = lp
+                    val savedTheme = getSharedPreferences("vault_settings", Context.MODE_PRIVATE)
+                        .getString("theme", "dark") ?: "dark"
+                    applySystemBarTheme(savedTheme)
+                    ViewCompat.requestApplyInsets(rootContainer)
+                }
+            } catch (_: Throwable) {}
         }
     }
 

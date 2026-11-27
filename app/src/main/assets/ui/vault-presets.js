@@ -338,6 +338,120 @@
     } catch (_) {}
   }
 
+  let _cachedSupport = null;
+
+  function loadDeviceSupportSnapshot() {
+    if (_cachedSupport) return _cachedSupport;
+    let codecs = null;
+    let ffmpegEncoders = null;
+    let sourceLabel = 'device data';
+    try {
+      if (global.AndroidBridge && typeof global.AndroidBridge.getSettings === 'function') {
+        const st = JSON.parse(global.AndroidBridge.getSettings() || '{}');
+        if (st && st.hwTestJson) {
+          const parsed = JSON.parse(st.hwTestJson);
+          if (parsed && parsed.ok) {
+            if (parsed.codecs) codecs = parsed.codecs;
+            if (parsed.ffmpegEncoders && typeof parsed.ffmpegEncoders === 'object' && Object.keys(parsed.ffmpegEncoders).length > 0) {
+              ffmpegEncoders = parsed.ffmpegEncoders;
+            }
+            sourceLabel = 'Settings benchmark';
+          }
+        }
+      }
+      if (!codecs && global.AndroidBridge && typeof global.AndroidBridge.getDeviceTelemetry === 'function') {
+        const tel = JSON.parse(global.AndroidBridge.getDeviceTelemetry() || '{}');
+        if (tel && tel.codecs) codecs = tel.codecs;
+      }
+    } catch (_) {}
+    if (codecs || ffmpegEncoders) {
+      _cachedSupport = { codecs: codecs || {}, ffmpegEncoders: ffmpegEncoders || null, sourceLabel: sourceLabel };
+    }
+    return _cachedSupport;
+  }
+
+  function getCodecCompatNote(opts) {
+    if (!opts) return '';
+    const sup = loadDeviceSupportSnapshot();
+    if (!sup) return '';
+    const c = sup.codecs || {};
+    const enc = sup.ffmpegEncoders || null;
+    const cat = normCat(opts.cat || opts.category || 'video');
+    const cfg = opts.cfg || {};
+    const specLower = String(opts.specs || opts.spec || '').toLowerCase();
+    const codec = String(opts.codec || cfg.codec || cfg.vcodec || '').toLowerCase();
+    const container = String(opts.container || cfg.container || cfg.fmt || cfg.format || '').replace(/^\./, '').toLowerCase();
+    const pix = String(opts.pixfmt || cfg.pixfmt || (specLower.indexOf('yuv420p10le') !== -1 ? 'yuv420p10le' : 'yuv420p')).toLowerCase();
+    const acodec = String(opts.acodec || cfg.acodec || '').toLowerCase();
+    const reasons = [];
+
+    if (cat === 'video' && codec !== 'copy') {
+      const vc = codec || (specLower.indexOf('libsvtav1') !== -1 ? 'libsvtav1'
+        : (specLower.indexOf('libx265') !== -1 ? 'libx265'
+        : (specLower.indexOf('libvpx-vp9') !== -1 ? 'libvpx-vp9'
+        : (specLower.indexOf('libx264') !== -1 ? 'libx264' : ''))));
+
+      if (vc === 'libsvtav1' || vc === 'av1' || vc === 'libaom-av1') {
+        const hasSwAv1 = enc ? Boolean(enc['libsvtav1'] || enc['libaom-av1'] || enc['librav1e']) : true;
+        const hasHwAv1 = Boolean(c.av1HwEncode) && (!enc || Boolean(enc['av1_mediacodec']));
+        if (enc && !hasSwAv1 && !hasHwAv1) {
+          reasons.push('AV1 encoding is not supported on your device or engine');
+        } else if (c.av1HwEncode === false) {
+          reasons.push('AV1 hardware encoding is not supported on your device');
+        } else if (c.av1HwDecode === false) {
+          reasons.push('AV1 hardware playback is not supported on your device');
+        }
+      } else if (vc === 'libx265' || vc === 'hevc' || vc === 'h265') {
+        if (enc && enc['libx265'] === false) {
+          reasons.push('HEVC (libx265) encoder is not available');
+        } else if (pix.indexOf('10') !== -1 && c.hevc10bitHwDecode === false) {
+          reasons.push('HEVC 10-bit is not supported by your device hardware');
+        } else if (c.hevcHwEncode === false) {
+          reasons.push('HEVC hardware encoding is not supported on your device');
+        }
+      } else if (vc === 'libx264' || vc === 'h264' || vc === 'avc') {
+        if (enc && enc['libx264'] === false) {
+          reasons.push('H.264 (libx264) encoder is not available');
+        } else if (pix.indexOf('10') !== -1 && c.h264_10bitHwDecode === false) {
+          reasons.push('H.264 10-bit (Hi10P) is not supported by your device hardware');
+        } else if (c.h264HwEncode === false) {
+          reasons.push('H.264 hardware encoding is not supported on your device');
+        }
+      } else if (vc === 'libvpx-vp9' || vc === 'vp9') {
+        if (enc && enc['libvpx-vp9'] === false) {
+          reasons.push('VP9 (libvpx-vp9) encoder is not available');
+        }
+      }
+
+      if (enc && acodec && Object.prototype.hasOwnProperty.call(enc, acodec) && enc[acodec] === false) {
+        reasons.push(acodec + ' audio encoder is not available');
+      }
+    } else if (cat === 'audio') {
+      const ac = codec || (container === 'opus' ? 'libopus' : (container === 'mp3' ? 'libmp3lame' : (container === 'flac' ? 'flac' : (container === 'm4a' ? 'aac' : ''))));
+      if (enc && ac && Object.prototype.hasOwnProperty.call(enc, ac) && enc[ac] === false) {
+        reasons.push(ac + ' audio encoder is not available');
+      }
+    } else if (cat === 'image') {
+      if (container === 'avif' || /\.avif\b/.test(specLower)) {
+        const hasAv1Enc = enc ? Boolean(enc['libaom-av1'] || enc['libsvtav1'] || enc['librav1e']) : Boolean(c.av1HwEncode);
+        if (!hasAv1Enc && c.av1HwEncode === false) {
+          reasons.push('AV1/AVIF encoding is not supported on your device');
+        }
+      } else if (container === 'webp' && enc && enc['libwebp'] === false) {
+        reasons.push('WebP encoder is not available');
+      }
+    }
+
+    if (!reasons.length) return '';
+    return 'Note: Based on your ' + sup.sourceLabel + ', ' + reasons.join(' and ') + ' — this format may not be supported on your device for conversion.';
+  }
+
+  function renderCompatNoteHtml(note) {
+    if (!note) return '';
+    const esc = String(note).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return '<div role="note" style="margin-top:6px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.42);border-left:3px solid #f59e0b;border-radius:7px;padding:7px 9px;font-size:11.5px;line-height:1.4;color:#fbbf24;display:flex;align-items:flex-start;gap:6px;"><span aria-hidden="true" style="flex-shrink:0;font-size:12.5px;line-height:1.3;">⚠</span><span>' + esc + '</span></div>';
+  }
+
   global.VaultPresets = {
     DEFAULT_CFG,
     hasBridge,
@@ -356,6 +470,8 @@
     bindAutoSync,
     setPendingPreset,
     getPendingPreset,
-    clearPendingPreset
+    clearPendingPreset,
+    getCodecCompatNote,
+    renderCompatNoteHtml
   };
 })(window);

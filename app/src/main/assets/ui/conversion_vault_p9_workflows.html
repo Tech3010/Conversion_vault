@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Conversion Vault · Workflows Hub</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #0f1624;
+      --card: #131c2e;
+      --card-elev: #172236;
+      --input: #0a0f1a;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.14);
+      --crimson-hover: #be0837;
+      --gold: #fcd116;
+      --gold-soft: rgba(252, 209, 22, 0.13);
+      --gold-text: #fcd116;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --card: #f1f5f9;
+      --card-elev: #ffffff;
+      --input: #ffffff;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --muted: #475569;
+      --subtle: #64748b;
+      --crimson: #db0a40;
+      --crimson-soft: rgba(219, 10, 64, 0.08);
+      --crimson-hover: #be0837;
+      --gold: #eab308;
+      --gold-soft: rgba(234, 179, 8, 0.15);
+      --gold-text: #a16207;
+      --emerald: #059669;
+      --emerald-soft: rgba(5, 150, 105, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-frame {
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 78px;
+    }
+    @media (min-width: 600px) {
+      .app-frame { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+
+    .app-bar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .page-title { font-size: 15.5px; font-weight: 800; line-height: 1.2; display: flex; align-items: center; gap: 7px; }
+    .page-sub { font-size: 10.5px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+    .btn-new-workflow {
+      padding: 7px 11px; border-radius: 7px; border: 1px solid var(--crimson);
+      background: var(--crimson); color: #ffffff; font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-new-workflow:hover { background: var(--crimson-hover); }
+
+    .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+
+    .search-row { display: flex; gap: 8px; align-items: center; }
+    .search-inp {
+      flex: 1; padding: 8px 11px; border-radius: 8px;
+      border: 1px solid var(--border-strong); background: var(--input); color: var(--text);
+      font-size: 12.5px; font-family: var(--sans);
+    }
+    .search-inp:focus { outline: none; border-color: var(--crimson); }
+    .btn-import {
+      padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--text); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-import:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    .tools-row { display: flex; justify-content: space-between; align-items: center; gap: 7px; }
+    .sort-sel {
+      flex: 1; min-width: 0; padding: 6px 9px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--text); font-family: var(--mono); font-size: 11px; font-weight: 700;
+    }
+    .btn-sel-mode {
+      padding: 6px 10px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono); font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap;
+    }
+    .btn-sel-mode.active { border-color: var(--crimson); background: var(--crimson-soft); color: var(--crimson); }
+    .btn-trash-toggle {
+      padding: 6px 10px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--muted); font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-trash-toggle.active { border-color: var(--gold); background: var(--gold-soft); color: var(--gold-text); }
+
+    .sel-bar {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 7px;
+      background: var(--card-elev); border: 1px solid rgba(252,209,22,0.45); border-radius: 9px; padding: 8px 10px;
+    }
+    .sel-bar-left { display: flex; align-items: center; gap: 8px; }
+    .sel-bar-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .wf-list { display: flex; flex-direction: column; gap: 11px; }
+    .wf-card {
+      background: var(--surface); border: 1px solid rgba(252, 209, 22, 0.35);
+      border-left: 3px solid var(--gold); border-radius: var(--radius);
+      padding: 13px; display: flex; flex-direction: column; gap: 10px;
+      transition: border-color 0.15s ease;
+    }
+    .wf-card.is-selected { border-color: var(--gold) !important; box-shadow: 0 0 0 1px rgba(252,209,22,0.35); }
+    .wf-sel-chk { width: 17px; height: 17px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; margin-right: 4px; }
+
+    .wf-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .wf-name { font-size: 14.5px; font-weight: 800; color: var(--text); }
+    .wf-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .wf-routes {
+      display: flex; flex-direction: column; gap: 6px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .wf-route-row {
+      display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px;
+      min-width: 0;
+    }
+    .cat-pill {
+      font-family: var(--mono); font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px; flex-shrink: 0;
+    }
+    .cp-video { background: var(--crimson-soft); color: var(--crimson); }
+    .cp-audio { background: var(--emerald-soft); color: var(--emerald); }
+    .cp-image { background: var(--gold-soft); color: var(--gold-text); }
+    .wf-route-txt {
+      color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
+    }
+    .wf-route-dir { color: var(--muted); font-size: 10px; }
+
+    .wf-rules-row { display: flex; flex-wrap: wrap; gap: 5px; }
+    .rule-pill {
+      font-family: var(--mono); font-size: 9.5px; font-weight: 700; padding: 2px 7px;
+      border-radius: 4px; background: var(--card-elev); border: 1px solid var(--border-strong); color: var(--muted);
+    }
+    .rule-pill.gold { color: var(--gold-text); border-color: rgba(252,209,22,0.35); background: var(--gold-soft); }
+    .rule-pill.emerald { color: var(--emerald); border-color: rgba(16,185,129,0.35); background: var(--emerald-soft); }
+
+    .wf-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
+    .btn-use {
+      flex: 1; padding: 8px 12px; border-radius: 7px; border: 1px solid var(--crimson);
+      background: var(--crimson); color: #ffffff; font-size: 11.5px; font-weight: 700; cursor: pointer;
+    }
+    .btn-use:hover { background: var(--crimson-hover); }
+    .btn-sec {
+      padding: 7px 10px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .btn-sec:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    .empty-card {
+      background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius);
+      padding: 26px 18px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .empty-icon {
+      width: 44px; height: 44px; border-radius: 12px; background: var(--gold-soft); color: var(--gold-text);
+      display: flex; align-items: center; justify-content: center; border: 1px solid rgba(252,209,22,0.35);
+    }
+    .empty-title { font-size: 14.5px; font-weight: 800; color: var(--text); }
+    .empty-sub { font-size: 12px; color: var(--muted); max-width: 340px; line-height: 1.5; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 80;
+      background: rgba(5, 8, 15, 0.78);
+      display: flex; justify-content: center; align-items: flex-end; padding: 10px;
+    }
+    @media (min-width: 600px) { .modal-backdrop { align-items: center; } }
+    .modal-sheet {
+      width: 100%; max-width: 520px; max-height: 90vh;
+      background: var(--bg); border: 1px solid var(--border-strong); border-radius: 14px;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+    .modal-head {
+      padding: 14px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .modal-title { font-size: 15px; font-weight: 700; }
+    .modal-close {
+      width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); font-size: 16px; cursor: pointer;
+    }
+    .modal-body { padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .modal-foot {
+      padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .field input, .field select {
+      width: 100%; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--border-strong);
+      background: var(--input); color: var(--text); font-size: 12.5px; font-family: var(--sans);
+    }
+    .field input:focus, .field select:focus { outline: none; border-color: var(--gold); }
+
+    .route-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 11px 12px; display: flex; flex-direction: column; gap: 9px;
+    }
+    .route-box.rb-video { border-left: 3px solid var(--crimson); }
+    .route-box.rb-audio { border-left: 3px solid var(--emerald); }
+    .route-box.rb-image { border-left: 3px solid var(--gold); }
+    .route-box-head {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--mono); font-size: 11px; font-weight: 800; text-transform: uppercase;
+    }
+    .folder-pick-row { display: flex; gap: 6px; align-items: center; }
+    .folder-path-inp {
+      flex: 1; min-width: 0; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid var(--border-strong); background: var(--input); color: var(--muted);
+      font-family: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .btn-folder {
+      padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+      background: var(--card-elev); color: var(--text); font-family: var(--mono);
+      font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-folder:hover { border-color: var(--gold); color: var(--gold-text); }
+
+    .adv-sec-lbl {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--gold-text); padding-bottom: 5px; margin-top: 2px;
+      border-bottom: 1px solid var(--border);
+    }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+
+    .confirm-sheet {
+      width: 100%; max-width: 380px;
+      background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+    .confirm-title { font-size: 15px; font-weight: 800; color: var(--text); }
+    .confirm-desc { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+    .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .btn-danger-solid {
+      padding: 8px 14px; border-radius: 7px; border: 1px solid var(--crimson);
+      background: var(--crimson); color: #ffffff; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+
+    /* Bottom Navigation Bar (5 Roots: Home · Queue · Presets · Workflows · Settings) */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 540px; height: 66px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 6px 4px; gap: 4px;
+      display: grid; grid-template-columns: repeat(5, 1fr); z-index: 40;
+    }
+    .nav-item {
+      border: 1px solid transparent; border-radius: 11px;
+      background: transparent; color: var(--muted);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      padding: 4px 2px; font-size: 9.8px; font-weight: 700; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; outline: none;
+    }
+    .nav-item.active {
+      color: var(--crimson);
+      background: var(--crimson-soft);
+      border-color: rgba(219, 10, 64, 0.50);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 10px rgba(219, 10, 64, 0.18);
+    }
+
+    
+    .app-bar-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .btn-trash-icon-tab {
+      position: relative;
+      height: 33px; min-width: 38px; padding: 0 9px;
+      border-radius: 8px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--muted);
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      font-family: var(--mono); font-size: 11px; font-weight: 800; cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+    .btn-trash-icon-tab:hover { border-color: var(--gold); color: var(--gold-text); }
+    .btn-trash-icon-tab.active {
+      border-color: var(--crimson); background: var(--crimson-soft); color: var(--crimson);
+      box-shadow: 0 2px 10px rgba(219, 10, 64, 0.22);
+    }
+    .trash-cnt-badge {
+      min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
+      background: var(--card-elev); border: 1px solid var(--border-strong);
+      color: var(--text); font-size: 9.5px; font-weight: 800;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-trash-icon-tab.active .trash-cnt-badge {
+      background: var(--crimson); border-color: var(--crimson); color: #ffffff;
+    }
+    .trash-info-banner {
+      background: var(--gold-soft); border: 1px solid rgba(252, 209, 22, 0.4);
+      border-radius: 9px; padding: 8px 11px;
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--gold-text);
+    }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+  <script>
+    (function(){
+      try {
+        var t = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_theme')) || localStorage.getItem('cv_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {}
+    })();
+  </script>
+  <script src="vault-presets.js"></script>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="app-bar">
+      <div>
+        <div class="page-title">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6"/><path d="M6 9v3a6 6 0 0 0 6 6h3"/>
+          </svg>
+          <span>Workflows</span>
+        </div>
+        <div class="page-sub">AUTOMATED ROUTING · SAVED WORKFLOW HUB</div>
+      </div>
+      <div class="app-bar-right">
+        <button type="button" id="btn-new-workflow" class="btn-new-workflow">+ New Workflow</button>
+        <button type="button" id="btn-wf-trash" class="btn-trash-icon-tab" aria-label="Trash Workflows" title="Trash / Deleted Workflows">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+          <span class="trash-cnt-badge" id="wf-trash-badge">0</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="search-row">
+        <input type="text" id="inp-search" class="search-inp" placeholder="Search workflows by name, preset, or folder...">
+        <button type="button" id="btn-import-wf" class="btn-import">Import .json</button>
+        <input type="file" id="inp-import-file" accept=".json,application/json" class="hidden">
+      </div>
+
+      <div class="tools-row" id="wf-tools-row">
+        <select id="sel-wf-sort" class="sort-sel" aria-label="Sort Workflows">
+          <option value="default">Sort: Default</option>
+          <option value="name_asc">Sort: Name (A → Z)</option>
+          <option value="name_desc">Sort: Name (Z → A)</option>
+          <option value="newest">Sort: Newest First</option>
+          <option value="oldest">Sort: Oldest First</option>
+        </select>
+        <button type="button" id="btn-wf-select" class="btn-sel-mode">Select</button>
+      </div>
+
+      <div class="sel-bar hidden" id="wf-sel-bar">
+        <div class="sel-bar-left">
+          <button type="button" id="btn-wf-sel-all" class="btn-sec" style="padding:5px 9px; font-size:10px;">Select All</button>
+          <span id="lbl-wf-sel-cnt" style="font-family:var(--mono); font-size:10.5px; font-weight:700; color:var(--gold-text);">0 selected</span>
+        </div>
+        <div class="sel-bar-acts">
+          <button type="button" id="btn-wf-sel-export" class="btn-sec" style="padding:5px 9px; font-size:10px; border-color:var(--gold); color:var(--gold-text);">Export</button>
+          <button type="button" id="btn-wf-sel-restore" class="btn-sec hidden" style="padding:5px 9px; font-size:10px; border-color:var(--emerald); color:var(--emerald);">Restore</button>
+          <button type="button" id="btn-wf-sel-delete" class="btn-sec" style="padding:5px 9px; font-size:10px; border-color:rgba(219,10,64,0.55); color:#fda4af;">Delete</button>
+        </div>
+      </div>
+
+      <div class="trash-info-banner hidden" id="wf-trash-info">
+        <span id="wf-trash-info-txt">Trash · Auto-deletes after 30 days</span>
+        <button type="button" id="btn-exit-wf-trash" class="btn-sec" style="padding:3px 8px; font-size:10px;">Back to Active</button>
+      </div>
+      <div class="wf-list" id="wf-list"></div>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Primary Navigation">
+      <button type="button" class="nav-item" data-nav="home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Home</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="queue">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Queue</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="presets">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <span>Presets</span>
+      </button>
+      <button type="button" class="nav-item active" data-nav="workflows">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6"/><path d="M6 9v3a6 6 0 0 0 6 6h3"/>
+        </svg>
+        <span>Workflows</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Create / Edit Workflow Modal -->
+  <div class="modal-backdrop hidden" id="wf-modal" role="dialog" aria-modal="true" aria-label="Create Workflow">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <div class="modal-title" id="m-title">Create New Workflow</div>
+        <button type="button" id="btn-m-close" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="m-name">Workflow Name</label>
+          <input type="text" id="m-name" placeholder="e.g., Daily Reels &amp; Photo Backup">
+        </div>
+        <div class="field">
+          <label for="m-desc">Description (Optional)</label>
+          <input type="text" id="m-desc" placeholder="What this workflow does when you run it...">
+        </div>
+
+        <div class="adv-sec-lbl">Media Presets &amp; Output Folders</div>
+
+        <!-- Video Route -->
+        <div class="route-box rb-video">
+          <div class="route-box-head"><span style="color:var(--crimson);">Video Files</span></div>
+          <div class="field">
+            <label for="m-vid-preset">Video Preset</label>
+            <select id="m-vid-preset"></select>
+          </div>
+          <div class="field">
+            <label>Video Output Folder</label>
+            <div class="folder-pick-row">
+              <div class="folder-path-inp" id="m-vid-dir-lbl">Default (ConversionVault/Vault_Core/Videos)</div>
+              <button type="button" class="btn-folder" data-pick-dir="video">Browse</button>
+              <button type="button" class="btn-folder" data-reset-dir="video">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audio Route -->
+        <div class="route-box rb-audio">
+          <div class="route-box-head"><span style="color:var(--emerald);">Audio Files</span></div>
+          <div class="field">
+            <label for="m-aud-preset">Audio Preset</label>
+            <select id="m-aud-preset"></select>
+          </div>
+          <div class="field">
+            <label>Audio Output Folder</label>
+            <div class="folder-pick-row">
+              <div class="folder-path-inp" id="m-aud-dir-lbl">Default (ConversionVault/Vault_Core/Audios)</div>
+              <button type="button" class="btn-folder" data-pick-dir="audio">Browse</button>
+              <button type="button" class="btn-folder" data-reset-dir="audio">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Image Route -->
+        <div class="route-box rb-image">
+          <div class="route-box-head"><span style="color:var(--gold-text);">Image Files</span></div>
+          <div class="field">
+            <label for="m-img-preset">Image Preset</label>
+            <select id="m-img-preset"></select>
+          </div>
+          <div class="field">
+            <label>Image Output Folder</label>
+            <div class="folder-pick-row">
+              <div class="folder-path-inp" id="m-img-dir-lbl">Default (ConversionVault/Vault_Core/Images)</div>
+              <button type="button" class="btn-folder" data-pick-dir="image">Browse</button>
+              <button type="button" class="btn-folder" data-reset-dir="image">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="adv-sec-lbl">Automation Rules</div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="m-fname-rule">Filename Rule</label>
+            <select id="m-fname-rule">
+              <option value="keep">Keep Original Name</option>
+              <option value="suffix_converted">Add _converted Suffix</option>
+              <option value="append_date">Append Date (YYYYMMDD)</option>
+              <option value="prefix_workflow">Add Workflow Prefix</option>
+              <option value="suffix_custom">Custom Suffix</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="m-meta-policy">Metadata / Privacy</label>
+            <select id="m-meta-policy">
+              <option value="preset">Follow Each Preset</option>
+              <option value="wipe">Wipe All Metadata</option>
+              <option value="gps">Strip GPS Only</option>
+              <option value="keep">Keep Original Metadata</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field hidden" id="m-custom-suffix-wrap">
+          <label for="m-custom-suffix">Custom Filename Suffix</label>
+          <input type="text" id="m-custom-suffix" placeholder="e.g., _reels or _export">
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="m-skip-rule">Smart Skip Condition</label>
+            <select id="m-skip-rule">
+              <option value="none">Convert All Matching Files</option>
+              <option value="same_format">Skip if Already Target Format</option>
+              <option value="smaller_than">Skip if Smaller Than X MB</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="m-source-action">After Conversion</label>
+            <select id="m-source-action">
+              <option value="keep">Keep Original Files</option>
+              <option value="delete_after_verify">Delete Source After Export</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field hidden" id="m-skip-mb-wrap">
+          <label for="m-skip-mb">Skip Files Smaller Than (MB)</label>
+          <input type="number" id="m-skip-mb" min="1" max="10000" value="5" placeholder="5">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" id="btn-m-cancel" class="btn-sec">Cancel</button>
+        <button type="button" id="btn-m-save" class="btn-new-workflow">Save Workflow</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-backdrop hidden" id="confirm-modal" role="dialog" aria-modal="true">
+    <div class="confirm-sheet">
+      <div class="confirm-title" id="confirm-title">Delete Workflow?</div>
+      <div class="confirm-desc" id="confirm-desc">Move this workflow to Deleted?</div>
+      <div class="confirm-actions">
+        <button type="button" id="btn-c-cancel" class="btn-sec">Cancel</button>
+        <button type="button" id="btn-c-ok" class="btn-danger-solid">Delete</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Rename Workflow Modal -->
+  <div class="modal-backdrop hidden" id="rename-wf-modal" role="dialog" aria-modal="true" aria-label="Rename Workflow">
+    <div class="confirm-sheet">
+      <div class="confirm-title">Rename Workflow</div>
+      <div class="field">
+        <label for="inp-rename-wf">New Workflow Name</label>
+        <input type="text" id="inp-rename-wf" placeholder="Enter custom workflow name...">
+      </div>
+      <div class="confirm-actions">
+        <button type="button" id="btn-rwf-cancel" class="btn-sec">Cancel</button>
+        <button type="button" id="btn-rwf-save" class="btn-new-workflow">Save Name</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      const STORAGE_KEY = 'cv_workflows_v1';
+      let showTrash = false;
+      let sortMode = 'default';
+      let selectMode = false;
+      const selectedIds = new Set();
+      let editingId = null;
+      let pendingConfirmAction = null;
+      let draftDirs = { video: '', audio: '', image: '' };
+      let activeDirPickTarget = null;
+
+      function toast(msg) {
+        const t = document.getElementById('toast');
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(window.__wfToastT);
+        window.__wfToastT = setTimeout(() => t.classList.remove('show'), 2200);
+      }
+
+      function safeReadAll() {
+        let raw = '';
+        try {
+          if (window.AndroidBridge && typeof window.AndroidBridge.getAppState === 'function') {
+            raw = window.AndroidBridge.getAppState(STORAGE_KEY) || '';
+          }
+        } catch (_) {}
+        if (!raw) {
+          try { raw = localStorage.getItem(STORAGE_KEY) || ''; } catch (_) {}
+        }
+        try {
+          const arr = JSON.parse(raw || '[]');
+          if (!Array.isArray(arr)) return [];
+          const ttlRaw = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_workflow_trash_ttl')) || localStorage.getItem('cv_workflow_trash_ttl') || '30';
+          const ttlDays = ttlRaw === 'never' ? 0 : (parseInt(ttlRaw, 10) || 30);
+          if (ttlDays > 0) {
+            const cutoff = Date.now() - ttlDays * 86400000;
+            const kept = arr.filter(w => !w || !w.deleted || !w.deletedAt || w.deletedAt >= cutoff);
+            if (kept.length !== arr.length) safeWriteAll(kept);
+            return kept;
+          }
+          return arr;
+        } catch (_) { return []; }
+      }
+
+      function safeWriteAll(list) {
+        const str = JSON.stringify(list || []);
+        try {
+          if (window.AndroidBridge && typeof window.AndroidBridge.setAppState === 'function') {
+            window.AndroidBridge.setAppState(STORAGE_KEY, str);
+          }
+        } catch (_) {}
+        try { localStorage.setItem(STORAGE_KEY, str); } catch (_) {}
+      }
+
+      function escHtml(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function shortDir(dirPath, fallbackLabel) {
+        const d = String(dirPath || '').trim();
+        if (!d) return fallbackLabel;
+        const clean = d.replace(/\/+$/, '');
+        const parts = clean.split('/').filter(Boolean);
+        return parts.length > 2 ? ('…/' + parts.slice(-2).join('/')) : clean;
+      }
+
+      function getPresetName(cat, presetId) {
+        if (!presetId || presetId === '__skip__') return 'Skip ' + (cat === 'video' ? 'Videos' : (cat === 'audio' ? 'Audios' : 'Images'));
+        try {
+          if (window.VaultPresets) {
+            const list = window.VaultPresets.listActive(cat) || [];
+            const hit = list.find(p => p.id === presetId);
+            if (hit) return hit.name;
+          }
+        } catch (_) {}
+        return presetId;
+      }
+
+      function populatePresetSelects(wf) {
+        const defs = [
+          { cat: 'video', elId: 'm-vid-preset', skipLabel: 'Skip Videos (Do not convert)', cur: wf && wf.video ? wf.video.presetId : '' },
+          { cat: 'audio', elId: 'm-aud-preset', skipLabel: 'Skip Audios (Do not convert)', cur: wf && wf.audio ? wf.audio.presetId : '' },
+          { cat: 'image', elId: 'm-img-preset', skipLabel: 'Skip Images (Do not convert)', cur: wf && wf.image ? wf.image.presetId : '' }
+        ];
+        defs.forEach(d => {
+          const sel = document.getElementById(d.elId);
+          if (!sel) return;
+          const presets = (window.VaultPresets && window.VaultPresets.listActive) ? (window.VaultPresets.listActive(d.cat) || []) : [];
+          let html = '';
+          presets.forEach(p => {
+            html += '<option value="' + escHtml(p.id) + '">' + escHtml(p.name) + '</option>';
+          });
+          html += '<option value="__skip__">' + escHtml(d.skipLabel) + '</option>';
+          sel.innerHTML = html;
+          if (d.cur && Array.from(sel.options).some(o => o.value === d.cur)) {
+            sel.value = d.cur;
+          } else if (presets.length > 0) {
+            sel.value = presets[0].id;
+          } else {
+            sel.value = '__skip__';
+          }
+        });
+      }
+
+      function updateDirLabels() {
+        document.getElementById('m-vid-dir-lbl').textContent = draftDirs.video || 'Default (ConversionVault/Vault_Core/Videos)';
+        document.getElementById('m-aud-dir-lbl').textContent = draftDirs.audio || 'Default (ConversionVault/Vault_Core/Audios)';
+        document.getElementById('m-img-dir-lbl').textContent = draftDirs.image || 'Default (ConversionVault/Vault_Core/Images)';
+      }
+
+      function syncRuleExtraFields() {
+        const fnRule = document.getElementById('m-fname-rule').value;
+        document.getElementById('m-custom-suffix-wrap').classList.toggle('hidden', fnRule !== 'suffix_custom');
+        const skRule = document.getElementById('m-skip-rule').value;
+        document.getElementById('m-skip-mb-wrap').classList.toggle('hidden', skRule !== 'smaller_than');
+      }
+
+      function openModal(wf) {
+        editingId = wf ? wf.id : null;
+        document.getElementById('m-title').textContent = wf ? 'Edit Workflow' : 'Create New Workflow';
+        document.getElementById('m-name').value = wf ? (wf.name || '') : '';
+        document.getElementById('m-desc').value = wf ? (wf.desc || '') : '';
+        populatePresetSelects(wf);
+        draftDirs = {
+          video: (wf && wf.video && wf.video.outputDir) || '',
+          audio: (wf && wf.audio && wf.audio.outputDir) || '',
+          image: (wf && wf.image && wf.image.outputDir) || ''
+        };
+        updateDirLabels();
+        const rules = (wf && wf.rules) || {};
+        document.getElementById('m-fname-rule').value = rules.filenameRule || 'keep';
+        document.getElementById('m-custom-suffix').value = rules.customSuffix || '';
+        document.getElementById('m-meta-policy').value = rules.metaPolicy || 'preset';
+        document.getElementById('m-skip-rule').value = rules.skipRule || 'none';
+        document.getElementById('m-skip-mb').value = rules.skipSmallerMB || 5;
+        document.getElementById('m-source-action').value = rules.sourceAction || 'keep';
+        syncRuleExtraFields();
+        document.getElementById('wf-modal').classList.remove('hidden');
+      }
+
+      function closeModal() {
+        document.getElementById('wf-modal').classList.add('hidden');
+        editingId = null;
+        activeDirPickTarget = null;
+      }
+
+      function openConfirm(title, desc, okLabel, onOk) {
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-desc').textContent = desc;
+        document.getElementById('btn-c-ok').textContent = okLabel || 'Delete';
+        pendingConfirmAction = onOk;
+        document.getElementById('confirm-modal').classList.remove('hidden');
+      }
+
+      function closeConfirm() {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        pendingConfirmAction = null;
+      }
+
+      function exportWorkflowsPayload(items, baseName) {
+        const jsonStr = JSON.stringify(items.length === 1 ? items[0] : items, null, 2);
+        if (window.AndroidBridge && typeof window.AndroidBridge.exportWorkflowJson === 'function') {
+          try {
+            const res = JSON.parse(window.AndroidBridge.exportWorkflowJson(baseName || 'conversion_vault_workflows', jsonStr) || '{}');
+            if (res && res.ok) {
+              toast('Exported to Workflows/' + (res.name || 'workflow.json'));
+              return;
+            }
+          } catch (_) {}
+        }
+        try {
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = (baseName || 'workflow') + '.json';
+          a.click();
+          toast('Exported workflow JSON');
+        } catch (_) {
+          toast('Export failed');
+        }
+      }
+
+      function useWorkflow(wf) {
+        if (!wf) return;
+        const payload = JSON.stringify(wf);
+        try {
+          if (window.AndroidBridge && typeof window.AndroidBridge.setAppState === 'function') {
+            window.AndroidBridge.setAppState('cv_pending_workflow', payload);
+            window.AndroidBridge.setAppState('cv_pending_preset', '');
+          }
+        } catch (_) {}
+        try {
+          localStorage.setItem('cv_pending_workflow', payload);
+          localStorage.removeItem('cv_pending_preset');
+        } catch (_) {}
+        if (window.AndroidBridge && typeof window.AndroidBridge.navigate === 'function') {
+          window.AndroidBridge.navigate('conversion_vault_p2_select.html?mode=workflow');
+        } else {
+          window.location.href = 'conversion_vault_p2_select.html?mode=workflow';
+        }
+      }
+
+      function renderList() {
+        const all = safeReadAll();
+        const activeList = all.filter(w => !w.deleted);
+        const deletedList = all.filter(w => !!w.deleted);
+
+        const trashBtn = document.getElementById('btn-wf-trash');
+        const trashBadge = document.getElementById('wf-trash-badge');
+        if (trashBadge) trashBadge.textContent = String(deletedList.length);
+        if (trashBtn) trashBtn.classList.toggle('active', showTrash);
+        const trashInfo = document.getElementById('wf-trash-info');
+        const trashInfoTxt = document.getElementById('wf-trash-info-txt');
+        const ttlRaw = (window.AndroidBridge && window.AndroidBridge.getAppState && window.AndroidBridge.getAppState('cv_workflow_trash_ttl')) || localStorage.getItem('cv_workflow_trash_ttl') || '30';
+        const ttlDays = ttlRaw === 'never' ? 0 : (parseInt(ttlRaw, 10) || 30);
+        if (trashInfo) trashInfo.classList.toggle('hidden', !showTrash);
+        if (trashInfoTxt) trashInfoTxt.textContent = ttlDays > 0 ? ('Trash · Auto-deletes after ' + ttlDays + ' days') : 'Trash · Never auto-deletes';
+
+        const q = (document.getElementById('inp-search').value || '').trim().toLowerCase();
+        let list = (showTrash ? deletedList : activeList).slice();
+        if (q) {
+          list = list.filter(w => {
+            const hay = [
+              w.name, w.desc,
+              getPresetName('video', w.video && w.video.presetId),
+              getPresetName('audio', w.audio && w.audio.presetId),
+              getPresetName('image', w.image && w.image.presetId),
+              w.video && w.video.outputDir,
+              w.audio && w.audio.outputDir,
+              w.image && w.image.outputDir
+            ].join(' ').toLowerCase();
+            return hay.indexOf(q) !== -1;
+          });
+        }
+
+        if (sortMode === 'name_asc') list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+        else if (sortMode === 'name_desc') list.sort((a, b) => String(b.name || '').localeCompare(String(a.name || ''), undefined, { sensitivity: 'base' }));
+        else if (sortMode === 'newest') list.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+        else if (sortMode === 'oldest') list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+        const selBar = document.getElementById('wf-sel-bar');
+        const selBtn = document.getElementById('btn-wf-select');
+        if (selBtn) selBtn.classList.toggle('active', selectMode);
+        if (selBar) selBar.classList.toggle('hidden', !selectMode);
+        if (selectMode) {
+          document.getElementById('lbl-wf-sel-cnt').textContent = selectedIds.size + ' selected';
+          document.getElementById('btn-wf-sel-restore').classList.toggle('hidden', !showTrash);
+          document.getElementById('btn-wf-sel-export').classList.toggle('hidden', showTrash);
+          document.getElementById('btn-wf-sel-delete').textContent = showTrash ? 'Delete Forever' : 'Delete';
+        }
+
+        const container = document.getElementById('wf-list');
+        if (!list.length) {
+          container.innerHTML = showTrash
+            ? '<div class="empty-card"><div class="empty-title">No deleted workflows</div><div class="empty-sub">Deleted workflows appear here so you can restore them anytime.</div></div>'
+            : (q
+              ? '<div class="empty-card"><div class="empty-title">No matching workflows</div><div class="empty-sub">Try a different search keyword or clear your search box.</div></div>'
+              : '<div class="empty-card">' +
+                  '<div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6"/><path d="M6 9v3a6 6 0 0 0 6 6h3"/></svg></div>' +
+                  '<div class="empty-title">No Workflows Yet</div>' +
+                  '<div class="empty-sub">Build a Workflow to pre-select Video, Audio, and Image presets along with their destination folders. When you run it, just pick files, check the time estimate, and press Start.</div>' +
+                  '<button type="button" class="btn-new-workflow" id="btn-empty-create">+ Create First Workflow</button>' +
+                '</div>');
+          const eb = document.getElementById('btn-empty-create');
+          if (eb) eb.addEventListener('click', () => openModal(null));
+          return;
+        }
+
+        container.innerHTML = list.map(w => {
+          const isSel = selectMode && selectedIds.has(w.id);
+          const vName = getPresetName('video', w.video && w.video.presetId);
+          const aName = getPresetName('audio', w.audio && w.audio.presetId);
+          const iName = getPresetName('image', w.image && w.image.presetId);
+          const vDir = shortDir(w.video && w.video.outputDir, 'Vault_Core/Videos');
+          const aDir = shortDir(w.audio && w.audio.outputDir, 'Vault_Core/Audios');
+          const iDir = shortDir(w.image && w.image.outputDir, 'Vault_Core/Images');
+          const rules = w.rules || {};
+          const rulePills = [];
+          if (rules.filenameRule && rules.filenameRule !== 'keep') {
+            const fnMap = { suffix_converted: '+ _converted', append_date: '+ YYYYMMDD', prefix_workflow: 'Workflow Prefix', suffix_custom: '+ ' + (rules.customSuffix || '_custom') };
+            rulePills.push('<span class="rule-pill gold">' + escHtml(fnMap[rules.filenameRule] || rules.filenameRule) + '</span>');
+          }
+          if (rules.metaPolicy && rules.metaPolicy !== 'preset') {
+            const mpMap = { wipe: 'Wipe Metadata', gps: 'Strip GPS', keep: 'Keep Metadata' };
+            rulePills.push('<span class="rule-pill emerald">' + escHtml(mpMap[rules.metaPolicy] || rules.metaPolicy) + '</span>');
+          }
+          if (rules.skipRule === 'same_format') rulePills.push('<span class="rule-pill">Skip Same Format</span>');
+          else if (rules.skipRule === 'smaller_than') rulePills.push('<span class="rule-pill">Skip &lt; ' + escHtml(rules.skipSmallerMB || 5) + ' MB</span>');
+          if (rules.sourceAction === 'delete_after_verify') rulePills.push('<span class="rule-pill" style="color:#fda4af; border-color:rgba(219,10,64,0.4);">Delete Source After Export</span>');
+
+          return '<article class="wf-card' + (isSel ? ' is-selected' : '') + '" data-wf-id="' + escHtml(w.id) + '">' +
+            '<div class="wf-top">' +
+              '<div style="display:flex; align-items:flex-start; gap:6px; min-width:0; flex:1;">' +
+                (selectMode ? '<input type="checkbox" class="wf-sel-chk" data-act="sel-wf" data-id="' + escHtml(w.id) + '"' + (isSel ? ' checked' : '') + '>' : '') +
+                '<div style="min-width:0; flex:1;">' +
+                  '<div class="wf-name">' + escHtml(w.name) + (showTrash && ttlDays > 0 && w.deletedAt ? (' <span class="rule-pill gold" style="margin-left:5px;">' + Math.max(1, Math.ceil((w.deletedAt + ttlDays * 86400000 - Date.now()) / 86400000)) + 'd left</span>') : '') + '</div>' +
+                  (w.desc ? '<div class="wf-desc">' + escHtml(w.desc) + '</div>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="wf-routes">' +
+              '<div class="wf-route-row"><span class="cat-pill cp-video">VIDEO</span><span class="wf-route-txt">' + escHtml(vName) + ' <span class="wf-route-dir">→ ' + escHtml(vDir) + '</span></span></div>' +
+              '<div class="wf-route-row"><span class="cat-pill cp-audio">AUDIO</span><span class="wf-route-txt">' + escHtml(aName) + ' <span class="wf-route-dir">→ ' + escHtml(aDir) + '</span></span></div>' +
+              '<div class="wf-route-row"><span class="cat-pill cp-image">IMAGE</span><span class="wf-route-txt">' + escHtml(iName) + ' <span class="wf-route-dir">→ ' + escHtml(iDir) + '</span></span></div>' +
+            '</div>' +
+            (rulePills.length ? '<div class="wf-rules-row">' + rulePills.join('') + '</div>' : '') +
+            '<div class="wf-actions">' +
+              (showTrash
+                ? '<button type="button" class="btn-use" data-act="restore" data-id="' + escHtml(w.id) + '">Restore Workflow</button>' +
+                  '<button type="button" class="btn-sec" data-act="purge" data-id="' + escHtml(w.id) + '" style="border-color:rgba(219,10,64,0.5); color:#fda4af;">Delete Forever</button>'
+                : '<button type="button" class="btn-use" data-act="use" data-id="' + escHtml(w.id) + '">Use Workflow ▶</button>' +
+                  '<button type="button" class="btn-sec" data-act="rename" data-id="' + escHtml(w.id) + '">Rename</button>' +
+                  '<button type="button" class="btn-sec" data-act="edit" data-id="' + escHtml(w.id) + '">Edit</button>' +
+                  '<button type="button" class="btn-sec" data-act="export" data-id="' + escHtml(w.id) + '">Export</button>' +
+                  '<button type="button" class="btn-sec" data-act="delete" data-id="' + escHtml(w.id) + '">Delete</button>'
+              ) +
+            '</div>' +
+          '</article>';
+        }).join('');
+      }
+
+      // Wire native folder picker callback for Workflow Builder
+      window.onVaultWorkflowDirPicked = function (payload) {
+        if (!activeDirPickTarget) return;
+        const dirPath = (payload && (payload.folderPath || payload.folderName)) ? String(payload.folderPath || payload.folderName) : '';
+        if (dirPath) {
+          draftDirs[activeDirPickTarget] = dirPath;
+          updateDirLabels();
+          toast('Folder set for ' + activeDirPickTarget);
+        }
+        activeDirPickTarget = null;
+      };
+
+      document.getElementById('btn-new-workflow').addEventListener('click', () => openModal(null));
+      document.getElementById('btn-m-close').addEventListener('click', closeModal);
+      document.getElementById('btn-m-cancel').addEventListener('click', closeModal);
+      document.getElementById('btn-c-cancel').addEventListener('click', closeConfirm);
+      document.getElementById('btn-c-ok').addEventListener('click', () => {
+        const fn = pendingConfirmAction;
+        closeConfirm();
+        if (typeof fn === 'function') fn();
+      });
+
+      document.getElementById('m-fname-rule').addEventListener('change', syncRuleExtraFields);
+      document.getElementById('m-skip-rule').addEventListener('change', syncRuleExtraFields);
+
+      document.querySelectorAll('[data-pick-dir]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-pick-dir');
+          activeDirPickTarget = target;
+          if (window.AndroidBridge && typeof window.AndroidBridge.pickFolder === 'function') {
+            window.__pickingWorkflowDir = true;
+            window.AndroidBridge.pickFolder();
+          } else {
+            const manual = window.prompt('Enter folder path for ' + target + ':', draftDirs[target] || '');
+            if (manual !== null) {
+              draftDirs[target] = manual.trim();
+              updateDirLabels();
+            }
+            activeDirPickTarget = null;
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-reset-dir]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-reset-dir');
+          draftDirs[target] = '';
+          updateDirLabels();
+          toast('Reset to default folder');
+        });
+      });
+
+      document.getElementById('btn-m-save').addEventListener('click', () => {
+        const name = (document.getElementById('m-name').value || '').trim();
+        if (!name) { toast('Enter a workflow name first'); return; }
+        const desc = (document.getElementById('m-desc').value || '').trim();
+        const now = Date.now();
+        const wfObj = {
+          id: editingId || ('wf_' + now + '_' + Math.random().toString(36).slice(2, 6)),
+          name: name,
+          desc: desc,
+          video: { presetId: document.getElementById('m-vid-preset').value || '__skip__', outputDir: draftDirs.video || '' },
+          audio: { presetId: document.getElementById('m-aud-preset').value || '__skip__', outputDir: draftDirs.audio || '' },
+          image: { presetId: document.getElementById('m-img-preset').value || '__skip__', outputDir: draftDirs.image || '' },
+          rules: {
+            filenameRule: document.getElementById('m-fname-rule').value || 'keep',
+            customSuffix: (document.getElementById('m-custom-suffix').value || '').trim(),
+            metaPolicy: document.getElementById('m-meta-policy').value || 'preset',
+            skipRule: document.getElementById('m-skip-rule').value || 'none',
+            skipSmallerMB: Math.max(1, parseInt(document.getElementById('m-skip-mb').value || '5', 10) || 5),
+            sourceAction: document.getElementById('m-source-action').value || 'keep'
+          },
+          deleted: false,
+          createdAt: now,
+          updatedAt: now
+        };
+        const all = safeReadAll();
+        const idx = all.findIndex(x => x.id === wfObj.id);
+        if (idx >= 0) {
+          wfObj.createdAt = all[idx].createdAt || now;
+          all[idx] = wfObj;
+        } else {
+          all.unshift(wfObj);
+        }
+        safeWriteAll(all);
+        closeModal();
+        renderList();
+        toast(idx >= 0 ? ('Updated "' + name + '"') : ('Saved workflow "' + name + '"'));
+      });
+
+      document.getElementById('inp-search').addEventListener('input', renderList);
+      document.getElementById('sel-wf-sort').addEventListener('change', (e) => {
+        sortMode = e.target.value || 'default';
+        renderList();
+      });
+      document.getElementById('btn-wf-trash').addEventListener('click', () => {
+        showTrash = !showTrash;
+        selectedIds.clear();
+        renderList();
+      });
+      document.getElementById('btn-wf-select').addEventListener('click', () => {
+        selectMode = !selectMode;
+        if (!selectMode) selectedIds.clear();
+        renderList();
+      });
+
+      document.getElementById('btn-wf-sel-all').addEventListener('click', () => {
+        const visible = Array.from(document.querySelectorAll('#wf-list [data-wf-id]')).map(el => el.getAttribute('data-wf-id'));
+        const allChecked = visible.length > 0 && visible.every(id => selectedIds.has(id));
+        if (allChecked) visible.forEach(id => selectedIds.delete(id));
+        else visible.forEach(id => selectedIds.add(id));
+        renderList();
+      });
+
+      document.getElementById('btn-wf-sel-export').addEventListener('click', () => {
+        const all = safeReadAll();
+        const picked = all.filter(w => selectedIds.has(w.id) && !w.deleted);
+        if (!picked.length) { toast('Select at least one workflow'); return; }
+        exportWorkflowsPayload(picked, picked.length === 1 ? picked[0].name.replace(/[^a-zA-Z0-9_-]/g, '_') : 'conversion_vault_workflows');
+      });
+
+      document.getElementById('btn-wf-sel-restore').addEventListener('click', () => {
+        if (!selectedIds.size) { toast('Select workflows to restore'); return; }
+        const all = safeReadAll();
+        let cnt = 0;
+        all.forEach(w => { if (selectedIds.has(w.id) && w.deleted) { w.deleted = false; cnt++; } });
+        safeWriteAll(all);
+        selectedIds.clear();
+        selectMode = false;
+        renderList();
+        toast('Restored ' + cnt + ' workflow' + (cnt === 1 ? '' : 's'));
+      });
+
+      document.getElementById('btn-wf-sel-delete').addEventListener('click', () => {
+        if (!selectedIds.size) { toast('Select workflows first'); return; }
+        const cnt = selectedIds.size;
+        openConfirm(
+          showTrash ? ('Delete ' + cnt + ' Forever?') : ('Delete ' + cnt + ' Workflow' + (cnt === 1 ? '' : 's') + '?'),
+          showTrash ? 'These workflows will be permanently removed.' : 'Selected workflows will be moved to Deleted.',
+          showTrash ? 'Delete Forever' : 'Delete',
+          () => {
+            let all = safeReadAll();
+            if (showTrash) all = all.filter(w => !selectedIds.has(w.id));
+            else all.forEach(w => { if (selectedIds.has(w.id)) w.deleted = true; w.deletedAt = Date.now(); });
+            safeWriteAll(all);
+            selectedIds.clear();
+            selectMode = false;
+            renderList();
+            toast(showTrash ? 'Deleted permanently' : 'Moved to Deleted');
+          }
+        );
+      });
+
+      // Import .json
+      document.getElementById('btn-import-wf').addEventListener('click', () => {
+        document.getElementById('inp-import-file').value = '';
+        document.getElementById('inp-import-file').click();
+      });
+      document.getElementById('inp-import-file').addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const parsed = JSON.parse(String(reader.result || ''));
+            const items = Array.isArray(parsed) ? parsed : [parsed];
+            const valid = items.filter(x => x && typeof x === 'object' && x.name && (x.video || x.audio || x.image));
+            if (!valid.length) { toast('Invalid workflow JSON file'); return; }
+            const all = safeReadAll();
+            const existingIds = new Set(all.map(x => x.id));
+            let added = 0;
+            valid.forEach(v => {
+              const id = (v.id && !existingIds.has(v.id)) ? v.id : ('wf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+              existingIds.add(id);
+              all.unshift({
+                id: id,
+                name: String(v.name).trim(),
+                desc: String(v.desc || '').trim(),
+                video: { presetId: (v.video && v.video.presetId) || '__skip__', outputDir: (v.video && v.video.outputDir) || '' },
+                audio: { presetId: (v.audio && v.audio.presetId) || '__skip__', outputDir: (v.audio && v.audio.outputDir) || '' },
+                image: { presetId: (v.image && v.image.presetId) || '__skip__', outputDir: (v.image && v.image.outputDir) || '' },
+                rules: Object.assign({ filenameRule: 'keep', customSuffix: '', metaPolicy: 'preset', skipRule: 'none', skipSmallerMB: 5, sourceAction: 'keep' }, v.rules || {}),
+                deleted: false,
+                createdAt: v.createdAt || Date.now(),
+                updatedAt: Date.now()
+              });
+              added++;
+            });
+            safeWriteAll(all);
+            showTrash = false;
+            renderList();
+            toast('Imported ' + added + ' workflow' + (added === 1 ? '' : 's'));
+          } catch (_) {
+            toast('Could not parse workflow JSON');
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      // Card delegation
+      document.getElementById('wf-list').addEventListener('click', (e) => {
+        const chk = e.target.closest('input[data-act="sel-wf"]');
+        if (chk) {
+          const id = chk.getAttribute('data-id');
+          if (chk.checked) selectedIds.add(id); else selectedIds.delete(id);
+          renderList();
+          return;
+        }
+        const btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        const act = btn.getAttribute('data-act');
+        const id = btn.getAttribute('data-id');
+        const all = safeReadAll();
+        const wf = all.find(x => x.id === id);
+        if (!wf) return;
+
+        if (act === 'rename') {
+          openRenameWfModal(wf);
+        } else if (act === 'use') {
+          useWorkflow(wf);
+        } else if (act === 'edit') {
+          openModal(wf);
+        } else if (act === 'export') {
+          exportWorkflowsPayload([wf], wf.name.replace(/[^a-zA-Z0-9_-]/g, '_'));
+        } else if (act === 'delete') {
+          openConfirm('Delete Workflow?', 'Move "' + wf.name + '" to Deleted?', 'Delete', () => {
+            wf.deleted = true; wf.deletedAt = Date.now();
+            safeWriteAll(all);
+            renderList();
+            toast('Moved "' + wf.name + '" to Deleted');
+          });
+        } else if (act === 'restore') {
+          wf.deleted = false;
+          safeWriteAll(all);
+          renderList();
+          toast('Restored "' + wf.name + '"');
+        } else if (act === 'purge') {
+          openConfirm('Delete Forever?', 'Permanently delete "' + wf.name + '"?', 'Delete Forever', () => {
+            safeWriteAll(all.filter(x => x.id !== id));
+            renderList();
+            toast('Deleted "' + wf.name + '"');
+          });
+        }
+      });
+
+      // Long-press any workflow card to enter Select mode
+      (function wireLongPress() {
+        let lpTimer = null, lpFired = false, sx = 0, sy = 0;
+        document.addEventListener('touchstart', (e) => {
+          if (!e.touches || e.touches.length !== 1) return;
+          const card = e.target && e.target.closest ? e.target.closest('.wf-card[data-wf-id]') : null;
+          if (!card || e.target.closest('button, input, select')) return;
+          const id = card.getAttribute('data-wf-id');
+          lpFired = false;
+          sx = e.touches[0].clientX;
+          sy = e.touches[0].clientY;
+          clearTimeout(lpTimer);
+          lpTimer = setTimeout(() => {
+            lpFired = true;
+            if (!selectMode) selectMode = true;
+            if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+            if (typeof window.cvHaptic === 'function') window.cvHaptic('heavy');
+            renderList();
+          }, 420);
+        }, { passive: true });
+        document.addEventListener('touchmove', (e) => {
+          if (!lpTimer || !e.touches || e.touches.length !== 1) return;
+          if (Math.abs(e.touches[0].clientX - sx) > 12 || Math.abs(e.touches[0].clientY - sy) > 12) {
+            clearTimeout(lpTimer); lpTimer = null;
+          }
+        }, { passive: true });
+        const cancel = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+        document.addEventListener('touchend', cancel, { passive: true });
+        document.addEventListener('touchcancel', cancel, { passive: true });
+        document.addEventListener('click', (e) => {
+          if (lpFired) { lpFired = false; e.preventDefault(); e.stopImmediatePropagation(); }
+        }, true);
+      })();
+
+
+      let renamingWfId = null;
+      function openRenameWfModal(wf) {
+        if (!wf) return;
+        renamingWfId = wf.id;
+        const inp = document.getElementById('inp-rename-wf');
+        if (inp) { inp.value = wf.name || ''; }
+        document.getElementById('rename-wf-modal').classList.remove('hidden');
+        setTimeout(() => { if (inp) { inp.focus(); inp.select(); } }, 30);
+      }
+      function closeRenameWfModal() {
+        document.getElementById('rename-wf-modal').classList.add('hidden');
+        renamingWfId = null;
+      }
+      function saveRenamedWf() {
+        if (!renamingWfId) return;
+        const newName = (document.getElementById('inp-rename-wf').value || '').trim();
+        if (!newName) { toast('Enter a workflow name'); return; }
+        const all = safeReadAll();
+        const hit = all.find(x => x.id === renamingWfId);
+        if (hit) {
+          hit.name = newName;
+          hit.updatedAt = Date.now();
+          safeWriteAll(all);
+        }
+        closeRenameWfModal();
+        renderList();
+        toast('Renamed workflow to "' + newName + '"');
+      }
+      document.getElementById('btn-rwf-cancel').addEventListener('click', closeRenameWfModal);
+      document.getElementById('btn-rwf-save').addEventListener('click', saveRenamedWf);
+      document.getElementById('inp-rename-wf').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveRenamedWf(); });
+      document.getElementById('btn-exit-wf-trash').addEventListener('click', () => {
+        showTrash = false;
+        selectedIds.clear();
+        renderList();
+      });
+
+      renderList();
+    })();
+  </script>
+  <script src="vault-bridge.js"></script>
+</body>
+</html>

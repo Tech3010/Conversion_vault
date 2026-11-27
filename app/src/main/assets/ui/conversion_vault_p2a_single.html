@@ -450,6 +450,7 @@
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:-4px;"><span class="scope-lbl">Preset Status</span><button type="button" class="i-btn" data-info="Preset Status Bars" aria-label="Info about Status Bars">i</button></div>
             <div class="mini-bars-grid" id="main-ps-bars"></div>
+            <div id="main-compat-note"></div>
           </div>
         </div>
       </section>
@@ -542,6 +543,7 @@
             <span class="page-sub" id="m-live-tag">No format selected yet</span>
           </div>
           <div class="mini-bars-grid" id="m-status-bars"></div>
+          <div id="m-compat-note"></div>
         </div>
 
         <div class="adv-grid" id="m-adv-controls"></div>
@@ -726,6 +728,7 @@
         document.getElementById('main-ps-tags').textContent = 'Tap Choose Format to pick a preset or tune video, audio, orientation, FPS & subtitles';
         document.getElementById('btn-open-format').textContent = 'Choose Format ↗';
         document.getElementById('main-ps-bars').innerHTML = renderBars(null, true);
+        const mc0 = document.getElementById('main-compat-note'); if (mc0) mc0.innerHTML = '';
         perfSec.classList.add('is-untouched');
         document.getElementById('perf-time').textContent = '—';
         document.getElementById('perf-fps').textContent = 'Select format above';
@@ -750,6 +753,10 @@
       document.getElementById('main-ps-tags').textContent = shortTag(state.cfg);
       document.getElementById('btn-open-format').textContent = 'Change Format ↗';
       document.getElementById('main-ps-bars').innerHTML = renderBars(bars, false);
+      const mc1 = document.getElementById('main-compat-note');
+      if (mc1 && window.VaultPresets && window.VaultPresets.getCodecCompatNote) {
+        mc1.innerHTML = window.VaultPresets.renderCompatNoteHtml(window.VaultPresets.getCodecCompatNote({ cat: 'video', cfg: state.cfg }));
+      }
 
       document.getElementById('perf-time').textContent = est.sec > 0 ? fmtSec(est.sec) : '—';
       document.getElementById('perf-fps').textContent = est.fpsLbl + (est.rt !== '—' ? ' · ' + est.rt : '');
@@ -826,10 +833,15 @@
         tagEl.textContent = 'No format selected yet';
         tagEl.classList.add('status-unselected');
         document.getElementById('m-status-bars').innerHTML = renderBars(null, true);
+        const mm0 = document.getElementById('m-compat-note'); if (mm0) mm0.innerHTML = '';
       } else {
         tagEl.classList.remove('status-unselected');
         tagEl.textContent = shortTag(draft);
         document.getElementById('m-status-bars').innerHTML = renderBars(computeBars(draft), false);
+        const mm1 = document.getElementById('m-compat-note');
+        if (mm1 && window.VaultPresets && window.VaultPresets.getCodecCompatNote) {
+          mm1.innerHTML = window.VaultPresets.renderCompatNoteHtml(window.VaultPresets.getCodecCompatNote({ cat: 'video', cfg: draft }));
+        }
       }
 
       const audioDisabled = draft.audioCodec === 'none';

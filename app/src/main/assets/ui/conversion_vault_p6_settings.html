@@ -217,16 +217,24 @@
     /* Bottom Navigation Bar (3 Roots: Home · Queue & History · Settings) */
     .bottom-nav {
       position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; max-width: 540px; height: 64px;
+      width: 100%; max-width: 540px; height: 66px;
       background: var(--surface); border-top: 1px solid var(--border);
-      display: grid; grid-template-columns: repeat(4, 1fr); z-index: 40;
+      padding: 6px 4px; gap: 4px;
+      display: grid; grid-template-columns: repeat(5, 1fr); z-index: 40;
     }
     .nav-item {
-      border: none; background: transparent; color: var(--muted);
+      border: 1px solid transparent; border-radius: 11px;
+      background: transparent; color: var(--muted);
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-      font-size: 10.5px; font-weight: 700; cursor: pointer;
+      padding: 4px 2px; font-size: 9.8px; font-weight: 700; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; outline: none;
     }
-    .nav-item.active { color: var(--crimson); }
+    .nav-item.active {
+      color: var(--crimson);
+      background: var(--crimson-soft);
+      border-color: rgba(219, 10, 64, 0.50);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 10px rgba(219, 10, 64, 0.18);
+    }
 
     .toast {
       position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
@@ -315,9 +323,9 @@
         <div class="field border-top">
           <label for="sel-def-sub">Default Batch Subfolder Style</label>
           <select id="sel-def-sub">
-            <option value="numbered" selected>Conversion_01 (Auto-Numbered)</option>
+            <option value="numbered">Batch_Conversion_01 (Auto-Numbered)</option>
             <option value="date">Nov_23 (Clean Date)</option>
-            <option value="none">None (Direct in Root)</option>
+            <option value="none" selected>None (Direct in Root)</option>
           </select>
         </div>
         <div class="field border-top">
@@ -446,6 +454,13 @@
           </div>
           <label class="switch"><input type="checkbox" id="chk-keep-awake" checked><span class="slider"></span></label>
         </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <div style="min-width:0;">
+            <span class="toggle-title">Background Conversion (Battery)</span>
+            <span class="toggle-sub" id="lbl-battery-opt">Allow unrestricted background power so conversions don't pause when you leave the app</span>
+          </div>
+          <button type="button" id="btn-battery-opt" class="btn-sm" style="border-color:var(--gold); color:var(--gold-text); white-space:nowrap;">Allow ↗</button>
+        </div>
       </section>
 
       <!-- 4. PRIVACY & CACHE -->
@@ -483,6 +498,16 @@
         <div class="field border-top">
           <label for="sel-preset-ttl">Auto-Delete Deleted Presets (Trash) After</label>
           <select id="sel-preset-ttl">
+            <option value="7">7 Days</option>
+            <option value="15">15 Days</option>
+            <option value="30" selected>30 Days (Default)</option>
+            <option value="60">60 Days</option>
+            <option value="never">Never Auto-Delete</option>
+          </select>
+        </div>
+        <div class="field border-top">
+          <label for="sel-workflow-ttl">Auto-Delete Deleted Workflows (Trash) After</label>
+          <select id="sel-workflow-ttl">
             <option value="7">7 Days</option>
             <option value="15">15 Days</option>
             <option value="30" selected>30 Days (Default)</option>
@@ -531,10 +556,39 @@
         </div>
       </section>
 
-      <!-- 6. FFMPEG PARAMETER ENCYCLOPEDIA (28 Flags) -->
+      <!-- 6. SAVED WORKFLOWS MANAGER -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6"/><path d="M6 9v3a6 6 0 0 0 6 6h3"/></svg>
+        <span>6. Workflows</span>
+      </div>
+      <section class="set-card" aria-label="Workflows">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div>
+            <span class="toggle-title">Workflow Library</span>
+            <span class="toggle-sub" id="lbl-saved-workflows-sub">Loading saved workflows...</span>
+          </div>
+          <span class="cap-badge cb-warn" id="badge-saved-workflows">WORKFLOWS</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 8px; background:var(--input); border:1px solid var(--border); border-radius:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" id="btn-wf-settings-sel-all" class="btn-sm" style="padding:4px 9px; font-size:10px;">Select All</button>
+            <span id="lbl-wf-settings-sel-count" style="font-family:var(--mono); font-size:10px; color:var(--muted);">0 selected</span>
+          </div>
+          <button type="button" id="btn-dedupe-workflows" class="btn-sm" style="padding:4px 9px; font-size:10px; border-color:rgba(219,10,64,0.45); color:#fda4af;">Delete Duplicates</button>
+        </div>
+        <div id="settings-saved-workflows-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <input type="file" id="inp-import-workflows-file" accept=".json,application/json" style="display:none;">
+          <button type="button" id="btn-import-workflows" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Import JSON</button>
+          <button type="button" id="btn-export-workflows" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Export All</button>
+          <button type="button" id="btn-export-selected-workflows" class="btn-sm" style="flex:1 1 100%; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Selected (0)</button>
+        </div>
+      </section>
+
+      <!-- 7. FFMPEG PARAMETER ENCYCLOPEDIA (28 Flags) -->
       <div class="sec-lbl">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        <span>6. FFmpeg Parameter Encyclopedia</span>
+        <span>7. FFmpeg Parameter Encyclopedia</span>
       </div>
       <section class="set-card" aria-label="FFmpeg Encyclopedia">
         <div class="encyc-head-row">
@@ -555,7 +609,7 @@
       </section>
 
       <div class="about-foot">
-        Conversion Vault v1.9.0 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
+        Conversion Vault v2.0.3 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
       </div>
     </main>
 
@@ -578,6 +632,12 @@
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
         </svg>
         <span>Presets</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="workflows">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6"/><path d="M6 9v3a6 6 0 0 0 6 6h3"/>
+        </svg>
+        <span>Workflows</span>
       </button>
       <button type="button" class="nav-item active" data-nav="settings">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
