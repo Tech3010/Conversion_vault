@@ -429,8 +429,8 @@
         <div class="field border-top">
           <label for="sel-hw-pref">Encoder Engine Preference</label>
           <select id="sel-hw-pref">
-            <option value="sw_hq" selected>Software x264/x265 (Max Quality)</option>
-            <option value="hw_fast">MediaCodec Hardware (Fastest / Coolest)</option>
+            <option value="hw_fast" selected>MediaCodec Hardware (Fastest / Coolest · Default)</option>
+            <option value="sw_hq">Software x264/x265 (Max Quality)</option>
           </select>
         </div>
         <div class="field border-top">
@@ -451,7 +451,7 @@
         <div class="toggle-row border-top">
           <div>
             <span class="toggle-title">Keep Screen Awake During Run</span>
-            <span class="toggle-sub">Prevents HyperOS from sleeping FFmpeg</span>
+            <span class="toggle-sub">Prevents Android from sleeping FFmpeg</span>
           </div>
           <label class="switch"><input type="checkbox" id="chk-keep-awake" checked><span class="slider"></span></label>
         </div>
@@ -610,7 +610,7 @@
       </section>
 
       <div class="about-foot">
-        Conversion Vault v2.0.12 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
+        Conversion Vault v2.0.18 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
       </div>
     </main>
 
@@ -697,7 +697,7 @@
       { cat: 'MUXER', flag: '-ss & -to (Trim Range)', desc: 'Seeks to start time (-ss) and stops at end time (-to) for fast lossless cuts.' },
       { cat: 'MUXER', flag: '-f lavfi (testsrc2 / sine)', desc: 'Generates synthetic test video, patterns, and audio tones with 0 MB APK bloat.' },
       { cat: 'ENGINE', flag: '-threads N', desc: 'Limits FFmpeg worker threads (4, 6, or 8) to balance speed vs. battery thermals.' },
-      { cat: 'ENGINE', flag: 'taskset -c (Core Affinity)', desc: 'OS-level CPU pinning (best-effort; Android HyperOS cpuset may override under load).' }
+      { cat: 'ENGINE', flag: 'taskset -c (Core Affinity)', desc: 'OS-level CPU pinning (best-effort; Android cpuset policies may override under load).' }
     ];
 
     function showToast(msg) {
@@ -782,7 +782,7 @@
       }
     });
 
-    renderEncyc('');
+    requestAnimationFrame(() => setTimeout(() => renderEncyc(''), 65));
   </script>
   <script src="vault-bridge.js"></script>
 </body>

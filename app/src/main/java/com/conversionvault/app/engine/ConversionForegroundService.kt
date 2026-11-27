@@ -352,7 +352,7 @@ class ConversionForegroundService : Service() {
         }
 
         // MediaCodec Hardware Encoder Preference with automatic software fallback
-        val hwPref = settingsPrefs.getString("hw_preference", "sw_hq") ?: "sw_hq"
+        val hwPref = settingsPrefs.getString("hw_preference", "hw_fast") ?: "hw_fast"
         if (hwPref == "hw_fast" && (ffmpegArgs.contains("-c:v libx264") || ffmpegArgs.contains("-c:v libx265"))) {
             val hwCodec = if (ffmpegArgs.contains("-c:v libx265")) "hevc_mediacodec" else "h264_mediacodec"
             var hwArgs = ffmpegArgs

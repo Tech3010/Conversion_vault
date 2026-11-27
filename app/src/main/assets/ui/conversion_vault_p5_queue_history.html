@@ -102,7 +102,7 @@
 
     /* Job & History Cards */
     .card-list { display: flex; flex-direction: column; gap: 10px; }
-    .job-card {
+    .job-card { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
       overflow: hidden; transition: border-color 0.15s ease;
     }
@@ -150,7 +150,7 @@
       display: flex; flex-direction: column; gap: 8px;
       font-family: var(--mono); font-size: 10.5px; color: var(--muted);
     }
-    .cmd-box {
+    .cmd-box { -webkit-user-select: text; user-select: text;
       background: var(--input); border: 1px solid var(--border); border-radius: 6px;
       padding: 7px 9px; color: var(--gold-text); word-break: break-all; line-height: 1.45;
     }
@@ -608,7 +608,7 @@
             ${showFiles ? `
               <div class="hist-drawer" style="display:flex; flex-direction:column; gap:6px;">
                 ${sortedQueue.map((q, idx) => `
-                  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--card);">
+                  <div data-job-id="${esc(q.id)}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--card);">
                     <div style="display:flex; align-items:center; gap:8px; min-width:0;">
                       ${state.selectMode ? `<input type="checkbox" data-sel-id="${esc(q.id)}" ${state.selectedIds.has(q.id) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--crimson);">` : ''}
                       <div style="min-width:0;">
@@ -722,7 +722,7 @@
         const allChecked = b.members.every(m => state.selectedIds.has(m.id));
         const idsAttr = esc(JSON.stringify(b.members.map(m => m.id)));
         return `
-          <div class="job-card is-fail">
+          <div class="job-card is-fail" data-batch-ids="${idsAttr}">
             <div class="job-main">
               <div class="job-top">
                 <div style="display:flex; align-items:center; gap:8px; min-width:0;">
@@ -743,7 +743,7 @@
             ${isOpen ? `
               <div class="hist-drawer" style="display:flex; flex-direction:column; gap:6px;">
                 ${b.members.map((m, idx) => `
-                  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--card);">
+                  <div data-job-id="${esc(m.id)}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--card);">
                     <div style="display:flex; align-items:center; gap:8px; min-width:0;">
                       ${state.selectMode ? `<input type="checkbox" data-sel-id="${esc(m.id)}" ${state.selectedIds.has(m.id) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--crimson);">` : ''}
                       <div style="min-width:0;">
@@ -762,7 +762,7 @@
 
       const singleItems = items.filter(h => !groupedIds.has(h.id));
       const singlesHtml = singleItems.map(h => `
-        <div class="job-card ${h.status === 'done' ? 'is-done' : 'is-fail'}">
+        <div class="job-card ${h.status === 'done' ? 'is-done' : 'is-fail'}" data-job-id="${esc(h.id)}">
           <div class="job-main">
             <div class="job-top">
               <div style="display:flex; align-items:center; gap:8px; min-width:0;">
@@ -912,37 +912,80 @@
     window.loadJobsFromNative = loadJobsFromNative;
     (function wireQueueLongPress() {
       let lpTimer = null, lpFired = false, lpStartX = 0, lpStartY = 0;
+
+      function toggleTarget(el) {
+        if (!el) return false;
+        const jid = el.getAttribute('data-job-id');
+        if (jid) {
+          state.selectMode = true;
+          if (state.selectedIds.has(jid)) state.selectedIds.delete(jid);
+          else state.selectedIds.add(jid);
+          return true;
+        }
+        const bAttr = el.getAttribute('data-batch-ids');
+        if (bAttr) {
+          try {
+            const ids = JSON.parse(bAttr || '[]');
+            if (Array.isArray(ids) && ids.length) {
+              state.selectMode = true;
+              const allIn = ids.every(x => state.selectedIds.has(x));
+              ids.forEach(x => { if (allIn) state.selectedIds.delete(x); else state.selectedIds.add(x); });
+              return true;
+            }
+          } catch (_) {}
+        }
+        return false;
+      }
+
       document.addEventListener('touchstart', (e) => {
         if (!e.touches || e.touches.length !== 1) return;
-        const card = e.target && e.target.closest ? e.target.closest('.job-card[data-job-id]') : null;
-        if (!card || e.target.closest('button, input, select')) return;
-        const jid = card.getAttribute('data-job-id');
-        if (!jid) return;
+        if (e.target && e.target.closest && e.target.closest('button, input, select, .cmd-box')) return;
+        const targetEl = e.target && e.target.closest ? (e.target.closest('[data-job-id]') || e.target.closest('.job-card[data-batch-ids]')) : null;
+        if (!targetEl) return;
         lpFired = false;
         lpStartX = e.touches[0].clientX;
         lpStartY = e.touches[0].clientY;
         clearTimeout(lpTimer);
         lpTimer = setTimeout(() => {
           lpFired = true;
-          state.selectMode = true;
-          if (state.selectedIds.has(jid)) state.selectedIds.delete(jid);
-          else state.selectedIds.add(jid);
-          if (typeof window.cvHaptic === 'function') window.cvHaptic('heavy');
-          render();
-          showToast(state.selectedIds.size + ' item(s) selected');
-        }, 420);
+          if (toggleTarget(targetEl)) {
+            if (typeof window.cvHaptic === 'function') window.cvHaptic('heavy');
+            render();
+            showToast(state.selectedIds.size + ' item' + (state.selectedIds.size === 1 ? '' : 's') + ' selected');
+          }
+        }, 380);
       }, { passive: true });
+
       document.addEventListener('touchmove', (e) => {
         if (!lpTimer || !e.touches || e.touches.length !== 1) return;
-        if (Math.abs(e.touches[0].clientX - lpStartX) > 12 || Math.abs(e.touches[0].clientY - lpStartY) > 12) {
+        if (Math.abs(e.touches[0].clientX - lpStartX) > 14 || Math.abs(e.touches[0].clientY - lpStartY) > 14) {
           clearTimeout(lpTimer); lpTimer = null;
         }
       }, { passive: true });
+
       const cancelLp = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
       document.addEventListener('touchend', cancelLp, { passive: true });
       document.addEventListener('touchcancel', cancelLp, { passive: true });
+
+      document.addEventListener('contextmenu', (e) => {
+        if (e.target && e.target.closest && e.target.closest('.job-card') && !e.target.closest('.cmd-box')) {
+          e.preventDefault();
+        }
+      });
+
       document.addEventListener('click', (e) => {
-        if (lpFired) { lpFired = false; e.preventDefault(); e.stopImmediatePropagation(); }
+        if (lpFired) {
+          lpFired = false;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
+        if (state.selectMode && e.target && e.target.closest && !e.target.closest('button, input, select, .cmd-box')) {
+          const targetEl = e.target.closest('[data-job-id]') || e.target.closest('.job-card[data-batch-ids]');
+          if (targetEl && toggleTarget(targetEl)) {
+            render();
+          }
+        }
       }, true);
     })();
 

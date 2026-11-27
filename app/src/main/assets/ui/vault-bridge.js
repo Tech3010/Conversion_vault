@@ -246,6 +246,8 @@
       main.content.cv-exit-fade { animation: cvPageExit 0.13s ease-out both !important; will-change: opacity; }
       main.content.cv-enter-right > *, main.content.cv-enter-left > * { animation: none !important; }
       .bottom-nav .nav-item svg { width: 18px !important; height: 18px !important; }
+      .set-card, .job-card, .wf-card, .tool-card { contain: layout style; }
+      .encyc-item { content-visibility: auto; contain-intrinsic-size: auto 62px; }
       @keyframes cvPulse {
         0%, 100% { transform: scale(1); opacity: 1; }
         50% { transform: scale(1.45); opacity: 0.55; }
@@ -1178,7 +1180,11 @@
   window.onVaultEvent = function (ev) {
     if (!ev) return;
     if (currentPage() === 'conversion_vault_p5_queue_history.html') {
-      renderNativeJobs();
+      const nowEv = Date.now();
+      if (ev.type !== 'job_progress' || !window.__cvLastQhEv || (nowEv - window.__cvLastQhEv) > 480) {
+        window.__cvLastQhEv = nowEv;
+        renderNativeJobs();
+      }
     }
     if (typeof window.onLiveEngineEvent === 'function') {
       window.onLiveEngineEvent(ev);
@@ -2717,7 +2723,7 @@
     }
 
     if (page === 'conversion_vault_p5_queue_history.html') {
-      renderNativeJobs();
+      // p5_queue_history.html already hydrates itself via loadJobsFromNative() — skip duplicate DB query
     }
 
     if (page === 'conversion_vault_p6_settings.html') {
@@ -3243,7 +3249,7 @@
           } else {
             cachedSettingsPresets.forEach(p => { if (p.id) selectedPresetIds.add(p.id); });
           }
-          renderSettingsSavedPresets();
+          requestAnimationFrame(() => setTimeout(() => { try { renderSettingsSavedPresets(); } catch (_) {} }, 35));
 
       // 6. Workflows Settings Library (mirrors Presets Settings Library exactly)
       const selWfTtl = document.getElementById('sel-workflow-ttl');
@@ -3348,7 +3354,7 @@
           if (cachedSettingsWorkflows.length === 0) return;
           if (selectedWorkflowIds.size === cachedSettingsWorkflows.length) selectedWorkflowIds.clear();
           else cachedSettingsWorkflows.forEach(w => { if (w.id) selectedWorkflowIds.add(String(w.id)); });
-          renderSettingsSavedWorkflows();
+          requestAnimationFrame(() => setTimeout(() => { try { renderSettingsSavedWorkflows(); } catch (_) {} }, 55));
         }, true);
       }
 
@@ -3797,14 +3803,7 @@
           if (curTabIdx !== -1 && targetIdx !== -1 && targetIdx !== curTabIdx) {
             try { sessionStorage.setItem('cv_tab_slide_dir', targetIdx > curTabIdx ? 'right' : 'left'); } catch (_) {}
           }
-          const mainOut = document.querySelector('main.content');
-          if (mainOut) {
-            mainOut.classList.remove('cv-enter-right', 'cv-enter-left');
-            mainOut.classList.add('cv-exit-fade');
-            setTimeout(() => navigateTo(targetPage), 105);
-          } else {
-            navigateTo(targetPage);
-          }
+          navigateTo(targetPage);
         }
       }, true);
     });

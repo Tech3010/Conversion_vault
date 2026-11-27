@@ -166,6 +166,11 @@ class MainActivity : AppCompatActivity() {
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
             settings.cacheMode = WebSettings.LOAD_DEFAULT
+            val initTheme = getSharedPreferences("vault_settings", Context.MODE_PRIVATE).getString("theme", "dark") ?: "dark"
+            setBackgroundColor(if (initTheme == "light") Color.WHITE else Color.parseColor("#090d16"))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try { setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false) } catch (_: Throwable) {}
+            }
             webViewClient = object : WebViewClientCompat() {
                 override fun shouldInterceptRequest(
                     view: WebView,

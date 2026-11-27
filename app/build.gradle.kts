@@ -12,8 +12,8 @@ android {
         applicationId = "com.conversionvault.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 112
-        versionName = "2.0.12"
+        versionCode = 118
+        versionName = "2.0.18"
 
         ndk {
             abiFilters += listOf("arm64-v8a")

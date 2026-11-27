@@ -169,7 +169,7 @@
       font-size: 10.5px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.12s ease;
+      transition: transform 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
     }
     .sel-tool-btn:hover { border-color: var(--crimson); color: var(--crimson); }
     .sel-tool-btn.warn-btn:hover { border-color: var(--gold); color: var(--gold-text); }
@@ -807,7 +807,7 @@
             <option value="0-3">Efficiency Only (Cores 0–3 · 2.1 GHz)</option>
             <option value="7">Prime Core Only (Core 7)</option>
           </select>
-          <span class="field-help" id="perf-core-warn" style="color:var(--gold-text); margin-top:2px;">Note: Non-rooted Android / HyperOS cpuset policies may override manual core pinning under thermal load.</span>
+          <span class="field-help" id="perf-core-warn" style="color:var(--gold-text); margin-top:2px;">Note: Non-rooted Android cpuset policies may override manual core pinning under thermal load.</span>
         </div>
         <div class="raw-meta-pill hidden" id="perf-core-cmd"></div>
         <div class="info-grid">
@@ -1465,8 +1465,8 @@
         bCmd.classList.remove('hidden');
         bCmd.innerHTML = '<strong>Core Pinning Command:</strong> taskset -c ' + state.cores + ' ffmpeg -threads ' + state.threads + ' ...';
         bWarn.textContent = state.cores === '0-3'
-          ? 'Warning: Efficiency cores (2.1 GHz) run significantly slower. OS / HyperOS thermal policies may also override affinity.'
-          : 'Best-effort affinity (sched_setaffinity / taskset -c ' + state.cores + '). OS / HyperOS cpuset may override under load.';
+          ? 'Warning: Efficiency cores (2.1 GHz) run significantly slower. Android thermal policies may also override affinity.'
+          : 'Best-effort affinity (sched_setaffinity / taskset -c ' + state.cores + '). Android cpuset policies may override under load.';
       }
 
       const breakWrap = document.getElementById('perf-cat-breakdown');
@@ -2499,7 +2499,7 @@
       'Color & Chroma': '• sRGB 4:4:4: Sharpest text & car edges.\n• sRGB 4:2:0: Smaller photo size.\n• Lossless RGB24: Exact pixels for PNG.\n★ Best choice: sRGB 4:4:4.',
       'Image Quality': '• 85% WebP or 92% JPG looks identical to original at a fraction of the size; 100% PNG is lossless.\n★ Best choice: 85% for WebP; 92% for JPG.',
       'EXIF & GPS Privacy': '• Forensic Scrub: Wipes EXIF, GPS, XMP, ICC & thumbnails.\n• Wipe All: Removes all EXIF & GPS.\n• Strip GPS Only: Hides location, keeps lens/ISO.\n★ Best choice: Forensic Scrub or Wipe All before sharing.',
-      'Core Affinity': '• All 8 Cores: Fastest, OS-managed.\n• Perf + Prime (4-7): High speed, skips efficiency cores.\n• Efficiency (0-3): Coolest/slowest.\nNote: Android HyperOS may override pinning under thermal load.'
+      'Core Affinity': '• All 8 Cores: Fastest, OS-managed.\n• Perf + Prime (4-7): High speed, skips efficiency cores.\n• Efficiency (0-3): Coolest/slowest.\nNote: Android may override pinning under thermal load.'
     };
 
     document.addEventListener('click', (e) => {

@@ -1602,8 +1602,28 @@ class AndroidBridge(
         }
     }
 
+    @Volatile
+    private var cachedCacheBytes: Long = -1L
+    @Volatile
+    private var lastCacheScanAt: Long = 0L
+
+    private fun refreshCacheBytesAsync() {
+        val now = System.currentTimeMillis()
+        if (cachedCacheBytes >= 0L && (now - lastCacheScanAt) < 10_000L) return
+        lastCacheScanAt = now
+        Thread {
+            try {
+                val bytes = computeCacheBytes()
+                cachedCacheBytes = bytes
+                val mb = String.format(Locale.US, "%.2f MB cached temp files", bytes / (1024.0 * 1024.0))
+                activity.evalJs("(function(){var el=document.getElementById('lbl-cache');if(el)el.textContent='$mb';})();")
+            } catch (_: Throwable) {}
+        }.start()
+    }
+
     @JavascriptInterface
     fun getSettings(): String {
+        refreshCacheBytesAsync()
         return JSONObject().apply {
             put("theme", prefs.getString("theme", "dark"))
             put("defaultVaultFolder", prefs.getString("default_vault_folder", VaultStorageManager.getRootDir(context).absolutePath))
@@ -1612,13 +1632,13 @@ class AndroidBridge(
             put("defaultSuffixRule", prefs.getString("default_suffix_rule", "_converted"))
             put("separateByType", prefs.getBoolean("separate_by_type", true))
             put("defaultThreads", prefs.getString("default_threads", "8"))
-            put("hwPreference", prefs.getString("hw_preference", "sw_hq"))
+            put("hwPreference", prefs.getString("hw_preference", "hw_fast"))
             put("logLevel", prefs.getString("log_level", "info"))
             put("thermalGuard", prefs.getBoolean("thermal_guard", true))
             put("keepScreenAwake", prefs.getBoolean("keep_screen_awake", true))
             put("benchFps", prefs.getFloat("bench_fps", 0f).toDouble())
             put("hwTestJson", prefs.getString("hw_test_json", "") ?: "")
-            put("cacheSizeBytes", computeCacheBytes())
+            put("cacheSizeBytes", if (cachedCacheBytes >= 0L) cachedCacheBytes else 0L)
             put("defaultMetadataPolicy", prefs.getString("default_metadata_policy", "forensic"))
             put("autoSuffixCollision", true)
             put("sampleRetentionDays", prefs.getInt("sample_retention_days", 15))
@@ -1644,6 +1664,12 @@ class AndroidBridge(
             if (o.has("defaultThreads")) putString("default_threads", o.getString("defaultThreads"))
             if (o.has("hwPreference")) putString("hw_preference", o.getString("hwPreference"))
             if (o.has("logLevel")) putString("log_level", o.getString("logLevel"))
+            if (o.has("thermalGuard")) putBoolean("thermal_guard", o.optBoolean("thermalGuard", true))
+            if (o.has("keepScreenAwake")) {
+                val keepOn = o.optBoolean("keepScreenAwake", true)
+                putBoolean("keep_screen_awake", keepOn)
+                if (!keepOn) activity.runOnUiThread { activity.applyKeepScreenAwake(false) }
+            }
             if (o.has("defaultMetadataPolicy")) putString("default_metadata_policy", o.getString("defaultMetadataPolicy"))
             if (o.has("sampleRetentionDays")) {
                 val d = o.getInt("sampleRetentionDays")
@@ -1727,6 +1753,8 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun clearCache(): String {
+        cachedCacheBytes = 0L
+        lastCacheScanAt = System.currentTimeMillis()
         var bytesFreed = 0L
         try {
             bytesFreed += deleteDirChildren(context.cacheDir)
