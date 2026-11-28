@@ -246,6 +246,67 @@
       font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 120;
     }
     .toast.show { opacity: 1; }
+  
+    /* Catchy Instagram Contact Card */
+    .ig-card {
+      position: relative;
+      background: linear-gradient(135deg, rgba(245, 133, 41, 0.13) 0%, rgba(221, 42, 123, 0.16) 52%, rgba(129, 52, 175, 0.17) 100%);
+      border: 1.5px solid rgba(221, 42, 123, 0.58);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      box-shadow: 0 6px 22px rgba(221, 42, 123, 0.14);
+    }
+    [data-theme="light"] .ig-card {
+      background: linear-gradient(135deg, rgba(245, 133, 41, 0.10) 0%, rgba(221, 42, 123, 0.10) 52%, rgba(129, 52, 175, 0.10) 100%);
+      border-color: rgba(221, 42, 123, 0.45);
+      box-shadow: 0 6px 18px rgba(221, 42, 123, 0.10);
+    }
+    .ig-top { display: flex; align-items: center; gap: 11px; }
+    .ig-avatar {
+      width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+      background: linear-gradient(135deg, #f58529 0%, #dd2a7b 52%, #8134af 100%);
+      color: #ffffff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(221, 42, 123, 0.35);
+    }
+    .ig-handle-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: var(--mono); font-size: 10.5px; font-weight: 800;
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(221, 42, 123, 0.18);
+      border: 1px solid rgba(221, 42, 123, 0.55);
+      color: #f472b6;
+      flex-shrink: 0;
+    }
+    [data-theme="light"] .ig-handle-pill { color: #be185d; background: rgba(221, 42, 123, 0.12); }
+    .ig-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ig-tag {
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(15, 22, 36, 0.65);
+      border: 1px solid rgba(221, 42, 123, 0.28);
+      color: var(--text);
+    }
+    [data-theme="light"] .ig-tag {
+      background: rgba(255, 255, 255, 0.85);
+      border-color: rgba(221, 42, 123, 0.30);
+    }
+    .btn-ig-primary {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      background: linear-gradient(135deg, #f58529 0%, #dd2a7b 52%, #8134af 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: var(--sans); font-size: 12.5px; font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(221, 42, 123, 0.32);
+    }
+    .btn-ig-primary:active { transform: scale(0.98); opacity: 0.92; }
+
   </style>
   <script>
     (function(){
@@ -620,20 +681,31 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
         <span>8. Contact &amp; Support</span>
       </div>
-      <section class="set-card" aria-label="Contact and Support">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-          <div>
-            <span class="toggle-title">Reach the Developer</span>
-            <span class="toggle-sub">Request custom modules or presets, ask for guides &amp; updates, or report a bug directly on Instagram.</span>
+      <section class="ig-card" aria-label="Contact and Support">
+        <div class="ig-top">
+          <div class="ig-avatar" aria-hidden="true">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
           </div>
-          <span class="cap-badge cb-ok">@apex.max3</span>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap;">
+              <span class="toggle-title" style="font-size:13.5px;">Direct Developer Support</span>
+              <span class="ig-handle-pill">@apex.max3</span>
+            </div>
+            <span class="toggle-sub" style="margin-top:3px; line-height:1.4;">DM on Instagram for tailored tools, guides, updates, or quick bug fixes.</span>
+          </div>
         </div>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
-          <button type="button" id="btn-contact-instagram" class="btn-sm" style="flex:2; min-width:165px; justify-content:center; border-color:rgba(219,10,64,0.55); background:var(--crimson-soft); color:var(--crimson); gap:6px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-            <span>Open Instagram ↗</span>
+        <div class="ig-tags">
+          <span class="ig-tag">Custom Modules</span>
+          <span class="ig-tag">Custom Presets</span>
+          <span class="ig-tag">Guides &amp; Updates</span>
+          <span class="ig-tag">Bug Reports</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:4px;">
+          <button type="button" id="btn-contact-instagram" class="btn-ig-primary" style="flex:2; min-width:175px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+            <span>Message on Instagram ↗</span>
           </button>
-          <button type="button" id="btn-copy-instagram" class="btn-sm" style="flex:1; min-width:100px; justify-content:center;">Copy Handle</button>
+          <button type="button" id="btn-copy-instagram" class="btn-sm" style="flex:1; min-width:105px; justify-content:center; border-color:rgba(221,42,123,0.45);">Copy Handle</button>
         </div>
       </section>
 
@@ -648,7 +720,7 @@
             <span class="toggle-title">Selective Vault Backup</span>
             <span class="toggle-sub">Choose which items to include when exporting or importing a single .json backup</span>
           </div>
-          <span class="cap-badge cb-ok">OFFLINE JSON</span>
+          <span class="cap-badge cb-ok" id="badge-bak-sel">3/3 SELECTED</span>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:7px;">
@@ -676,14 +748,14 @@
         </div>
 
         <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
-          <input type="file" id="inp-vault-import-bundle" accept=".json,application/json" style="display:none;">
+          <input type="file" id="inp-vault-import-bundle" accept=".json,application/json,text/plain,*/*" style="display:none;">
           <button type="button" id="btn-vault-import-bundle" class="btn-sm" style="flex:1; min-width:120px; justify-content:center;">Import Backup</button>
           <button type="button" id="btn-vault-export-bundle" class="btn-sm" style="flex:1; min-width:120px; justify-content:center; border-color:rgba(16,185,129,0.5); background:var(--emerald-soft); color:var(--emerald);">Export Backup</button>
         </div>
       </section>
 
       <div class="about-foot">
-        Conversion Vault v2.0.30 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
+        Conversion Vault v2.0.31 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
       </div>
     </main>
 
@@ -857,39 +929,6 @@
 
     requestAnimationFrame(() => setTimeout(() => renderEncyc(''), 65));
   </script>
-  <script src="vault-bridge.js">
-      // 8. Contact & Support (Instagram handoff via native Intent)
-      const IG_URL = 'https://www.instagram.com/apex.max3/';
-      const btnContactIg = document.getElementById('btn-contact-instagram');
-      if (btnContactIg) {
-        btnContactIg.addEventListener('click', () => {
-          if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
-            try {
-              const res = JSON.parse(window.AndroidBridge.openExternalUrl(IG_URL) || '{}');
-              if (res && res.ok) {
-                showToast('Opening @apex.max3 on Instagram...');
-              } else {
-                showToast('Could not open Instagram link');
-              }
-            } catch (_) {
-              showToast('Opening @apex.max3 on Instagram...');
-            }
-          } else {
-            window.open(IG_URL, '_blank', 'noopener,noreferrer');
-          }
-        });
-      }
-      const btnCopyIg = document.getElementById('btn-copy-instagram');
-      if (btnCopyIg) {
-        btnCopyIg.addEventListener('click', () => {
-          const handle = '@apex.max3';
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(handle).then(() => showToast('Copied @apex.max3')).catch(() => showToast(handle));
-          } else {
-            showToast(handle);
-          }
-        });
-      }
-</script>
+  <script src="vault-bridge.js"></script>
 </body>
 </html>

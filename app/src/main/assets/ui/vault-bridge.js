@@ -3250,6 +3250,8 @@
             cachedSettingsPresets.forEach(p => { if (p.id) selectedPresetIds.add(p.id); });
           }
           requestAnimationFrame(() => setTimeout(() => { try { renderSettingsSavedPresets(); } catch (_) {} }, 35));
+        }, true);
+      }
 
       // 6. Workflows Settings Library (mirrors Presets Settings Library exactly)
       const selWfTtl = document.getElementById('sel-workflow-ttl');
@@ -3355,22 +3357,89 @@
           if (selectedWorkflowIds.size === cachedSettingsWorkflows.length) selectedWorkflowIds.clear();
           else cachedSettingsWorkflows.forEach(w => { if (w.id) selectedWorkflowIds.add(String(w.id)); });
           requestAnimationFrame(() => setTimeout(() => { try { renderSettingsSavedWorkflows(); } catch (_) {} }, 55));
+        }, true);
+      }
 
-      // 8. Selective Full Vault Backup & Restore (Settings + Presets + Workflows)
+      // 8. Contact & Support (Instagram handoff + native clipboard copy)
+      const IG_PROFILE_URL = 'https://www.instagram.com/apex.max3/';
+      const IG_HANDLE = '@apex.max3';
+      const btnContactIg = document.getElementById('btn-contact-instagram');
+      if (btnContactIg) {
+        btnContactIg.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          if (hasBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
+            try {
+              const res = JSON.parse(window.AndroidBridge.openExternalUrl(IG_PROFILE_URL) || '{}');
+              if (res && res.ok) {
+                toast('Opening ' + IG_HANDLE + ' on Instagram...');
+              } else {
+                toast((res && res.error) ? res.error : 'Could not open Instagram link');
+              }
+            } catch (_) {
+              toast('Opening ' + IG_HANDLE + ' on Instagram...');
+            }
+          } else {
+            window.open(IG_PROFILE_URL, '_blank', 'noopener,noreferrer');
+            toast('Opening ' + IG_HANDLE + '...');
+          }
+        }, true);
+      }
+
+      const btnCopyIg = document.getElementById('btn-copy-instagram');
+      if (btnCopyIg) {
+        btnCopyIg.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          if (hasBridge && typeof window.AndroidBridge.copyToClipboard === 'function') {
+            try {
+              window.AndroidBridge.copyToClipboard(IG_HANDLE);
+              toast('Copied ' + IG_HANDLE + ' ✓');
+              return;
+            } catch (_) {}
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(IG_HANDLE)
+              .then(() => toast('Copied ' + IG_HANDLE + ' ✓'))
+              .catch(() => toast(IG_HANDLE));
+          } else {
+            toast(IG_HANDLE);
+          }
+        }, true);
+      }
+
+      // 9. Selective Full Vault Backup & Restore (ONLY exports & imports checked categories)
+      const chkBakSettings = document.getElementById('chk-bak-settings');
+      const chkBakPresets = document.getElementById('chk-bak-presets');
+      const chkBakWorkflows = document.getElementById('chk-bak-workflows');
+      const badgeBakSel = document.getElementById('badge-bak-sel');
       const bVaultExp = document.getElementById('btn-vault-export-bundle');
       const bVaultImp = document.getElementById('btn-vault-import-bundle');
       const inpVaultImp = document.getElementById('inp-vault-import-bundle');
 
+      function updateBackupSelectionBadge() {
+        const cnt = (chkBakSettings && chkBakSettings.checked ? 1 : 0)
+          + (chkBakPresets && chkBakPresets.checked ? 1 : 0)
+          + (chkBakWorkflows && chkBakWorkflows.checked ? 1 : 0);
+        if (badgeBakSel) {
+          badgeBakSel.textContent = cnt + '/3 SELECTED';
+          badgeBakSel.className = 'cap-badge ' + (cnt > 0 ? 'cb-ok' : 'cb-warn');
+        }
+      }
+      [chkBakSettings, chkBakPresets, chkBakWorkflows].forEach(chk => {
+        if (chk) chk.addEventListener('change', updateBackupSelectionBadge);
+      });
+      updateBackupSelectionBadge();
+
       if (bVaultExp) {
         bVaultExp.addEventListener('click', (e) => {
           e.preventDefault(); e.stopImmediatePropagation();
-          const incSettings = !!(document.getElementById('chk-bak-settings') && document.getElementById('chk-bak-settings').checked);
-          const incPresets = !!(document.getElementById('chk-bak-presets') && document.getElementById('chk-bak-presets').checked);
-          const incWorkflows = !!(document.getElementById('chk-bak-workflows') && document.getElementById('chk-bak-workflows').checked);
+          const incSettings = !!(chkBakSettings && chkBakSettings.checked);
+          const incPresets = !!(chkBakPresets && chkBakPresets.checked);
+          const incWorkflows = !!(chkBakWorkflows && chkBakWorkflows.checked);
           if (!incSettings && !incPresets && !incWorkflows) {
             toast('Select at least one category to export');
             return;
           }
+          const exportedLabels = [];
           const bundle = {
             format: 'conversion_vault_backup_v1',
             exportedAt: new Date().toISOString(),
@@ -3388,6 +3457,7 @@
             delete stObj.benchFps;
             stObj.workflowTrashTtl = safeGet('cv_workflow_trash_ttl', '30') || '30';
             bundle.settings = stObj;
+            exportedLabels.push('Settings');
           }
           if (incPresets) {
             let prArr = [];
@@ -3397,9 +3467,11 @@
               }
             } catch (_) {}
             bundle.presets = Array.isArray(prArr) ? prArr : [];
+            exportedLabels.push('Presets');
           }
           if (incWorkflows) {
             bundle.workflows = window.VaultWorkflows ? window.VaultWorkflows.listActive() : getSavedWorkflows();
+            exportedLabels.push('Workflows');
           }
           const nowD = new Date();
           const dTag = String(nowD.getFullYear()) + String(nowD.getMonth() + 1).padStart(2, '0') + String(nowD.getDate()).padStart(2, '0');
@@ -3409,7 +3481,7 @@
             try {
               const res = JSON.parse(window.AndroidBridge.exportVaultBackupJson(baseName, jsonStr) || '{}');
               if (res && res.ok) {
-                toast('Backup saved → Backups/' + (res.name || (baseName + '.json')));
+                toast('Exported ' + exportedLabels.join(' + ') + ' → Backups/' + (res.name || (baseName + '.json')));
                 return;
               }
               toast('Backup failed: ' + ((res && res.error) || 'Unknown error'));
@@ -3422,7 +3494,7 @@
             a.href = URL.createObjectURL(blob);
             a.download = baseName + '.json';
             a.click();
-            toast('Exported ' + baseName + '.json');
+            toast('Exported ' + exportedLabels.join(' + ') + ' (' + baseName + '.json)');
           } catch (_) { toast('Backup export failed'); }
         }, true);
       }
@@ -3430,9 +3502,9 @@
       if (bVaultImp && inpVaultImp) {
         bVaultImp.addEventListener('click', (e) => {
           e.preventDefault(); e.stopImmediatePropagation();
-          const incSettings = !!(document.getElementById('chk-bak-settings') && document.getElementById('chk-bak-settings').checked);
-          const incPresets = !!(document.getElementById('chk-bak-presets') && document.getElementById('chk-bak-presets').checked);
-          const incWorkflows = !!(document.getElementById('chk-bak-workflows') && document.getElementById('chk-bak-workflows').checked);
+          const incSettings = !!(chkBakSettings && chkBakSettings.checked);
+          const incPresets = !!(chkBakPresets && chkBakPresets.checked);
+          const incWorkflows = !!(chkBakWorkflows && chkBakWorkflows.checked);
           if (!incSettings && !incPresets && !incWorkflows) {
             toast('Select at least one category to import');
             return;
@@ -3450,67 +3522,89 @@
               const rawText = String(reader.result || '');
               if (window.VaultJsonGuard) {
                 const baseChk = window.VaultJsonGuard.validateJson(rawText, 'generic');
-                if (!baseChk.ok) { toast('🛡️ Blocked unsafe backup JSON: ' + baseChk.reason); return; }
+                if (!baseChk.ok) { toast('Blocked unsafe backup JSON: ' + baseChk.reason); return; }
               }
               const parsed = JSON.parse(rawText);
               if (!parsed || typeof parsed !== 'object' || parsed.format !== 'conversion_vault_backup_v1') {
                 toast('Invalid Conversion Vault backup file');
                 return;
               }
-              const incSettings = !!(document.getElementById('chk-bak-settings') && document.getElementById('chk-bak-settings').checked);
-              const incPresets = !!(document.getElementById('chk-bak-presets') && document.getElementById('chk-bak-presets').checked);
-              const incWorkflows = !!(document.getElementById('chk-bak-workflows') && document.getElementById('chk-bak-workflows').checked);
+              const incSettings = !!(chkBakSettings && chkBakSettings.checked);
+              const incPresets = !!(chkBakPresets && chkBakPresets.checked);
+              const incWorkflows = !!(chkBakWorkflows && chkBakWorkflows.checked);
               const restoredParts = [];
+              const skippedMissing = [];
 
-              if (incSettings && parsed.settings && typeof parsed.settings === 'object') {
-                const st = parsed.settings;
-                if (st.workflowTrashTtl) safeSet('cv_workflow_trash_ttl', String(st.workflowTrashTtl));
-                if (st.theme) {
-                  document.documentElement.setAttribute('data-theme', st.theme);
-                  safeSet('cv_theme', st.theme);
-                }
-                if (hasBridge && typeof window.AndroidBridge.saveSettings === 'function') {
-                  window.AndroidBridge.saveSettings(JSON.stringify(st));
-                }
-                restoredParts.push('Settings');
-              }
-
-              if (incPresets && Array.isArray(parsed.presets) && parsed.presets.length > 0) {
-                if (window.VaultJsonGuard) {
-                  const pChk = window.VaultJsonGuard.validateJson(JSON.stringify(parsed.presets), 'preset');
-                  if (!pChk.ok) { toast('🛡️ Blocked unsafe presets in backup: ' + pChk.reason); return; }
-                }
-                let pCount = 0;
-                parsed.presets.forEach(p => {
-                  if (p && p.name && hasBridge && typeof window.AndroidBridge.savePreset === 'function') {
-                    try {
-                      const r = JSON.parse(window.AndroidBridge.savePreset(JSON.stringify(p)) || '{}');
-                      if (r && r.ok) pCount++;
-                    } catch (_) {}
+              if (incSettings) {
+                if (parsed.settings && typeof parsed.settings === 'object') {
+                  const st = parsed.settings;
+                  if (st.workflowTrashTtl) safeSet('cv_workflow_trash_ttl', String(st.workflowTrashTtl));
+                  if (st.theme) {
+                    document.documentElement.setAttribute('data-theme', st.theme);
+                    safeSet('cv_theme', st.theme);
                   }
-                });
-                if (pCount > 0) restoredParts.push(pCount + ' Presets');
-                if (typeof renderSettingsSavedPresets === 'function') renderSettingsSavedPresets();
+                  if (hasBridge && typeof window.AndroidBridge.saveSettings === 'function') {
+                    window.AndroidBridge.saveSettings(JSON.stringify(st));
+                  }
+                  restoredParts.push('Settings');
+                } else {
+                  skippedMissing.push('Settings');
+                }
               }
 
-              if (incWorkflows && Array.isArray(parsed.workflows) && parsed.workflows.length > 0) {
-                if (window.VaultJsonGuard) {
-                  const wChk = window.VaultJsonGuard.validateJson(JSON.stringify(parsed.workflows), 'workflow');
-                  if (!wChk.ok) { toast('🛡️ Blocked unsafe workflows in backup: ' + wChk.reason); return; }
+              if (incPresets) {
+                if (Array.isArray(parsed.presets)) {
+                  if (parsed.presets.length > 0) {
+                    if (window.VaultJsonGuard) {
+                      const pChk = window.VaultJsonGuard.validateJson(JSON.stringify(parsed.presets), 'preset');
+                      if (!pChk.ok) { toast('Blocked unsafe presets in backup: ' + pChk.reason); return; }
+                    }
+                    let pCount = 0;
+                    parsed.presets.forEach(p => {
+                      if (p && p.name && hasBridge && typeof window.AndroidBridge.savePreset === 'function') {
+                        try {
+                          const r = JSON.parse(window.AndroidBridge.savePreset(JSON.stringify(p)) || '{}');
+                          if (r && r.ok) pCount++;
+                        } catch (_) {}
+                      }
+                    });
+                    if (pCount > 0) restoredParts.push(pCount + ' Presets');
+                    if (typeof renderSettingsSavedPresets === 'function') renderSettingsSavedPresets();
+                  } else {
+                    restoredParts.push('0 Presets');
+                  }
+                } else {
+                  skippedMissing.push('Presets');
                 }
-                if (window.VaultWorkflows && typeof window.VaultWorkflows.importJson === 'function') {
-                  const wr = window.VaultWorkflows.importJson(JSON.stringify(parsed.workflows));
-                  if (wr && wr.ok && wr.added > 0) restoredParts.push(wr.added + ' Workflows');
+              }
+
+              if (incWorkflows) {
+                if (Array.isArray(parsed.workflows)) {
+                  if (parsed.workflows.length > 0) {
+                    if (window.VaultJsonGuard) {
+                      const wChk = window.VaultJsonGuard.validateJson(JSON.stringify(parsed.workflows), 'workflow');
+                      if (!wChk.ok) { toast('Blocked unsafe workflows in backup: ' + wChk.reason); return; }
+                    }
+                    if (window.VaultWorkflows && typeof window.VaultWorkflows.importJson === 'function') {
+                      const wr = window.VaultWorkflows.importJson(JSON.stringify(parsed.workflows));
+                      if (wr && wr.ok) restoredParts.push((wr.added || 0) + ' Workflows');
+                    }
+                    if (typeof renderSettingsSavedWorkflows === 'function') renderSettingsSavedWorkflows();
+                  } else {
+                    restoredParts.push('0 Workflows');
+                  }
+                } else {
+                  skippedMissing.push('Workflows');
                 }
-                if (typeof renderSettingsSavedWorkflows === 'function') renderSettingsSavedWorkflows();
               }
 
               if (restoredParts.length === 0) {
-                toast('Selected sections were not found in this backup file');
+                toast('Not found in backup: ' + skippedMissing.join(', '));
               } else {
-                toast('✓ Restored: ' + restoredParts.join(', '));
+                const suffix = skippedMissing.length ? (' (not in file: ' + skippedMissing.join(', ') + ')') : '';
+                toast('Restored: ' + restoredParts.join(', ') + suffix);
                 if (incSettings && parsed.settings) {
-                  setTimeout(() => window.location.reload(), 650);
+                  setTimeout(() => window.location.reload(), 700);
                 }
               }
             } catch (_) {
@@ -3521,8 +3615,6 @@
         });
       }
 
-        }, true);
-      }
 
       const bDedupeWfs = document.getElementById('btn-dedupe-workflows');
       if (bDedupeWfs) {
@@ -3654,9 +3746,6 @@
       }
 
       renderSettingsSavedWorkflows();
-
-        }, true);
-      }
 
       const bDedupePresets = document.getElementById('btn-dedupe-presets');
       if (bDedupePresets) {
