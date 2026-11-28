@@ -3355,6 +3355,172 @@
           if (selectedWorkflowIds.size === cachedSettingsWorkflows.length) selectedWorkflowIds.clear();
           else cachedSettingsWorkflows.forEach(w => { if (w.id) selectedWorkflowIds.add(String(w.id)); });
           requestAnimationFrame(() => setTimeout(() => { try { renderSettingsSavedWorkflows(); } catch (_) {} }, 55));
+
+      // 8. Selective Full Vault Backup & Restore (Settings + Presets + Workflows)
+      const bVaultExp = document.getElementById('btn-vault-export-bundle');
+      const bVaultImp = document.getElementById('btn-vault-import-bundle');
+      const inpVaultImp = document.getElementById('inp-vault-import-bundle');
+
+      if (bVaultExp) {
+        bVaultExp.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          const incSettings = !!(document.getElementById('chk-bak-settings') && document.getElementById('chk-bak-settings').checked);
+          const incPresets = !!(document.getElementById('chk-bak-presets') && document.getElementById('chk-bak-presets').checked);
+          const incWorkflows = !!(document.getElementById('chk-bak-workflows') && document.getElementById('chk-bak-workflows').checked);
+          if (!incSettings && !incPresets && !incWorkflows) {
+            toast('Select at least one category to export');
+            return;
+          }
+          const bundle = {
+            format: 'conversion_vault_backup_v1',
+            exportedAt: new Date().toISOString(),
+            included: { settings: incSettings, presets: incPresets, workflows: incWorkflows }
+          };
+          if (incSettings) {
+            let stObj = {};
+            try {
+              if (hasBridge && typeof window.AndroidBridge.getSettings === 'function') {
+                stObj = JSON.parse(window.AndroidBridge.getSettings() || '{}');
+              }
+            } catch (_) {}
+            delete stObj.cacheSizeBytes;
+            delete stObj.hwTestJson;
+            delete stObj.benchFps;
+            stObj.workflowTrashTtl = safeGet('cv_workflow_trash_ttl', '30') || '30';
+            bundle.settings = stObj;
+          }
+          if (incPresets) {
+            let prArr = [];
+            try {
+              if (hasBridge && typeof window.AndroidBridge.getPresets === 'function') {
+                prArr = JSON.parse(window.AndroidBridge.getPresets(false) || '[]');
+              }
+            } catch (_) {}
+            bundle.presets = Array.isArray(prArr) ? prArr : [];
+          }
+          if (incWorkflows) {
+            bundle.workflows = window.VaultWorkflows ? window.VaultWorkflows.listActive() : getSavedWorkflows();
+          }
+          const nowD = new Date();
+          const dTag = String(nowD.getFullYear()) + String(nowD.getMonth() + 1).padStart(2, '0') + String(nowD.getDate()).padStart(2, '0');
+          const baseName = 'conversion_vault_backup_' + dTag;
+          const jsonStr = JSON.stringify(bundle, null, 2);
+          if (hasBridge && typeof window.AndroidBridge.exportVaultBackupJson === 'function') {
+            try {
+              const res = JSON.parse(window.AndroidBridge.exportVaultBackupJson(baseName, jsonStr) || '{}');
+              if (res && res.ok) {
+                toast('Backup saved → Backups/' + (res.name || (baseName + '.json')));
+                return;
+              }
+              toast('Backup failed: ' + ((res && res.error) || 'Unknown error'));
+              return;
+            } catch (_) {}
+          }
+          try {
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = baseName + '.json';
+            a.click();
+            toast('Exported ' + baseName + '.json');
+          } catch (_) { toast('Backup export failed'); }
+        }, true);
+      }
+
+      if (bVaultImp && inpVaultImp) {
+        bVaultImp.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation();
+          const incSettings = !!(document.getElementById('chk-bak-settings') && document.getElementById('chk-bak-settings').checked);
+          const incPresets = !!(document.getElementById('chk-bak-presets') && document.getElementById('chk-bak-presets').checked);
+          const incWorkflows = !!(document.getElementById('chk-bak-workflows') && document.getElementById('chk-bak-workflows').checked);
+          if (!incSettings && !incPresets && !incWorkflows) {
+            toast('Select at least one category to import');
+            return;
+          }
+          inpVaultImp.value = '';
+          inpVaultImp.click();
+        }, true);
+
+        inpVaultImp.addEventListener('change', () => {
+          const file = inpVaultImp.files && inpVaultImp.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const rawText = String(reader.result || '');
+              if (window.VaultJsonGuard) {
+                const baseChk = window.VaultJsonGuard.validateJson(rawText, 'generic');
+                if (!baseChk.ok) { toast('🛡️ Blocked unsafe backup JSON: ' + baseChk.reason); return; }
+              }
+              const parsed = JSON.parse(rawText);
+              if (!parsed || typeof parsed !== 'object' || parsed.format !== 'conversion_vault_backup_v1') {
+                toast('Invalid Conversion Vault backup file');
+                return;
+              }
+              const incSettings = !!(document.getElementById('chk-bak-settings') && document.getElementById('chk-bak-settings').checked);
+              const incPresets = !!(document.getElementById('chk-bak-presets') && document.getElementById('chk-bak-presets').checked);
+              const incWorkflows = !!(document.getElementById('chk-bak-workflows') && document.getElementById('chk-bak-workflows').checked);
+              const restoredParts = [];
+
+              if (incSettings && parsed.settings && typeof parsed.settings === 'object') {
+                const st = parsed.settings;
+                if (st.workflowTrashTtl) safeSet('cv_workflow_trash_ttl', String(st.workflowTrashTtl));
+                if (st.theme) {
+                  document.documentElement.setAttribute('data-theme', st.theme);
+                  safeSet('cv_theme', st.theme);
+                }
+                if (hasBridge && typeof window.AndroidBridge.saveSettings === 'function') {
+                  window.AndroidBridge.saveSettings(JSON.stringify(st));
+                }
+                restoredParts.push('Settings');
+              }
+
+              if (incPresets && Array.isArray(parsed.presets) && parsed.presets.length > 0) {
+                if (window.VaultJsonGuard) {
+                  const pChk = window.VaultJsonGuard.validateJson(JSON.stringify(parsed.presets), 'preset');
+                  if (!pChk.ok) { toast('🛡️ Blocked unsafe presets in backup: ' + pChk.reason); return; }
+                }
+                let pCount = 0;
+                parsed.presets.forEach(p => {
+                  if (p && p.name && hasBridge && typeof window.AndroidBridge.savePreset === 'function') {
+                    try {
+                      const r = JSON.parse(window.AndroidBridge.savePreset(JSON.stringify(p)) || '{}');
+                      if (r && r.ok) pCount++;
+                    } catch (_) {}
+                  }
+                });
+                if (pCount > 0) restoredParts.push(pCount + ' Presets');
+                if (typeof renderSettingsSavedPresets === 'function') renderSettingsSavedPresets();
+              }
+
+              if (incWorkflows && Array.isArray(parsed.workflows) && parsed.workflows.length > 0) {
+                if (window.VaultJsonGuard) {
+                  const wChk = window.VaultJsonGuard.validateJson(JSON.stringify(parsed.workflows), 'workflow');
+                  if (!wChk.ok) { toast('🛡️ Blocked unsafe workflows in backup: ' + wChk.reason); return; }
+                }
+                if (window.VaultWorkflows && typeof window.VaultWorkflows.importJson === 'function') {
+                  const wr = window.VaultWorkflows.importJson(JSON.stringify(parsed.workflows));
+                  if (wr && wr.ok && wr.added > 0) restoredParts.push(wr.added + ' Workflows');
+                }
+                if (typeof renderSettingsSavedWorkflows === 'function') renderSettingsSavedWorkflows();
+              }
+
+              if (restoredParts.length === 0) {
+                toast('Selected sections were not found in this backup file');
+              } else {
+                toast('✓ Restored: ' + restoredParts.join(', '));
+                if (incSettings && parsed.settings) {
+                  setTimeout(() => window.location.reload(), 650);
+                }
+              }
+            } catch (_) {
+              toast('Could not parse backup JSON');
+            }
+          };
+          reader.readAsText(file);
+        });
+      }
+
         }, true);
       }
 
@@ -3451,6 +3617,7 @@
           const reader = new FileReader();
           reader.onload = () => {
             try {
+              if (window.VaultJsonGuard) { const chk = window.VaultJsonGuard.validateJson(String(reader.result || ''), 'workflow'); if (!chk.ok) { toast('🛡️ Blocked unsafe JSON: ' + chk.reason); return; } }
               const parsed = JSON.parse(String(reader.result || ''));
               const items = Array.isArray(parsed) ? parsed : [parsed];
               const valid = items.filter(x => x && typeof x === 'object' && x.name && (x.video || x.audio || x.image));
@@ -3548,7 +3715,8 @@
           const reader = new FileReader();
           reader.onload = () => {
             try {
-              const raw = JSON.parse(String(reader.result || '[]'));
+              if (window.VaultJsonGuard) { const chk = window.VaultJsonGuard.validateJson(String(reader.result || ''), 'preset'); if (!chk.ok) { toast('🛡️ Blocked unsafe JSON: ' + chk.reason); return; } }
+                const raw = JSON.parse(String(reader.result || '[]'));
               const arr = Array.isArray(raw) ? raw : [raw];
               let imported = 0;
               arr.forEach(p => {

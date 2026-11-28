@@ -253,6 +253,7 @@
   </script>
   <script src="vault-presets.js"></script>
   <script src="vault-workflows.js"></script>
+  <script src="vault-json-guard.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -609,8 +610,54 @@
         <div class="encyc-list" id="encyc-list"></div>
       </section>
 
+
+      <!-- 8. FULL VAULT BACKUP & RESTORE -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>8. Backup &amp; Restore</span>
+      </div>
+      <section class="set-card" aria-label="Vault Backup and Restore">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div>
+            <span class="toggle-title">Selective Vault Backup</span>
+            <span class="toggle-sub">Choose which items to include when exporting or importing a single .json backup</span>
+          </div>
+          <span class="cap-badge cb-ok">OFFLINE JSON</span>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:7px;">
+          <label class="cap-row" style="cursor:pointer; align-items:center; gap:10px;">
+            <input type="checkbox" id="chk-bak-settings" checked style="accent-color:var(--gold); width:16px; height:16px; flex-shrink:0;">
+            <div class="cap-l" style="flex:1; min-width:0;">
+              <span class="cap-name">App Settings</span>
+              <span class="cap-sub">Theme, default folder, encoder preference, threads, thermal guard &amp; policies</span>
+            </div>
+          </label>
+          <label class="cap-row" style="cursor:pointer; align-items:center; gap:10px;">
+            <input type="checkbox" id="chk-bak-presets" checked style="accent-color:var(--gold); width:16px; height:16px; flex-shrink:0;">
+            <div class="cap-l" style="flex:1; min-width:0;">
+              <span class="cap-name">Presets</span>
+              <span class="cap-sub">All active custom &amp; built-in Video, Audio, and Photo presets</span>
+            </div>
+          </label>
+          <label class="cap-row" style="cursor:pointer; align-items:center; gap:10px;">
+            <input type="checkbox" id="chk-bak-workflows" checked style="accent-color:var(--gold); width:16px; height:16px; flex-shrink:0;">
+            <div class="cap-l" style="flex:1; min-width:0;">
+              <span class="cap-name">Workflows</span>
+              <span class="cap-sub">All saved Workflows with their preset routes, folders &amp; automation rules</span>
+            </div>
+          </label>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <input type="file" id="inp-vault-import-bundle" accept=".json,application/json" style="display:none;">
+          <button type="button" id="btn-vault-import-bundle" class="btn-sm" style="flex:1; min-width:120px; justify-content:center;">Import Backup</button>
+          <button type="button" id="btn-vault-export-bundle" class="btn-sm" style="flex:1; min-width:120px; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Backup</button>
+        </div>
+      </section>
+
       <div class="about-foot">
-        Conversion Vault v2.0.23 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
+        Conversion Vault v2.0.27 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
       </div>
     </main>
 

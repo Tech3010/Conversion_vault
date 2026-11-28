@@ -164,7 +164,8 @@ class MainActivity : AppCompatActivity() {
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.allowFileAccess = true
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             val initTheme = getSharedPreferences("vault_settings", Context.MODE_PRIVATE).getString("theme", "dark") ?: "dark"
             setBackgroundColor(if (initTheme == "light") Color.WHITE else Color.parseColor("#090d16"))
@@ -172,6 +173,14 @@ class MainActivity : AppCompatActivity() {
                 try { setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false) } catch (_: Throwable) {}
             }
             webViewClient = object : WebViewClientCompat() {
+                override fun shouldOverrideUrlLoading(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): Boolean {
+                    val host = request.url?.host ?: ""
+                    return host != "appassets.androidplatform.net"
+                }
+
                 override fun shouldInterceptRequest(
                     view: WebView,
                     request: WebResourceRequest

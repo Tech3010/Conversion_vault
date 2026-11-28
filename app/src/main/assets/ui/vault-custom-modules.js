@@ -83,7 +83,14 @@
 
   function importJson(rawText) {
     try {
-      const parsed = JSON.parse(String(rawText || ''));
+      let parsed;
+      if (global.VaultJsonGuard && typeof global.VaultJsonGuard.validateJson === 'function') {
+        const chk = global.VaultJsonGuard.validateJson(rawText, 'custom_module');
+        if (!chk.ok) return { ok: false, added: 0, error: '🛡️ Blocked unsafe JSON: ' + chk.reason };
+        parsed = chk.data;
+      } else {
+        parsed = JSON.parse(String(rawText || ''));
+      }
       const arr = Array.isArray(parsed) ? parsed : [parsed];
       const valid = arr.map(normalizeModule).filter(Boolean);
       if (!valid.length) {

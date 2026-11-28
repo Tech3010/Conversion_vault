@@ -350,6 +350,7 @@
   </script>
   <script src="vault-presets.js"></script>
   <script src="vault-workflows.js"></script>
+  <script src="vault-json-guard.js"></script>
 </head>
 <body>
   <div class="app-frame">
@@ -1099,6 +1100,7 @@
         const reader = new FileReader();
         reader.onload = () => {
           try {
+            if (window.VaultJsonGuard) { const chk = window.VaultJsonGuard.validateJson(String(reader.result || ''), 'workflow'); if (!chk.ok) { toast('🛡️ Blocked unsafe JSON: ' + chk.reason); return; } }
             const parsed = JSON.parse(String(reader.result || ''));
             const items = Array.isArray(parsed) ? parsed : [parsed];
             const valid = items.filter(x => x && typeof x === 'object' && x.name && (x.video || x.audio || x.image));

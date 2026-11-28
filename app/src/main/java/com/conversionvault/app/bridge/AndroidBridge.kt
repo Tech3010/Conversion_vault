@@ -213,8 +213,16 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun requestBatteryUnrestricted(): String {
-        activity.requestBatteryUnrestricted()
-        return JSONObject().put("ok", true).toString()
+        return try {
+            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${context.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            JSONObject().put("ok", true).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", t.message ?: "Unable to open App Info").toString()
+        }
     }
 
     @JavascriptInterface
@@ -1008,6 +1016,21 @@ class AndroidBridge(
         }
     }
 
+
+    private fun checkUnsafeCustomCommand(cmd: String): String? {
+        if (cmd.length > 1600) return "Custom command too long"
+        if (Regex("\\b(https?|ftps?|rtmps?|rtsp|tcp|udp|srt|smb|sftp)://", RegexOption.IGNORE_CASE).containsMatchIn(cmd)) {
+            return "Network URLs are blocked in offline custom modules"
+        }
+        if (Regex("[;`$\\r\\n]|&&|\\|\\||\\$\\(").containsMatchIn(cmd)) {
+            return "Shell chaining characters are blocked"
+        }
+        if (Regex("(^|\\s)-(filter_script|filter_complex_script|protocol_whitelist)(\\s|$)", RegexOption.IGNORE_CASE).containsMatchIn(cmd)) {
+            return "Restricted FFmpeg flag blocked"
+        }
+        return null
+    }
+
     @JavascriptInterface
     fun enqueueBatchJobs(jobsJsonArrayStr: String): String {
         return try {
@@ -1059,6 +1082,10 @@ class AndroidBridge(
                 reservedPaths.add(outFile.absolutePath)
 
                 val templateArgs = req.optString("commandArgs", "-y -i {INPUT} -c copy {OUTPUT}")
+                if (module == "Custom_Modules") {
+                    val blocked = checkUnsafeCustomCommand(templateArgs)
+                    if (blocked != null) return JSONObject().put("ok", false).put("error", "Security Guard: $blocked").toString()
+                }
                 val isNativePhotoCmd = templateArgs.trim().startsWith("NATIVE_PHOTO:")
                 val logPrefix = if (!isNativePhotoCmd && !templateArgs.contains("-loglevel")) "-loglevel $logLvl -stats " else ""
                 val threadsPrefix = logPrefix + (if (!isNativePhotoCmd && defThreads.toIntOrNull() != null && !templateArgs.contains("-threads")) "-threads $defThreads " else "")
@@ -2764,6 +2791,21 @@ class AndroidBridge(
                 .put("height", origH)
                 .put("dataUrl", "data:image/jpeg;base64,$b64")
                 .toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", "${t.javaClass.simpleName}: ${t.message}").toString()
+        }
+    }
+
+
+    @JavascriptInterface
+    fun exportVaultBackupJson(baseName: String, content: String): String {
+        return try {
+            val safeBase = baseName.replace(Regex("[^a-zA-Z0-9_-]"), "_").ifBlank { "conversion_vault_backup" }.take(48)
+            val dir = VaultStorageManager.getModuleDir(context, "Backups")
+            val target = VaultStorageManager.resolveNonConflictingFile(dir, safeBase, "json")
+            target.writeText(content)
+            try { MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), null, null) } catch (_: Throwable) {}
+            JSONObject().put("ok", true).put("path", target.absolutePath).put("name", target.name).toString()
         } catch (t: Throwable) {
             JSONObject().put("ok", false).put("error", "${t.javaClass.simpleName}: ${t.message}").toString()
         }

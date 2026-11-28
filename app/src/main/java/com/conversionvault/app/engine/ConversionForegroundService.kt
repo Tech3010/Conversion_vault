@@ -398,7 +398,11 @@ class ConversionForegroundService : Service() {
             safeArgs = safeArgs.replace("-c:a libopus", "-strict -2 -c:a libopus")
         }
 
-        val firstRes = executeFfmpegBlocking(job, safeArgs)
+        if (Regex("\\b(https?|ftps?|rtmps?|rtsp|tcp|udp|srt|smb|sftp)://", RegexOption.IGNORE_CASE).containsMatchIn(safeArgs)) {
+            return Pair(false, "Blocked non-offline network protocol in FFmpeg arguments")
+        }
+        val hardenedArgs = if (safeArgs.contains("-nostdin")) safeArgs else "-nostdin $safeArgs"
+        val firstRes = executeFfmpegBlocking(job, hardenedArgs)
         if (firstRes.first) return firstRes
 
         // Automatic fallback if libsvtav1 is missing/unsupported -> try libaom-av1 (clean flags), then av1_mediacodec
