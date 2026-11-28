@@ -2836,6 +2836,27 @@ class AndroidBridge(
     }
 
     @JavascriptInterface
+    fun openExternalUrl(url: String): String {
+        return try {
+            val trimmed = url.trim()
+            if (!trimmed.startsWith("https://")) {
+                return JSONObject().put("ok", false).put("error", "Only HTTPS links are allowed").toString()
+            }
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(trimmed)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.runOnUiThread {
+                try {
+                    activity.startActivity(intent)
+                } catch (_: Throwable) {}
+            }
+            JSONObject().put("ok", true).toString()
+        } catch (t: Throwable) {
+            JSONObject().put("ok", false).put("error", "${t.javaClass.simpleName}: ${t.message}").toString()
+        }
+    }
+
+    @JavascriptInterface
     fun navigate(pageFilename: String) {
         activity.runOnUiThread {
             activity.loadUiPage(pageFilename)

@@ -96,9 +96,13 @@
     .content { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
 
     .sec-lbl {
-      font-family: var(--mono); font-size: 10.5px; font-weight: 800; text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--muted); margin-bottom: -6px;
-      display: flex; align-items: center; gap: 6px;
+      display: flex; align-items: center; gap: 7px;
+      font-family: var(--mono); font-size: 11px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--crimson);
+      padding: 2px 0 2px 8px;
+      border-left: 2.5px solid var(--crimson);
+      margin-top: 4px;
     }
     .sec-lbl svg { color: var(--crimson); flex-shrink: 0; }
 
@@ -286,7 +290,7 @@
             </div>
             <div>
               <span class="theme-name">Red Bull Dark</span>
-              <span class="theme-desc">Deep Navy · Crimson · Gold</span>
+              <span class="theme-desc">Rich Black · Crimson · Gold</span>
             </div>
           </button>
           <button type="button" class="theme-opt" data-set-theme="light">
@@ -318,7 +322,7 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                 <span>Change Folder</span>
               </button>
-              <button type="button" id="btn-open-vault-fm" class="btn-sm" style="border-color:var(--gold); color:var(--gold-text);">File Manager ↗</button>
+              <button type="button" id="btn-open-vault-fm" class="btn-sm">File Manager ↗</button>
             </div>
           </div>
         </div>
@@ -377,7 +381,7 @@
               <span class="cap-name">Not tested on this device yet</span>
               <span class="cap-sub">Run the hardware codec &amp; FFmpeg speed test below to verify supported formats.</span>
             </div>
-            <button type="button" id="btn-run-hw-test" class="btn-sm" style="border-color:var(--gold); color:var(--gold-text);">Run Test</button>
+            <button type="button" id="btn-run-hw-test" class="btn-sm" style="border-color:rgba(219,10,64,0.55); background:var(--crimson-soft); color:var(--crimson);">Run Test</button>
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
@@ -402,14 +406,14 @@
             </div>
           </div>
           <div style="display:flex; gap:7px; align-items:center;">
-            <select id="sel-hw-report-fmt" aria-label="Device Report Format" style="width:94px; flex-shrink:0; font-family:var(--mono); font-size:11px; font-weight:800; color:var(--gold-text);">
+            <select id="sel-hw-report-fmt" aria-label="Device Report Format" style="width:94px; flex-shrink:0; font-family:var(--mono); font-size:11px; font-weight:700;">
               <option value="txt" selected>.TXT</option>
               <option value="html">.HTML</option>
               <option value="md">.MD</option>
               <option value="json">.JSON</option>
               <option value="csv">.CSV</option>
             </select>
-            <button type="button" id="btn-export-hw-report" class="btn-sm" style="flex:1; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Report ↗</button>
+            <button type="button" id="btn-export-hw-report" class="btn-sm" style="flex:1; justify-content:center;">Export Report ↗</button>
           </div>
           <div id="hw-export-bar" class="hw-export-bar hidden">
             <span id="hw-export-lbl" style="font-family:var(--mono); font-size:10px; color:var(--emerald); word-break:break-all;">✓ Exported report</span>
@@ -461,7 +465,7 @@
             <span class="toggle-title">Background Conversion (Battery)</span>
             <span class="toggle-sub" id="lbl-battery-opt">Allow unrestricted background power so conversions don't pause when you leave the app</span>
           </div>
-          <button type="button" id="btn-battery-opt" class="btn-sm" style="border-color:var(--gold); color:var(--gold-text); white-space:nowrap;">Allow ↗</button>
+          <button type="button" id="btn-battery-opt" class="btn-sm" style="border-color:rgba(219,10,64,0.55); background:var(--crimson-soft); color:var(--crimson); white-space:nowrap;">Allow ↗</button>
         </div>
       </section>
 
@@ -554,7 +558,7 @@
           <input type="file" id="inp-import-presets-file" accept=".json,application/json" style="display:none;">
           <button type="button" id="btn-import-presets" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Import JSON</button>
           <button type="button" id="btn-export-presets" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Export All</button>
-          <button type="button" id="btn-export-selected-presets" class="btn-sm" style="flex:1 1 100%; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Selected (0)</button>
+          <button type="button" id="btn-export-selected-presets" class="btn-sm" style="flex:1 1 100%; justify-content:center;">Export Selected (0)</button>
         </div>
       </section>
 
@@ -583,7 +587,7 @@
           <input type="file" id="inp-import-workflows-file" accept=".json,application/json" style="display:none;">
           <button type="button" id="btn-import-workflows" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Import JSON</button>
           <button type="button" id="btn-export-workflows" class="btn-sm" style="flex:1; min-width:96px; justify-content:center;">Export All</button>
-          <button type="button" id="btn-export-selected-workflows" class="btn-sm" style="flex:1 1 100%; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Selected (0)</button>
+          <button type="button" id="btn-export-selected-workflows" class="btn-sm" style="flex:1 1 100%; justify-content:center;">Export Selected (0)</button>
         </div>
       </section>
 
@@ -611,10 +615,32 @@
       </section>
 
 
-      <!-- 8. FULL VAULT BACKUP & RESTORE -->
+      <!-- 8. CONTACT & SUPPORT -->
+      <div class="sec-lbl">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        <span>8. Contact &amp; Support</span>
+      </div>
+      <section class="set-card" aria-label="Contact and Support">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div>
+            <span class="toggle-title">Reach the Developer</span>
+            <span class="toggle-sub">Request custom modules or presets, ask for guides &amp; updates, or report a bug directly on Instagram.</span>
+          </div>
+          <span class="cap-badge cb-ok">@apex.max3</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <button type="button" id="btn-contact-instagram" class="btn-sm" style="flex:2; min-width:165px; justify-content:center; border-color:rgba(219,10,64,0.55); background:var(--crimson-soft); color:var(--crimson); gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+            <span>Open Instagram ↗</span>
+          </button>
+          <button type="button" id="btn-copy-instagram" class="btn-sm" style="flex:1; min-width:100px; justify-content:center;">Copy Handle</button>
+        </div>
+      </section>
+
+      <!-- 9. FULL VAULT BACKUP & RESTORE -->
       <div class="sec-lbl">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <span>8. Backup &amp; Restore</span>
+        <span>9. Backup &amp; Restore</span>
       </div>
       <section class="set-card" aria-label="Vault Backup and Restore">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -627,21 +653,21 @@
 
         <div style="display:flex; flex-direction:column; gap:7px;">
           <label class="cap-row" style="cursor:pointer; align-items:center; gap:10px;">
-            <input type="checkbox" id="chk-bak-settings" checked style="accent-color:var(--gold); width:16px; height:16px; flex-shrink:0;">
+            <input type="checkbox" id="chk-bak-settings" checked style="accent-color:var(--crimson); width:16px; height:16px; flex-shrink:0;">
             <div class="cap-l" style="flex:1; min-width:0;">
               <span class="cap-name">App Settings</span>
               <span class="cap-sub">Theme, default folder, encoder preference, threads, thermal guard &amp; policies</span>
             </div>
           </label>
           <label class="cap-row" style="cursor:pointer; align-items:center; gap:10px;">
-            <input type="checkbox" id="chk-bak-presets" checked style="accent-color:var(--gold); width:16px; height:16px; flex-shrink:0;">
+            <input type="checkbox" id="chk-bak-presets" checked style="accent-color:var(--crimson); width:16px; height:16px; flex-shrink:0;">
             <div class="cap-l" style="flex:1; min-width:0;">
               <span class="cap-name">Presets</span>
               <span class="cap-sub">All active custom &amp; built-in Video, Audio, and Photo presets</span>
             </div>
           </label>
           <label class="cap-row" style="cursor:pointer; align-items:center; gap:10px;">
-            <input type="checkbox" id="chk-bak-workflows" checked style="accent-color:var(--gold); width:16px; height:16px; flex-shrink:0;">
+            <input type="checkbox" id="chk-bak-workflows" checked style="accent-color:var(--crimson); width:16px; height:16px; flex-shrink:0;">
             <div class="cap-l" style="flex:1; min-width:0;">
               <span class="cap-name">Workflows</span>
               <span class="cap-sub">All saved Workflows with their preset routes, folders &amp; automation rules</span>
@@ -652,12 +678,12 @@
         <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; border-top:1px solid var(--border);">
           <input type="file" id="inp-vault-import-bundle" accept=".json,application/json" style="display:none;">
           <button type="button" id="btn-vault-import-bundle" class="btn-sm" style="flex:1; min-width:120px; justify-content:center;">Import Backup</button>
-          <button type="button" id="btn-vault-export-bundle" class="btn-sm" style="flex:1; min-width:120px; justify-content:center; border-color:var(--gold); color:var(--gold-text);">Export Backup</button>
+          <button type="button" id="btn-vault-export-bundle" class="btn-sm" style="flex:1; min-width:120px; justify-content:center; border-color:rgba(16,185,129,0.5); background:var(--emerald-soft); color:var(--emerald);">Export Backup</button>
         </div>
       </section>
 
       <div class="about-foot">
-        Conversion Vault v2.0.27 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
+        Conversion Vault v2.0.30 · FFmpeg 8.1 Full-GPL · Native Photo Engine · 100% Offline
       </div>
     </main>
 
@@ -831,6 +857,39 @@
 
     requestAnimationFrame(() => setTimeout(() => renderEncyc(''), 65));
   </script>
-  <script src="vault-bridge.js"></script>
+  <script src="vault-bridge.js">
+      // 8. Contact & Support (Instagram handoff via native Intent)
+      const IG_URL = 'https://www.instagram.com/apex.max3/';
+      const btnContactIg = document.getElementById('btn-contact-instagram');
+      if (btnContactIg) {
+        btnContactIg.addEventListener('click', () => {
+          if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
+            try {
+              const res = JSON.parse(window.AndroidBridge.openExternalUrl(IG_URL) || '{}');
+              if (res && res.ok) {
+                showToast('Opening @apex.max3 on Instagram...');
+              } else {
+                showToast('Could not open Instagram link');
+              }
+            } catch (_) {
+              showToast('Opening @apex.max3 on Instagram...');
+            }
+          } else {
+            window.open(IG_URL, '_blank', 'noopener,noreferrer');
+          }
+        });
+      }
+      const btnCopyIg = document.getElementById('btn-copy-instagram');
+      if (btnCopyIg) {
+        btnCopyIg.addEventListener('click', () => {
+          const handle = '@apex.max3';
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(handle).then(() => showToast('Copied @apex.max3')).catch(() => showToast(handle));
+          } else {
+            showToast(handle);
+          }
+        });
+      }
+</script>
 </body>
 </html>

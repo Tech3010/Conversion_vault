@@ -12,18 +12,36 @@ android {
         applicationId = "com.conversionvault.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 127
-        versionName = "2.0.27"
+        versionCode = 130
+        versionName = "2.0.30"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
     }
 
+    val envKeystorePath = System.getenv("KEYSTORE_PATH")
+    val hasReleaseKeystore = !envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists()
+
+    signingConfigs {
+        create("release") {
+            if (hasReleaseKeystore) {
+                storeFile = file(envKeystorePath!!)
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
